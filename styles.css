@@ -885,6 +885,63 @@ body::before {
 .shop-action-btn:hover { border-color: var(--gold); color: var(--gold); }
 .shop-action-btn.danger:hover { border-color: var(--red2); color: var(--red2); }
 
+/* ── SERVING SIZE ── */
+.serving-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.serving-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.serving-ctl {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.serving-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border2);
+  background: var(--card2);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.serving-btn:hover { border-color: var(--gold); color: var(--gold); }
+.serving-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+.serving-btn:disabled:hover { border-color: var(--border2); color: var(--text); }
+
+.serving-num {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 20px;
+  text-align: center;
+  transition: color 0.15s;
+}
+
+.serving-num.scaled { color: var(--gold2); }
+
 /* ── HIDDEN ── */
 .hidden { display: none !important; }
 

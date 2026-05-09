@@ -950,6 +950,42 @@ const RECIPES = [
   },
 ];
 
+// ─── BASE SERVINGS ─────────────────────────────────────────────────────────
+
+const RECIPE_SERVINGS = {
+  'oatmeal-cookies': 4,
+  'pancake-muffins': 4,
+  'hash-browns': 2,
+  'waffle-poptart': 2,
+  'turkey-melt': 1,
+  'tuna-crackers': 2,
+  'fajita-quesadilla': 2,
+  'ramen-upgrade': 2,
+  'crispy-chicken-thighs': 4,
+  'fish-taco-bowl': 2,
+  'panko-tilapia': 2,
+  'beef-burrito': 3,
+  'korean-bbq-rice': 3,
+  'chicken-soup': 4,
+  'spaghetti-marinara': 3,
+  'smoky-pinto-beans': 4,
+  'buffalo-wings': 2,
+  'maple-bacon-burger': 2,
+  'corn-dog-bites': 4,
+  'el-monterey-burritos': 2,
+  'seasoned-tilapia': 2,
+  'mexican-rice': 3,
+  'korean-bbq-marinade': 4,
+  'smoky-garlic-marinade': 4,
+  'honey-garlic-soy-marinade': 4,
+  'brownies': 12,
+  'pb-cookies': 10,
+  'yogurt-parfait': 1,
+  'donuts': 6,
+  'cinnamon-roll-bites': 10,
+  'funnel-cake': 4,
+};
+
 // ─── STATE ─────────────────────────────────────────────────────────────────
 
 let activeFilter = 'all';
@@ -960,8 +996,8 @@ let activeTab = {};
 function getState(recipeId) {
   try {
     const raw = localStorage.getItem('fk_' + recipeId);
-    return raw ? JSON.parse(raw) : { ingredients: {}, steps: {}, notes: '' };
-  } catch { return { ingredients: {}, steps: {}, notes: '' }; }
+    return raw ? JSON.parse(raw) : { ingredients: {}, steps: {}, notes: '', servings: null };
+  } catch { return { ingredients: {}, steps: {}, notes: '', servings: null }; }
 }
 
 function saveState(recipeId, state) {
@@ -1029,6 +1065,9 @@ function renderRecipe(recipe) {
   const state = getState(recipe.id);
   const isExpanded = expandedCard === recipe.id;
   const tab = activeTab[recipe.id] || 'ingredients';
+  const baseServings = RECIPE_SERVINGS[recipe.id] || 2;
+  const currentServings = state.servings != null ? state.servings : baseServings;
+  const ratio = currentServings / baseServings;
 
   const totalIngredients = recipe.ingredients.length;
   const checkedIngredients = Object.values(state.ingredients).filter(Boolean).length;
@@ -1040,7 +1079,7 @@ function renderRecipe(recipe) {
     const checked = state.ingredients[i] ? 'checked' : '';
     return `<div class="ingredient-item ${checked}" onclick="toggleIngredient('${recipe.id}', ${i})">
       <div class="ingredient-cb"></div>
-      <div class="ingredient-text">${ing}</div>
+      <div class="ingredient-text">${scaleIngredient(ing, ratio)}</div>
     </div>`;
   }).join('');
 
@@ -1068,6 +1107,14 @@ function renderRecipe(recipe) {
       </div>
       <div class="recipe-body">
         <div class="recipe-description">${recipe.description}</div>
+        <div class="serving-row">
+          <span class="serving-label">Servings</span>
+          <div class="serving-ctl">
+            <button class="serving-btn" onclick="changeServings('${recipe.id}',-1)" ${currentServings <= 1 ? 'disabled' : ''}>−</button>
+            <span class="serving-num ${currentServings !== baseServings ? 'scaled' : ''}">${currentServings}</span>
+            <button class="serving-btn" onclick="changeServings('${recipe.id}',1)">+</button>
+          </div>
+        </div>
         <div class="progress-wrap">
           <div class="progress-label">
             <span>Progress</span>
@@ -1226,6 +1273,7 @@ function resetRecipe(recipeId) {
     const state = getState(recipeId);
     state.ingredients = {};
     state.steps = {};
+    state.servings = null;
     saveState(recipeId, state);
     renderAll();
   }
@@ -1237,6 +1285,52 @@ function markAllDone(recipeId) {
   const state = getState(recipeId);
   recipe.ingredients.forEach((_, i) => state.ingredients[i] = true);
   recipe.steps.forEach((_, i) => state.steps[i] = true);
+  saveState(recipeId, state);
+  renderAll();
+}
+
+// ─── SERVING SIZE ──────────────────────────────────────────────────────────
+
+function evalFraction(str) {
+  str = str.trim();
+  const mixed = str.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixed) return +mixed[1] + +mixed[2] / +mixed[3];
+  const frac = str.match(/^(\d+)\/(\d+)$/);
+  if (frac) return +frac[1] / +frac[2];
+  return parseFloat(str) || 0;
+}
+
+function formatQty(n) {
+  if (n <= 0) return '0';
+  const whole = Math.floor(n);
+  const dec = n - whole;
+  // Thirds (common in cooking)
+  if (Math.abs(dec - 1/3) < 0.04) return whole > 0 ? `${whole} ⅓` : '⅓';
+  if (Math.abs(dec - 2/3) < 0.04) return whole > 0 ? `${whole} ⅔` : '⅔';
+  // Round to nearest 1/8
+  const eighths = Math.round(dec * 8);
+  const sym = ['', '⅛', '¼', '⅜', '½', '⅝', '¾', '⅞'];
+  if (eighths >= 8) return String(whole + 1);
+  const f = sym[eighths];
+  if (whole === 0) return f || '0';
+  return f ? `${whole} ${f}` : String(whole);
+}
+
+function scaleIngredient(str, ratio) {
+  if (ratio === 1) return str;
+  const m = str.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+\.?\d*)/);
+  if (!m) return str;
+  const scaled = evalFraction(m[1]) * ratio;
+  return formatQty(scaled) + str.slice(m[0].length);
+}
+
+function changeServings(recipeId, delta) {
+  const baseServings = RECIPE_SERVINGS[recipeId] || 2;
+  const state = getState(recipeId);
+  const current = state.servings != null ? state.servings : baseServings;
+  const next = Math.max(1, current + delta);
+  if (next === current) return;
+  state.servings = next;
   saveState(recipeId, state);
   renderAll();
 }
