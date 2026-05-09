@@ -1,0 +1,1616 @@
+﻿// ─── RECIPE DATA ───────────────────────────────────────────────────────────
+
+const RECIPES = [
+  // ── BREAKFAST ──
+  {
+    id: 'oatmeal-cookies',
+    name: '3-Ingredient Banana Oatmeal Cookies',
+    emoji: '🍌',
+    category: 'breakfast',
+    appliance: 'af',
+    time: '20 min',
+    difficulty: 'Easy',
+    description: 'Soft chewy oatmeal cookies made from just banana, oats, and honey. No flour, no butter, no mixer. Healthy enough for breakfast.',
+    ingredients: [
+      '1 cup old fashioned oats',
+      '1 ripe banana (mashed)',
+      '2 tbsp honey',
+    ],
+    steps: [
+      'Mash banana thoroughly in a bowl until no large chunks remain.',
+      'Stir in 2 tbsp honey.',
+      'Fold in 1 cup oats until fully combined. Let sit 5 minutes so oats absorb moisture.',
+      'Line air fryer basket with perforated parchment. Spray with oil.',
+      'Scoop about 1.5 tbsp per cookie and press into a flat round — they won\'t spread on their own.',
+      'Air fry at 325°F for 8-10 minutes until edges are golden. Do not flip.',
+      'Let cool on parchment 5 minutes before removing — they firm up as they cool.',
+    ],
+    notes: 'The riper the banana the better — brown spotted bananas are sweeter. Add cinnamon, peanut butter (1 tbsp), or chocolate chips as mix-ins.'
+  },
+  {
+    id: 'pancake-muffins',
+    name: 'Pancake Mix Muffins',
+    emoji: '🧁',
+    category: 'breakfast',
+    appliance: 'af',
+    time: '15 min',
+    difficulty: 'Easy',
+    description: 'Fluffy muffins in the air fryer using pancake mix as the base. Customize with whatever mix-ins you have on hand.',
+    ingredients: [
+      '1 cup pancake mix',
+      '1 egg',
+      '1/2 cup milk or almond milk',
+      '2 tbsp canola oil',
+      '2 tbsp sugar',
+      '1/2 tsp vanilla extract',
+      '1/4 cup mix-ins (blueberries, chocolate chips, or cinnamon sugar)',
+    ],
+    steps: [
+      'Combine pancake mix, egg, milk, canola oil, sugar, and vanilla. Stir until just combined — lumps are fine.',
+      'Fold in mix-ins.',
+      'Fill silicone muffin cups about 2/3 full. Do not overfill — they rise.',
+      'Air fry at 330°F for 10-12 minutes until a toothpick inserted in the center comes out clean.',
+      'Let cool in cups 5 minutes before removing. Serve warm.',
+    ],
+    notes: 'Silicone muffin cups are essential — paper cups blow around in the air fryer. Do not overmix or muffins turn dense. Check at 10 min — your Ninja runs hot.'
+  },
+  {
+    id: 'hash-browns',
+    name: 'Air Fryer Hash Brown Patties',
+    emoji: '🥔',
+    category: 'breakfast',
+    appliance: 'af',
+    time: '15 min',
+    difficulty: 'Easy',
+    description: 'Frozen hash brown patties air fried until crispy on the outside and fluffy inside. Better than any diner version.',
+    ingredients: [
+      '2 frozen hash brown patties',
+      'Canola oil spray',
+      'Salt & black pepper',
+      'Smoked paprika (optional)',
+    ],
+    steps: [
+      'Spray both sides of frozen hash brown patties lightly with oil.',
+      'Place in air fryer basket in a single layer.',
+      'Air fry at 370°F for 12-14 minutes, flipping once at 7 minutes.',
+      'Done when deep golden brown and crispy. Season with salt and pepper immediately.',
+    ],
+    notes: 'No thawing needed. Your Ninja runs hot so check at 11 minutes. Serve with eggs and hot sauce.'
+  },
+  {
+    id: 'waffle-poptart',
+    name: 'Air Fryer Waffles & Pop-Tarts',
+    emoji: '🧇',
+    category: 'breakfast',
+    appliance: 'af',
+    time: '5 min',
+    difficulty: 'Easy',
+    description: 'Frozen waffles and Pop-Tarts air fried for a crispier result than any toaster — evenly heated with no cold spots.',
+    ingredients: [
+      '2 frozen waffles or 1-2 Pop-Tarts',
+      'Butter (optional for waffles)',
+      'Maple syrup or honey to serve',
+    ],
+    steps: [
+      'Place frozen waffles or Pop-Tarts flat in the air fryer basket.',
+      'Air fry at 350°F for 3-4 minutes.',
+      'Check at 3 minutes — done when golden and crispy.',
+      'Waffles: serve with butter and maple syrup. Pop-Tarts: let cool 1 minute before eating — filling gets very hot.',
+    ],
+    notes: 'Pop-Tarts at 350°F for 3 minutes are significantly better than the toaster — evenly cooked with no cold spots. This is a tested and confirmed method.'
+  },
+
+  // ── LUNCH ──
+  {
+    id: 'turkey-melt',
+    name: 'Turkey & Gouda Melt',
+    emoji: '🥪',
+    category: 'lunch',
+    appliance: 'af',
+    time: '8 min',
+    difficulty: 'Easy',
+    description: 'Sliced turkey with melted Gouda on bread, air fried until golden and melty. Better than a pan every time.',
+    ingredients: [
+      '2 slices bread',
+      '4 slices turkey',
+      '2 slices Gouda cheese',
+      '1 tbsp mayo',
+      '1 tsp Dijon mustard',
+      'Canola oil spray',
+    ],
+    steps: [
+      'Spread mayo on one slice of bread and Dijon on the other.',
+      'Layer turkey and Gouda between the slices.',
+      'Spray outside of both sides of the sandwich lightly with oil.',
+      'Air fry at 360°F for 6-7 minutes, flipping once at 3 minutes.',
+      'Done when bread is golden brown and cheese is fully melted.',
+    ],
+    notes: 'Press sandwich down slightly with a spatula after flipping to help it stay together. Add sliced jalapeños inside for heat.'
+  },
+  {
+    id: 'tuna-crackers',
+    name: 'Tuna Salad & Crackers',
+    emoji: '🐟',
+    category: 'lunch',
+    appliance: 'none',
+    time: '5 min',
+    difficulty: 'Easy',
+    description: 'Quick tuna salad on saltine crackers. High protein, zero cooking required, ready in under 5 minutes.',
+    ingredients: [
+      '1 can chunk light tuna (well drained)',
+      '2 tbsp mayo',
+      '1 tbsp sweet relish',
+      '1 tsp Dijon mustard',
+      'Salt & black pepper to taste',
+      'Saltine crackers to serve',
+    ],
+    steps: [
+      'Drain tuna thoroughly — squeeze out as much liquid as possible.',
+      'Mix tuna, mayo, relish, and Dijon together until combined.',
+      'Season with salt and black pepper to taste.',
+      'Serve on saltine crackers immediately.',
+    ],
+    notes: 'Add sliced jalapeños on top for heat. A squeeze of lemon juice brightens the flavor significantly if you have it.'
+  },
+  {
+    id: 'fajita-quesadilla',
+    name: 'Korean BBQ Fajita Quesadilla',
+    emoji: '🌮',
+    category: 'lunch',
+    appliance: 'af',
+    time: '12 min',
+    difficulty: 'Easy',
+    description: 'Fajita chicken with Korean BBQ sauce and Monterey Jack in a flour tortilla, air fried until golden and crispy. The best quesadilla variant in the playbook.',
+    ingredients: [
+      '2 flour tortillas',
+      '1 cup fajita chicken (heated)',
+      '3 tbsp Korean BBQ sauce',
+      '1/2 cup shredded Monterey Jack',
+      'Sliced jalapeños (optional)',
+      'Ranch or sour cream to serve',
+      'Canola oil spray',
+    ],
+    steps: [
+      'Heat fajita chicken in microwave 60-90 seconds. Toss with Korean BBQ sauce.',
+      'Lay tortilla flat. Add chicken to one half. Top with cheese and jalapeños if using.',
+      'Fold tortilla in half. Spray both sides lightly with oil.',
+      'Air fry at 360°F for 5-6 minutes, flipping once at 3 minutes.',
+      'Done when golden and crispy. Slice into wedges. Serve with ranch or sour cream.',
+    ],
+    notes: 'Korean BBQ caramelizes slightly against the hot tortilla and adds incredible flavor. Your Ninja runs hot — check at 5 minutes.'
+  },
+  {
+    id: 'ramen-upgrade',
+    name: 'Ramen Upgrade Bowl',
+    emoji: '🍜',
+    category: 'lunch',
+    appliance: 'pc',
+    time: '15 min',
+    difficulty: 'Easy',
+    description: 'Top Ramen elevated into a real soup with canned chicken, baby carrots, and a flavor-boosted broth. Add a jammy egg for the full ramen shop experience.',
+    ingredients: [
+      '2 Top Ramen bricks (any flavor)',
+      '1 seasoning packet (1 only — not both)',
+      '1 can chunk white chicken (drained)',
+      '6 baby carrots',
+      '3 cups water or chicken broth',
+      '1/2 tsp onion powder',
+      '1/4 tsp smoked paprika',
+      '1/4 tsp black pepper',
+      '1 tsp honey',
+      '2 eggs (optional — for jammy egg topping)',
+    ],
+    steps: [
+      'Pour water or broth into insert. Stir in 1 seasoning packet, onion powder, paprika, pepper, and honey.',
+      'Add carrots and drained chicken.',
+      'Break ramen bricks into halves and press into liquid.',
+      'Seal lid. Pressure Cook HIGH 2 minutes. Vent sealed.',
+      'Quick release. Open and stir — noodles absorb broth as you stir. Add splash of water if too thick.',
+      'OPTIONAL JAMMY EGG: Crack 2 eggs directly into hot broth after opening lid. Place lid back loosely (no pressure). Let sit 3-5 minutes. Yolk will be soft and jammy — whites fully set.',
+      'Serve hot.',
+    ],
+    notes: 'Only 1 seasoning packet — 2 is way too salty. Add canned corn for extra heartiness. The jammy egg method is how real ramen shops do it — don\'t skip it.'
+  },
+
+  // ── DINNER ──
+  {
+    id: 'crispy-chicken-thighs',
+    name: 'Crispy Skin-On Chicken Thighs',
+    emoji: '🍗',
+    category: 'dinner',
+    appliance: 'combo',
+    time: '40 min',
+    difficulty: 'Medium',
+    description: 'Fall-off-bone tender chicken from the pressure cooker finished in the air fryer for impossibly crispy skin. The best chicken you can make with your current setup.',
+    ingredients: [
+      '4 bone-in skin-on chicken thighs',
+      '1 tsp smoked paprika',
+      '1 tsp garlic powder',
+      '1/2 tsp onion powder',
+      '1/2 tsp seafood seasoning',
+      '3/4 tsp salt',
+      '1/4 tsp black pepper',
+      '1 cup water or chicken broth',
+      'Canola oil spray',
+    ],
+    steps: [
+      'Season thighs generously with all spices on both sides. Press seasoning in.',
+      'Add 1 cup water or broth to PC insert. Place trivet inside.',
+      'Set thighs on trivet skin side up.',
+      'Seal lid. Pressure Cook HIGH 18 minutes.',
+      'Natural release until pin drops.',
+      'Transfer thighs skin side up to air fryer basket. Spray skin generously with oil.',
+      'Air fry at 390°F for 6-8 minutes until skin is deep golden and crackling.',
+      'Rest 3 minutes. Internal temp must reach 165°F before serving.',
+    ],
+    notes: 'The PC does all the heavy lifting — the AF just crisps the skin in the last few minutes. Do not skip the oil spray on the skin before air frying.'
+  },
+  {
+    id: 'fish-taco-bowl',
+    name: 'Fish Taco Bowl',
+    emoji: '🌮',
+    category: 'dinner',
+    appliance: 'combo',
+    time: '35 min',
+    difficulty: 'Medium',
+    description: 'Crispy panko tilapia over Mexican corn rice with avocado, hot sauce, and sour cream. Restaurant quality from your kitchen.',
+    ingredients: [
+      '2 fresh tilapia fillets',
+      '1/2 cup panko breadcrumbs',
+      '1 egg',
+      '3 tbsp milk or almond milk',
+      '1 tsp seafood seasoning',
+      '1/2 tsp garlic powder',
+      '1/2 tsp smoked paprika',
+      '1 cup jasmine rice (rinsed)',
+      '1 cup Rotel (undrained)',
+      '1/2 cup frozen corn',
+      '1/2 cup water or broth',
+      '1 avocado (sliced)',
+      'Hot sauce to serve',
+      'Sour cream to serve',
+      'Canola oil spray',
+    ],
+    steps: [
+      'Start Mexican rice: add 1 tbsp oil to PC insert, Saute LOW. Toast rinsed rice 2-3 minutes stirring constantly until slightly golden. Cancel Saute.',
+      'Add Rotel, frozen corn, water, 1/2 tsp garlic powder, 1/2 tsp onion powder, 1/2 tsp cumin, 3/4 tsp salt, 1/4 tsp black pepper. Do not stir. Seal lid. Pressure Cook HIGH 3 minutes.',
+      'Natural release until pin drops. Fluff rice with fork.',
+      'While rice cooks: set up coating stations. Station 1: panko + seafood seasoning + smoked paprika + garlic powder on a plate. Station 2: egg + milk whisked in a bowl.',
+      'Pat tilapia completely dry. Season with salt.',
+      'Dip tilapia in egg wash then press firmly into seasoned panko on both sides.',
+      'Spray basket with oil. Place tilapia in single layer. Spray tops. Air fry at 390°F for 10-12 minutes. No flip needed for tilapia.',
+      'Slice avocado.',
+      'Build bowl: rice base, crispy tilapia on top, avocado on the side. Drizzle hot sauce and sour cream. Serve immediately.',
+    ],
+    notes: 'Pat fish completely dry — moisture is the enemy of a crispy crust. Fish is done when coating is deep golden and flesh flakes easily. A squeeze of lime juice on top is excellent if you have it.'
+  },
+  {
+    id: 'panko-tilapia',
+    name: 'Panko Crusted Fresh Tilapia',
+    emoji: '🐠',
+    category: 'dinner',
+    appliance: 'af',
+    time: '15 min',
+    difficulty: 'Easy',
+    description: 'Fresh tilapia coated in seafood seasoned panko, air fried until golden and crispy. Serve with cocktail sauce, ranch, or hot sauce.',
+    ingredients: [
+      '2 fresh tilapia fillets',
+      '3/4 cup panko breadcrumbs',
+      '1 egg',
+      '3 tbsp milk or almond milk',
+      '1 tsp seafood seasoning',
+      '1/2 tsp garlic powder',
+      '1/2 tsp smoked paprika',
+      '1/2 tsp salt',
+      'Canola oil spray',
+      'Cocktail sauce or ranch to serve',
+    ],
+    steps: [
+      'Pat tilapia completely dry with paper towels. Season lightly with salt.',
+      'Set up stations: Station 1: panko + seafood seasoning + garlic powder + smoked paprika mixed on a plate. Station 2: egg + milk whisked in a bowl.',
+      'Dip tilapia in egg wash then press firmly into seasoned panko on both sides. Press crumbs in.',
+      'Spray basket with oil. Place fillets in single layer. Spray tops with oil.',
+      'Air fry at 390°F for 10-12 minutes. No flip needed — tilapia is too delicate.',
+      'Done when coating is deep golden and fish flakes easily with a fork.',
+      'Serve immediately with cocktail sauce or ranch.',
+    ],
+    notes: 'Dry fish is critical — wet fish = no crust. Your Ninja runs hot so check at 9 minutes. Fresh tilapia is significantly better than frozen for this recipe.'
+  },
+  {
+    id: 'beef-burrito',
+    name: 'Beefy Bean & Mexican Rice Burrito',
+    emoji: '🌯',
+    category: 'dinner',
+    appliance: 'combo',
+    time: '45 min',
+    difficulty: 'Medium',
+    description: 'Seasoned ground beef crumbles with chili beans over Mexican corn rice, wrapped in a flour tortilla and crisped in the air fryer. A complete meal from scratch.',
+    ingredients: [
+      '2 frozen burger patties (or ground beef)',
+      '1 can chili beans (drained)',
+      '1 cup jasmine rice (rinsed)',
+      '1 cup Rotel (undrained)',
+      '1/2 cup frozen corn',
+      '1/2 cup water or broth',
+      '3 large flour tortillas',
+      '1 tbsp taco seasoning',
+      '1/2 tsp cumin',
+      '1/2 tsp garlic powder (for beef)',
+      '1/2 tsp garlic powder (for rice)',
+      '1/2 tsp onion powder (for beef)',
+      '1/2 tsp onion powder (for rice)',
+      '3/4 tsp salt',
+      '1 cup shredded Monterey Jack',
+      '1 tbsp canola oil',
+      'Sour cream or ranch to serve',
+    ],
+    steps: [
+      'RICE: Add 1 tbsp oil to PC insert. Saute LOW. Toast rinsed rice 2-3 minutes stirring constantly until slightly golden. Cancel Saute.',
+      'Add Rotel, corn, water, 1/2 tsp garlic powder, 1/2 tsp onion powder, 3/4 tsp salt, 1/4 tsp pepper. Do NOT stir. Seal lid. Pressure Cook HIGH 3 minutes.',
+      'Natural release until pin drops. Fluff rice, scoop into bowl, set aside. Wipe insert.',
+      'BEEF: Hit Saute mode on insert. Add frozen patties. Break into crumbles as they thaw. Cook until no pink remains and edges brown — about 6-8 minutes.',
+      'Drain excess fat if needed. Add drained chili beans, taco seasoning, 1/2 tsp cumin, 1/2 tsp garlic powder, 1/2 tsp onion powder. Stir well.',
+      'Saute LOW 3-4 minutes until beans are heated through and everything is coated.',
+      'ASSEMBLE: Warm flour tortillas in microwave 20 seconds. Layer rice + beef-bean filling + shredded cheese in center. Leave 2 inches on each side. Do not overfill.',
+      'Fold sides in first then roll from bottom up. Press seam side down.',
+      'Brush outside with oil. Place seam side down in air fryer. Air fry at 360°F for 5-6 minutes flipping once at 3 minutes until golden.',
+      'Slice in half on a diagonal. Serve with sour cream or ranch.',
+    ],
+    notes: 'Two PC cycles back to back — rice first, then beef and beans. Natural release until pin drops for rice. Do not quick release or rice gets gummy.'
+  },
+  {
+    id: 'korean-bbq-rice',
+    name: 'Korean BBQ Chicken & Rice',
+    emoji: '🍚',
+    category: 'dinner',
+    appliance: 'pc',
+    time: '25 min',
+    difficulty: 'Easy',
+    description: 'Jasmine rice cooked in a rich Korean BBQ and soy sauce broth with chicken. Deep, savory, and sweet — one of the most flavorful one-pot meals in the playbook.',
+    ingredients: [
+      '1 cup jasmine rice (rinsed)',
+      '1 can chunk chicken (drained) or 2 bone-in thighs',
+      '1.25 cups chicken broth',
+      '3 tbsp Korean BBQ sauce',
+      '1 tbsp dark soy sauce',
+      '1/2 tsp garlic powder',
+      '1/2 tsp onion powder',
+      '1/4 tsp black pepper',
+    ],
+    steps: [
+      'Rinse jasmine rice until water runs clear. Add to PC insert.',
+      'Pour in broth. Add chicken, Korean BBQ sauce, dark soy sauce, garlic powder, onion powder, and pepper.',
+      'Stir gently once to distribute. Seal lid.',
+      'Pressure Cook HIGH 3 minutes. Vent sealed.',
+      'Natural release until pin drops — do not quick release.',
+      'Fluff rice with fork and stir chicken throughout.',
+      'Drizzle extra Korean BBQ sauce on top when serving.',
+    ],
+    notes: 'Natural release is critical — quick release makes rice gummy. Bone-in chicken thighs in this recipe create an incredible broth. Increase cook time to 18 minutes for bone-in thighs.'
+  },
+  {
+    id: 'chicken-soup',
+    name: 'Bone-In Chicken Thigh Soup',
+    emoji: '🍲',
+    category: 'dinner',
+    appliance: 'pc',
+    time: '40 min',
+    difficulty: 'Easy',
+    description: 'Rich soup with bone-in chicken thighs, carrots, diced tomatoes, and Italian seasoning. The bones create a deeply flavored natural broth. Serve with Texas garlic toast.',
+    ingredients: [
+      '4 bone-in chicken thighs',
+      '3 cups chicken broth or water',
+      '1 can diced tomatoes (undrained)',
+      '1 cup baby carrots',
+      '1 tsp Italian seasoning',
+      '1 tsp garlic powder',
+      '1/2 tsp onion powder',
+      '3/4 tsp salt',
+      '1/4 tsp black pepper',
+      'Texas Garlic Toast to serve (air fry 3 min at 350°F)',
+    ],
+    steps: [
+      'Season chicken thighs generously with salt, pepper, and garlic powder on both sides.',
+      'Add broth, diced tomatoes, carrots, Italian seasoning, onion powder to insert.',
+      'Nestle seasoned chicken thighs on top.',
+      'Seal lid. Pressure Cook HIGH 18 minutes.',
+      'Natural release until pin drops.',
+      'Remove chicken. Shred meat off the bone and return to soup. Discard bones.',
+      'Stir and taste — adjust salt and pepper.',
+      'Serve hot with Texas Garlic Toast on the side for dipping.',
+    ],
+    notes: 'Bone-in thighs make a far richer broth than boneless. Shred the meat right back into the pot. Add tortellini in the last 3 minutes on Saute LOW to make it a full pasta soup.'
+  },
+  {
+    id: 'spaghetti-marinara',
+    name: 'One Pot Spaghetti in Marinara',
+    emoji: '🍝',
+    category: 'dinner',
+    appliance: 'pc',
+    time: '15 min',
+    difficulty: 'Easy',
+    description: 'Spaghetti cooked right in the marinara sauce in one pot — no boiling, no draining. Sauce and pasta cook together into a thick, rich coating.',
+    ingredients: [
+      '8 oz spaghetti (broken in half)',
+      '1.5 cups Prego marinara or Classico sauce',
+      '1.5 cups water or chicken broth',
+      '1 can chunk chicken (drained, optional)',
+      '1 tsp garlic powder',
+      '1/2 tsp onion powder',
+      '1/2 tsp Italian seasoning',
+      '1/2 tsp smoked paprika',
+      '3/4 tsp salt',
+      '1/4 tsp black pepper',
+      '1 tbsp canola oil',
+      'Grated Parmesan to serve',
+    ],
+    steps: [
+      'Break spaghetti in half so it fits in the insert.',
+      'Add water or broth to the bottom of the insert first. Add oil and salt.',
+      'Lay broken spaghetti in the liquid.',
+      'If using chicken, add it on top of the pasta.',
+      'Pour marinara over everything. Add all seasonings on top. DO NOT STIR — leave it layered.',
+      'Seal lid. Pressure Cook HIGH 5 minutes (half of a 10-minute package time). Vent sealed.',
+      'QUICK release only — do not natural release or pasta overcooks.',
+      'Open lid and stir well — pasta and sauce combine into a thick coating as you stir.',
+      'If too thick add a splash of water and stir. If too thin hit Saute LOW 2-3 minutes.',
+      'Serve topped with grated Parmesan and red pepper flakes.',
+    ],
+    notes: 'Do NOT stir before sealing — liquid on bottom and sauce on top prevents burn notice. Quick release ONLY for pasta. Elbow pasta: cook 4 minutes.'
+  },
+  {
+    id: 'smoky-pinto-beans',
+    name: 'Smoky Pinto Beans',
+    emoji: '🫘',
+    category: 'dinner',
+    appliance: 'pc',
+    time: '55 min',
+    difficulty: 'Easy',
+    description: 'Dried pinto beans cooked from scratch in the pressure cooker with smoked paprika, cumin, and garlic. No soaking required. Rich and creamy.',
+    ingredients: [
+      '1 cup dried pinto beans (rinsed)',
+      '3 cups water',
+      '1 tsp garlic powder',
+      '1 tsp onion powder',
+      '1 tsp smoked paprika',
+      '1/2 tsp cumin',
+      '3/4 tsp salt',
+      '1/4 tsp black pepper',
+      '1 tbsp canola oil',
+      '1 tsp honey',
+    ],
+    steps: [
+      'Rinse dried pinto beans under cold water. No soaking required.',
+      'Add beans to insert with water, garlic powder, onion powder, smoked paprika, cumin, salt, black pepper, oil, and honey.',
+      'Stir to combine. Seal lid.',
+      'Pressure Cook HIGH 35 minutes.',
+      'Natural release until pin drops — do not quick release.',
+      'Stir and check tenderness. If any liquid remains use Saute LOW to thicken.',
+      'Taste and adjust salt.',
+      'Serve with corn tortillas, over rice, or topped with shredded Colby Jack cheese.',
+    ],
+    notes: 'Natural release until pin drops is important — quick release causes beans to split. These are incredible in burritos. Leftovers thicken overnight and reheat great with a splash of water.'
+  },
+  {
+    id: 'buffalo-wings',
+    name: 'Crispy Frozen Buffalo Wings',
+    emoji: '🍗',
+    category: 'dinner',
+    appliance: 'af',
+    time: '20 min',
+    difficulty: 'Easy',
+    description: 'Frozen buffalo wings air fried until crispy and caramelized. Better than most bar wings with zero prep required.',
+    ingredients: [
+      'Frozen buffalo wings (as many as fit in single layer)',
+      'Canola oil spray',
+      'Ranch or blue cheese to serve',
+    ],
+    steps: [
+      'Place frozen wings in basket in a single layer. Do not overlap.',
+      'Spray lightly with oil.',
+      'Air fry at 360°F for 18-20 minutes, shaking at 10 minutes.',
+      'Check at 16 minutes — done when skin is crispy and caramelized.',
+      'Internal temp must reach 165°F.',
+      'Serve immediately with ranch for dipping.',
+    ],
+    notes: 'Your Ninja runs hot — start checking at 16 minutes. Skin should look deep golden and slightly charred at the edges. Cook in batches if needed — never stack.'
+  },
+  {
+    id: 'maple-bacon-burger',
+    name: 'Maple Bacon Bean Burger',
+    emoji: '🍔',
+    category: 'dinner',
+    appliance: 'combo',
+    time: '20 min',
+    difficulty: 'Easy',
+    description: 'Juicy air fryer burger topped with Maple & Curled Bacon baked beans spooned directly over the patty like a sloppy joe. A discovered classic.',
+    ingredients: [
+      '2 frozen burger patties',
+      '1 can Maple & Curled Bacon baked beans',
+      '2 burger buns',
+      '2 slices Gouda or Monterey Jack',
+      '1/2 tsp smoked paprika',
+      '1/2 tsp garlic powder',
+      '1/2 tsp salt',
+      '1/4 tsp black pepper',
+      'Pinch of smoked paprika (for beans)',
+      'Pinch of black pepper (for beans)',
+      '1 tsp honey (optional for beans)',
+    ],
+    steps: [
+      'Season both sides of frozen patties with garlic powder, smoked paprika, salt, and black pepper. No thawing needed.',
+      'Place patties in air fryer basket. Air fry at 375°F. Flip at 5 minutes.',
+      'Check at 9 minutes total — press center, should feel firm but not hard.',
+      'Continue in 30-60 second intervals if not done.',
+      'At the 5 minute mark: pour beans into PC insert. Add pinch of smoked paprika, black pepper, and honey if using. Hit Saute LOW. Stir occasionally 5 minutes until hot.',
+      'In the last minute of burger cook: lay cheese on each patty. Turn off fryer. Close basket. Let residual heat melt cheese 1-2 minutes.',
+      'Place cheesy patty on bun. Spoon beans generously over the top so maple bacon sauce soaks into the bun.',
+      'Serve open faced or close it up immediately.',
+    ],
+    notes: 'Beans go ON the burger not just beside it — spoon them over the patty generously. Add sliced jalapeños on top for sweet heat. Saute beans on LOW — they\'re already cooked, just need heating.'
+  },
+  {
+    id: 'corn-dog-bites',
+    name: 'Corn Dog Bites',
+    emoji: '🌭',
+    category: 'dinner',
+    appliance: 'af',
+    time: '15 min',
+    difficulty: 'Easy',
+    description: 'Hot dog pieces dipped in pancake mix batter and air fried until golden and crispy. Fun, fast, and great with ketchup or mustard.',
+    ingredients: [
+      '4 beef hot dogs',
+      '1 cup pancake mix',
+      '1 egg',
+      '1/2 cup milk or almond milk',
+      'Canola oil spray',
+      'Ketchup or mustard to serve',
+    ],
+    steps: [
+      'Cut hot dogs into 1-inch pieces. Pat dry with a paper towel — dry surface = batter sticks.',
+      'Mix pancake mix, egg, and milk until smooth and thick. If too runny add 1 more tbsp pancake mix.',
+      'Dip each hot dog piece into batter using a toothpick or fork. Let excess drip off.',
+      'Spray basket with oil. Place battered bites in a single layer. Spray tops lightly.',
+      'Air fry at 365°F for 8-10 minutes, flipping once at 5 minutes, until golden and crispy.',
+      'Serve hot with ketchup or mustard for dipping.',
+    ],
+    notes: 'Pat hot dog pieces dry before dipping — wet = batter slides right off. Thick batter works better here. Toothpick in each piece makes dipping much easier.'
+  },
+  {
+    id: 'el-monterey-burritos',
+    name: 'Crispy El Monterey Bean Burritos',
+    emoji: '🌯',
+    category: 'dinner',
+    appliance: 'af',
+    time: '12 min',
+    difficulty: 'Easy',
+    description: 'Frozen El Monterey bean burritos air fried until the outside is golden and crispy. Far better than microwave — takes the same amount of time.',
+    ingredients: [
+      '2 El Monterey frozen bean burritos',
+      'Canola oil spray',
+      'Sour cream, salsa, or hot sauce to serve',
+    ],
+    steps: [
+      'Place frozen burritos seam side down in air fryer basket.',
+      'Spray tops lightly with oil.',
+      'Air fry at 360°F for 10-12 minutes, flipping once at 6 minutes.',
+      'Done when outside is golden brown and crispy.',
+      'Let rest 2 minutes — inside gets very hot. Serve with sour cream or hot sauce.',
+    ],
+    notes: 'Seam side down first — this seals the burrito before flipping. Your Ninja runs hot so check at 9 minutes. The crispy exterior is dramatically better than microwaving.'
+  },
+
+  {
+    id: 'seasoned-tilapia',
+    name: 'Simple Seasoned Tilapia',
+    emoji: '🐟',
+    category: 'dinner',
+    appliance: 'af',
+    time: '15 min',
+    difficulty: 'Easy',
+    description: 'Fresh tilapia lightly seasoned with seafood seasoning and air fried until flaky and golden. Simple, healthy, and incredibly versatile — serve over Mexican rice or shred into corn tortilla tacos.',
+    ingredients: [
+      '2 fresh tilapia fillets',
+      'Seafood seasoning (light dusting)',
+      'Canola or avocado oil (light brush or spray)',
+      'Salt to taste',
+      'Fresh lemon or lime to serve (optional but recommended)',
+    ],
+    steps: [
+      'Pat tilapia fillets completely dry with paper towels.',
+      'Brush or spray a very light coat of oil on both sides.',
+      'Hold seafood seasoning about 12 inches above the fish and sprinkle lightly and evenly from height — this prevents heavy clumping in spots.',
+      'Flip and repeat light seasoning on the other side. Less is more — seafood seasoning is potent.',
+      'Spray basket with oil. Place fillets in single layer.',
+      'Air fry at 375°F for 10-12 minutes. No flip needed — tilapia is too delicate.',
+      'Done when fish flakes easily with a fork.',
+      'Squeeze fresh lemon or lime over immediately before serving.',
+      'Serve over Mexican rice OR shred and stuff into corn tortillas for fish tacos.',
+    ],
+    notes: 'Season lightly — seafood seasoning is heavily salted and spiced. Mixing seasoning with a little oil into a thin paste before brushing on gives the most even coverage. Fresh lemon or lime squeeze at the end is a game changer. Tested and loved both ways — over rice and as tacos.'
+  },
+  {
+    id: 'mexican-rice',
+    name: "Frank's Mexican Rice (Tomato Paste & Rotel)",
+    emoji: '🍚',
+    category: 'dinner',
+    appliance: 'pc',
+    time: '20 min',
+    difficulty: 'Easy',
+    description: "Frank's dialed-in Mexican rice with tomato paste, Rotel, and corn. Toasted rice base for deep nutty flavor, rich red color. Tested and refined. Perfect as a side or burrito bowl base.",
+    ingredients: [
+      '1 cup jasmine rice (rinsed until water runs clear)',
+      '1 can tomato paste (small 6 oz)',
+      '1 can mild Rotel (undrained)',
+      '1 can corn (drained)',
+      '1 tbsp canola oil',
+      '3/4 tsp salt',
+      '1 tsp garlic powder',
+      '1 tsp onion powder',
+      '1/2 tsp smoked paprika',
+      '1/4 tsp black pepper',
+      '1 cup water (enough to just cover rice)',
+    ],
+    steps: [
+      'Rinse jasmine rice under cold water until water runs clear. Drain well.',
+      'Add 1 tbsp canola oil to insert. Hit Saute LOW. Add rinsed rice and toast 2-3 minutes stirring constantly until grains turn slightly golden and smell nutty. Cancel Saute.',
+      'IMMEDIATELY add 1 cup water and stir to deglaze the bottom — this lifts toasted bits and prevents burning under pressure. Do this right away while insert is still hot.',
+      'Stir tomato paste into the water until fully dissolved. No lumps.',
+      'Add Rotel, corn, salt, garlic powder, onion powder, smoked paprika, and black pepper. Stir gently to combine.',
+      'Check liquid level — it should just barely cover the rice. Add a splash more water if needed.',
+      'Seal lid. Pressure Cook HIGH 3 minutes. Vent sealed.',
+      'Natural release until pin drops. Do not quick release.',
+      'Open lid and fluff rice with a fork. Taste and adjust salt. Serve immediately.',
+    ],
+    notes: 'Deglazing after toasting is critical — add water immediately after canceling Saute. Dissolve tomato paste into water before adding anything else. Natural release until pin drops — quick release makes rice gummy. Pairs perfectly with seasoned tilapia and corn tortilla tacos.'
+  },
+  {
+    id: 'korean-bbq-marinade',
+    name: 'Korean BBQ Chicken Marinade',
+    emoji: '🥩',
+    category: 'dinner',
+    appliance: 'af',
+    time: '2-24 hrs marinate + 20 min cook',
+    difficulty: 'Easy',
+    description: 'Sweet and savory Korean BBQ marinade for bone-in chicken thighs. Marinate overnight for best results. Honey in the marinade caramelizes beautifully — use lower temp to prevent burning.',
+    ingredients: [
+      '4 bone-in skin-on chicken thighs',
+      '6 tbsp Korean BBQ sauce (doubled for 4 thighs)',
+      '2 tbsp dark soy sauce',
+      '2 tbsp honey',
+      '2 tsp garlic powder',
+      '2 tsp onion powder',
+      '1 tsp smoked paprika',
+      '1/2 tsp black pepper',
+    ],
+    steps: [
+      'Mix all marinade ingredients together in a small bowl until combined.',
+      'Place 4 chicken thighs in a zip lock bag.',
+      'Pour marinade into the bag. Seal and massage marinade into every piece — get it under the skin if possible.',
+      'Lay flat in the fridge. Marinate minimum 2 hours, overnight is significantly better.',
+      'Flip bag once or twice while marinating if you remember.',
+      'When ready to cook: remove thighs from fridge 10-15 minutes before cooking.',
+      'Shake off excess marinade. Pat lightly — remove dripping marinade but not the flavor.',
+      'Spray basket with oil. Place thighs skin side DOWN first.',
+      'Air fry at 350°F for 10 minutes. (Lower temp due to honey — prevents burning.)',
+      'Flip to skin side UP. Air fry another 8-10 minutes. Check at 8 minutes.',
+      'Internal temp must reach 165°F. Rest 3 minutes before serving.',
+    ],
+    notes: 'IMPORTANT: Honey burns fast — cook at 350°F not 370°F. Check at 8 minutes on the second side. Skin may look very dark — that is caramelization not necessarily burning. Taste before deciding it is burnt.'
+  },
+  {
+    id: 'smoky-garlic-marinade',
+    name: 'Smoky Garlic Chicken Marinade',
+    emoji: '🧄',
+    category: 'dinner',
+    appliance: 'af',
+    time: '2-24 hrs marinate + 20 min cook',
+    difficulty: 'Easy',
+    description: 'Bold smoky garlic marinade for bone-in chicken thighs. No honey so it handles higher heat better and produces a deep savory crust.',
+    ingredients: [
+      '4 bone-in skin-on chicken thighs',
+      '4 tbsp canola oil',
+      '2 tbsp soy sauce',
+      '2 tsp garlic powder',
+      '2 tsp smoked paprika',
+      '2 tsp onion powder',
+      '1 tsp cumin',
+      '1 tsp salt',
+      '1/2 tsp black pepper',
+      '2 tsp honey',
+    ],
+    steps: [
+      'Mix all marinade ingredients together in a small bowl until combined.',
+      'Place 4 chicken thighs in a zip lock bag.',
+      'Pour marinade into the bag. Seal and massage into every piece — get it under the skin.',
+      'Lay flat in the fridge. Marinate minimum 2 hours, overnight is best.',
+      'Flip bag once or twice while marinating.',
+      'When ready to cook: remove thighs from fridge 10-15 minutes before cooking.',
+      'Shake off excess marinade. Pat lightly to remove dripping marinade.',
+      'Spray basket with oil. Place thighs skin side DOWN first.',
+      'Air fry at 360°F for 10 minutes.',
+      'Flip to skin side UP. Air fry another 8-10 minutes. Check at 8 minutes.',
+      'Internal temp must reach 165°F. Rest 3 minutes before serving.',
+    ],
+    notes: 'No heavy honey load so handles 360°F well. The cumin and smoked paprika create a deep savory crust. Overnight marinade dramatically improves flavor penetration on bone-in thighs.'
+  },
+  {
+    id: 'honey-garlic-soy-marinade',
+    name: 'Honey Garlic Soy Chicken Marinade',
+    emoji: '🍯',
+    category: 'dinner',
+    appliance: 'af',
+    time: '2-24 hrs marinate + 20 min cook',
+    difficulty: 'Easy',
+    description: 'Classic honey garlic soy marinade — sweet, savory, and deeply flavored. A great substitute when Korean BBQ sauce is unavailable. Cook at lower temp due to honey content.',
+    ingredients: [
+      '4 bone-in skin-on chicken thighs',
+      '2 tbsp honey',
+      '4 tbsp dark soy sauce',
+      '2 tbsp canola oil',
+      '2 tsp garlic powder',
+      '2 tsp onion powder',
+      '1 tsp smoked paprika',
+      '1/2 tsp black pepper',
+      'Pinch of salt',
+    ],
+    steps: [
+      'Mix honey, dark soy sauce, canola oil, garlic powder, onion powder, smoked paprika, pepper, and salt together in a bowl.',
+      'Place 4 chicken thighs in a zip lock bag.',
+      'Pour marinade into the bag. Seal and massage into every piece — get under the skin.',
+      'Lay flat in the fridge. Marinate minimum 2 hours, overnight is best.',
+      'Flip bag once or twice while marinating.',
+      'When ready to cook: remove thighs from fridge 10-15 minutes before cooking.',
+      'Shake off excess marinade. Pat lightly — remove dripping not flavor.',
+      'Spray basket with oil. Place thighs skin side DOWN first.',
+      'Air fry at 350°F for 10 minutes. (Lower temp — honey burns fast.)',
+      'Flip to skin side UP. Check at 8 minutes on second side.',
+      'Internal temp must reach 165°F. Rest 3 minutes before serving.',
+    ],
+    notes: 'Cook at 350°F not 370°F — honey burns fast. Check at 8 minutes on the second side. Dark soy and honey together create a beautiful glaze. This was originally developed as a substitute for Korean BBQ sauce.'
+  },
+  {
+    id: 'brownies',
+    name: 'Double Chocolate Brownies (Mayo Method)',
+    emoji: '🍫',
+    category: 'dessert',
+    appliance: 'af',
+    time: '50 min',
+    difficulty: 'Easy',
+    description: 'Rich double chocolate brownies made with mayo instead of oil — crispy edges, crunchy bottom, and a fudgy chewy center. Tested and dialed in for your exact setup.',
+    ingredients: [
+      '1 box Double Chocolate Brownie Mix',
+      '1/2 cup mayo',
+      '1 egg',
+      '1/4 cup water',
+      'Canola oil spray',
+      'Parchment paper (to line steamer basket)',
+    ],
+    steps: [
+      'Line PC steamer basket with parchment paper, pressing into sides. Spray generously with oil.',
+      'Mix water, mayo, and egg together until fully combined.',
+      'Add brownie mix and stir until well blended. Do not overmix.',
+      'Pour batter into lined steamer basket and spread evenly.',
+      'Place steamer basket in air fryer. Air fry at 300°F.',
+      'Cook for 45-50 minutes total. Do not open and check every few minutes — run in 10 minute intervals minimum.',
+      'At 40 minutes insert a toothpick in the dead center. Moist crumbs = done. Wet liquid batter = continue 5-10 more minutes.',
+      'Edges should be pulling slightly away from parchment when done.',
+      'Remove basket and cool COMPLETELY — at least 20-30 minutes. Do not rush.',
+      'Lift brownies out by the parchment edges. Cut and serve.',
+    ],
+    notes: 'Mayo replaces oil — already emulsified oil and egg. The steamer basket with parchment gives crispy edges and crunchy bottom. Moist crumbs on toothpick = done. Do NOT wait for a clean toothpick or they will be overdone. Expect 45-50 minutes in your Ninja at 300°F.'
+  },
+  {
+    id: 'pb-cookies',
+    name: 'Peanut Butter Chocolate Chip Oatmeal Cookies',
+    emoji: '🍪',
+    category: 'dessert',
+    appliance: 'af',
+    time: '40 min',
+    difficulty: 'Easy',
+    description: 'Chewy peanut butter oatmeal cookies with chocolate chips — refined ratios for better sweetness and binding. No flour needed. Tested and revised.',
+    ingredients: [
+      '3/4 cup peanut butter',
+      '1/2 cup old fashioned oats',
+      '1/2 cup chocolate chips',
+      '4 tbsp butter (melted)',
+      '1 egg',
+      '3 tbsp milk or almond milk',
+      '1/2 cup brown sugar',
+      '1 tbsp honey or maple syrup (key binder — do not skip)',
+      '1/2 tsp cinnamon',
+      '1/4 tsp salt',
+    ],
+    steps: [
+      'In a bowl combine peanut butter, melted butter, egg, milk, and honey or maple syrup. Stir until smooth.',
+      'Stir in brown sugar, cinnamon, and salt until combined.',
+      'Fold in oats and mix well. Fold in chocolate chips. Dough will be thick and sticky.',
+      'Cover bowl and refrigerate 30-45 minutes minimum. Do not rush — cold dough holds shape.',
+      'Line air fryer basket with perforated parchment. Spray with oil.',
+      'Scoop about 1.5 tbsp of dough. Press FIRMLY in your palm into a tight ball first then flatten to 1/2 inch thick. Pack it tight.',
+      'Press extra chocolate chips on top of each cookie.',
+      'Air fry at 325°F for 8-10 minutes until edges are set. Center will still look soft — that is correct.',
+      'Critical: let cool on parchment a FULL 10 minutes before touching. They are fragile when hot and firm up completely as they cool.',
+    ],
+    notes: 'Honey or maple syrup is the key binder — do not skip it. Chill time is essential. Do not overbake — they finish cooking as they cool. Vanilla substitute: maple syrup or honey work perfectly.'
+  },
+  {
+    id: 'yogurt-parfait',
+    name: 'Honey Greek Yogurt Parfait',
+    emoji: '🍓',
+    category: 'dessert',
+    appliance: 'none',
+    time: '5 min',
+    difficulty: 'Easy',
+    description: '5% fat honey Greek yogurt layered with fresh raspberries and crushed cinnamon graham crackers. A genuinely satisfying high-protein dessert with zero cooking.',
+    ingredients: [
+      '1 cup 5% honey Greek yogurt',
+      '1/2 cup fresh raspberries',
+      '3 cinnamon graham crackers (crushed)',
+      'Extra honey to drizzle (optional)',
+    ],
+    steps: [
+      'Crush 3 cinnamon graham crackers into rough crumbles in your hand.',
+      'Spoon yogurt into a bowl or cup as the base layer.',
+      'Add a layer of fresh raspberries.',
+      'Top generously with crushed graham cracker crumbles.',
+      'Optional: drizzle a little extra honey on top.',
+      'Serve immediately so crackers stay crunchy.',
+    ],
+    notes: 'The 5% fat honey yogurt is critical — 0% fat is tasteless for dessert. Serve immediately or crackers go soggy. The honey yogurt + raspberry + cinnamon graham combination is genuinely dessert-level.'
+  },
+  {
+    id: 'donuts',
+    name: 'Air Fryer Donuts with Glaze',
+    emoji: '🍩',
+    category: 'dessert',
+    appliance: 'af',
+    time: '20 min',
+    difficulty: 'Easy',
+    description: 'Light air fryer donuts made from pancake mix, finished with a simple powdered sugar glaze. No deep fryer, no yeast, no waiting.',
+    ingredients: [
+      '1 cup pancake mix',
+      '1 egg',
+      '1/3 cup milk or almond milk',
+      '2 tbsp sugar',
+      '1/2 tsp vanilla extract',
+      'Canola oil spray',
+      '1/2 cup powdered sugar (for glaze)',
+      '1 tbsp milk (for glaze)',
+      '1/4 tsp vanilla extract (for glaze)',
+    ],
+    steps: [
+      'Mix pancake mix, egg, milk, sugar, and vanilla until just combined. Batter should be thick.',
+      'Spray silicone donut mold with oil. Fill each cavity about 2/3 full.',
+      'Air fry at 340°F for 7-9 minutes until golden and toothpick comes out clean.',
+      'While donuts cool: whisk powdered sugar, 1 tbsp milk, and 1/4 tsp vanilla until smooth. Add more milk a few drops at a time if too thick.',
+      'Let donuts cool 5 minutes. Dip tops into glaze or drizzle over.',
+      'Let glaze set 2 minutes before serving.',
+    ],
+    notes: 'No donut mold? Shape batter into rings on parchment using a spoon. Add cinnamon to the glaze for a cinnamon donut version. Batter should be thick — if runny add another tbsp of pancake mix.'
+  },
+  {
+    id: 'cinnamon-roll-bites',
+    name: 'Cinnamon Roll Bites',
+    emoji: '🌀',
+    category: 'dessert',
+    appliance: 'af',
+    time: '25 min',
+    difficulty: 'Easy',
+    description: 'Warm gooey cinnamon roll bites made from pancake mix dough with a cinnamon brown sugar filling and vanilla glaze. No yeast, no waiting.',
+    ingredients: [
+      '1 cup pancake mix',
+      '1/4 cup milk or almond milk',
+      '2 tbsp butter (melted)',
+      '1 1/2 tsp cinnamon',
+      '3 tbsp brown sugar',
+      '1/2 cup powdered sugar (glaze)',
+      '1 tbsp milk (glaze)',
+      '1/4 tsp vanilla extract (glaze)',
+      'Canola oil spray',
+    ],
+    steps: [
+      'Mix pancake mix and milk until a soft dough forms. It will be sticky — that is normal. Refrigerate 10 minutes to make easier to handle.',
+      'Mix melted butter, cinnamon, and brown sugar together in a small bowl for filling.',
+      'Pinch off about 1.5 tbsp of dough, flatten slightly, add a pinch of cinnamon filling, fold dough around it. Roll into a ball. Repeat for 10-12 bites.',
+      'Spray basket with oil. Place bites in a single layer with space between.',
+      'Air fry at 340°F for 7-8 minutes until golden. Do not overbake — they dry out fast.',
+      'Whisk powdered sugar, milk, and vanilla until smooth. Drizzle over warm bites immediately.',
+      'Serve warm.',
+    ],
+    notes: 'Best eaten warm right out of the fryer. White sugar works if you don\'t have brown sugar. The glaze sets quickly so drizzle right when they come out.'
+  },
+  {
+    id: 'funnel-cake',
+    name: 'Funnel Cake Bites',
+    emoji: '🎡',
+    category: 'dessert',
+    appliance: 'af',
+    time: '15 min',
+    difficulty: 'Easy',
+    description: 'Crispy little funnel cake bites in the air fryer — dusted with powdered sugar. Carnival food at home in under 15 minutes.',
+    ingredients: [
+      '1 cup pancake mix',
+      '1 egg',
+      '3/4 cup milk or almond milk',
+      '1/2 tsp vanilla extract',
+      '1 tbsp sugar',
+      '2 tbsp powdered sugar for dusting',
+      'Canola oil spray',
+    ],
+    steps: [
+      'Whisk together pancake mix, egg, milk, vanilla, and sugar until smooth. Batter should be thin and pourable — thinner than regular pancake batter.',
+      'Line air fryer basket with perforated parchment. Spray with oil.',
+      'Drop spoonfuls of batter (about 1 tbsp each) into the basket. They spread slightly so leave space.',
+      'Air fry at 365°F for 6-8 minutes, flipping once at 4 minutes, until golden and crispy.',
+      'Transfer to a plate immediately. Dust generously with powdered sugar.',
+      'Serve hot — best eaten immediately.',
+    ],
+    notes: 'Parchment liner is essential — batter would drip through basket. Dust with powdered sugar right before serving. Best eaten immediately as they soften quickly.'
+  },
+];
+
+// ─── STATE ─────────────────────────────────────────────────────────────────
+
+let activeFilter = 'all';
+let searchTerm = '';
+let expandedCard = null;
+let activeTab = {};
+
+function getState(recipeId) {
+  try {
+    const raw = localStorage.getItem('fk_' + recipeId);
+    return raw ? JSON.parse(raw) : { ingredients: {}, steps: {}, notes: '' };
+  } catch { return { ingredients: {}, steps: {}, notes: '' }; }
+}
+
+function saveState(recipeId, state) {
+  try { localStorage.setItem('fk_' + recipeId, JSON.stringify(state)); } catch {}
+}
+
+function resetState(recipeId) {
+  try { localStorage.removeItem('fk_' + recipeId); } catch {}
+}
+
+// ─── FILTER & SEARCH ───────────────────────────────────────────────────────
+
+function setFilter(filter, btn) {
+  activeFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAll();
+}
+
+function handleSearch() {
+  searchTerm = document.getElementById('searchInput').value.toLowerCase();
+  renderAll();
+}
+
+function matchesFilter(recipe) {
+  if (activeFilter === 'all') return true;
+  if (activeFilter === 'breakfast' || activeFilter === 'lunch' || activeFilter === 'dinner' || activeFilter === 'dessert') {
+    return recipe.category === activeFilter;
+  }
+  if (activeFilter === 'af') return recipe.appliance === 'af';
+  if (activeFilter === 'pc') return recipe.appliance === 'pc';
+  if (activeFilter === 'combo') return recipe.appliance === 'combo';
+  return true;
+}
+
+function matchesSearch(recipe) {
+  if (!searchTerm) return true;
+  return recipe.name.toLowerCase().includes(searchTerm) ||
+    recipe.description.toLowerCase().includes(searchTerm) ||
+    recipe.ingredients.some(i => i.toLowerCase().includes(searchTerm));
+}
+
+// ─── RENDER ────────────────────────────────────────────────────────────────
+
+const CATEGORIES = [
+  { key: 'breakfast', label: 'Breakfast', icon: '🍳' },
+  { key: 'lunch', label: 'Lunch & Light Meals', icon: '🥪' },
+  { key: 'dinner', label: 'Dinner', icon: '🍽️' },
+  { key: 'dessert', label: 'Desserts & Treats', icon: '🍫' },
+];
+
+function applianceTag(appliance) {
+  if (appliance === 'pc') return '<span class="meta-tag tag-pc">Pressure Cooker</span>';
+  if (appliance === 'af') return '<span class="meta-tag tag-af">Air Fryer</span>';
+  if (appliance === 'combo') return '<span class="meta-tag tag-combo">PC + Air Fryer</span>';
+  return '<span class="meta-tag tag-easy">No Cook</span>';
+}
+
+function difficultyTag(d) {
+  const cls = d === 'Medium' ? 'tag-medium' : 'tag-easy';
+  return `<span class="meta-tag ${cls}">${d}</span>`;
+}
+
+function renderRecipe(recipe) {
+  const state = getState(recipe.id);
+  const isExpanded = expandedCard === recipe.id;
+  const tab = activeTab[recipe.id] || 'ingredients';
+
+  const totalIngredients = recipe.ingredients.length;
+  const checkedIngredients = Object.values(state.ingredients).filter(Boolean).length;
+  const totalSteps = recipe.steps.length;
+  const checkedSteps = Object.values(state.steps).filter(Boolean).length;
+  const overallProgress = Math.round(((checkedIngredients + checkedSteps) / (totalIngredients + totalSteps)) * 100) || 0;
+
+  const ingredientsList = recipe.ingredients.map((ing, i) => {
+    const checked = state.ingredients[i] ? 'checked' : '';
+    return `<div class="ingredient-item ${checked}" onclick="toggleIngredient('${recipe.id}', ${i})">
+      <div class="ingredient-cb"></div>
+      <div class="ingredient-text">${ing}</div>
+    </div>`;
+  }).join('');
+
+  const stepsList = recipe.steps.map((step, i) => {
+    const checked = state.steps[i] ? 'checked' : '';
+    return `<div class="step-item ${checked}" onclick="toggleStep('${recipe.id}', ${i})">
+      <div class="step-num"><span>${i + 1}</span></div>
+      <div class="step-text">${step}</div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="recipe-card ${isExpanded ? 'active' : ''}" id="card-${recipe.id}">
+      <div class="recipe-card-header" onclick="toggleCard('${recipe.id}')">
+        <div class="recipe-emoji">${recipe.emoji}</div>
+        <div class="recipe-header-text">
+          <div class="recipe-name">${recipe.name}</div>
+          <div class="recipe-meta">
+            ${applianceTag(recipe.appliance)}
+            <span class="meta-tag tag-time">⏱ ${recipe.time}</span>
+            ${difficultyTag(recipe.difficulty)}
+          </div>
+        </div>
+        <div class="recipe-chevron">▾</div>
+      </div>
+      <div class="recipe-body">
+        <div class="recipe-description">${recipe.description}</div>
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Progress</span>
+            <span>${overallProgress}%</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${overallProgress}%"></div></div>
+        </div>
+        <div class="recipe-tabs">
+          <button class="recipe-tab ${tab === 'ingredients' ? 'active' : ''}" onclick="switchTab('${recipe.id}', 'ingredients')">Ingredients</button>
+          <button class="recipe-tab ${tab === 'steps' ? 'active' : ''}" onclick="switchTab('${recipe.id}', 'steps')">Steps</button>
+          <button class="recipe-tab ${tab === 'notes' ? 'active' : ''}" onclick="switchTab('${recipe.id}', 'notes')">Notes</button>
+          <button class="recipe-tab ${tab === 'photo' ? 'active' : ''}" onclick="switchTab('${recipe.id}', 'photo')">📷 Photo</button>
+        </div>
+        <div class="recipe-tab-content ${tab === 'ingredients' ? 'active' : ''}" id="tab-ingredients-${recipe.id}">
+          <div class="section-label">Ingredients — ${checkedIngredients}/${totalIngredients}</div>
+          ${ingredientsList}
+        </div>
+        <div class="recipe-tab-content ${tab === 'steps' ? 'active' : ''}" id="tab-steps-${recipe.id}">
+          <div class="section-label">Steps — ${checkedSteps}/${totalSteps}</div>
+          ${stepsList}
+        </div>
+        <div class="recipe-tab-content ${tab === 'notes' ? 'active' : ''}" id="tab-notes-${recipe.id}">
+          <div class="section-label">Chef's Notes</div>
+          <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px;">${recipe.notes}</p>
+          <div class="section-label" style="margin-top:12px;">My Notes</div>
+          <textarea class="notes-area" placeholder="Add your notes, dial-in times, substitutions..." 
+            onchange="saveNote('${recipe.id}', this.value)"
+            oninput="saveNote('${recipe.id}', this.value)">${state.notes}</textarea>
+        </div>
+        <div class="recipe-tab-content ${tab === 'photo' ? 'active' : ''}" id="tab-photo-${recipe.id}">
+          <div class="section-label">My Photo</div>
+          <input type="file" accept="image/*" class="photo-input" id="photo-input-${recipe.id}" onchange="handlePhotoUpload('${recipe.id}', this)">
+          ${state.photo ? `
+            <div class="photo-preview">
+              <img src="${state.photo}" alt="Recipe photo">
+              <button class="photo-remove-btn" onclick="removePhoto('${recipe.id}')">✕</button>
+            </div>
+          ` : `
+            <button class="photo-upload-btn" onclick="document.getElementById('photo-input-${recipe.id}').click()">
+              📷 Tap to add a photo of your dish
+            </button>
+          `}
+        </div>
+        <div class="recipe-footer">
+          <button class="reset-btn" onclick="resetRecipe('${recipe.id}')">↺ Reset</button>
+          <button class="complete-btn" onclick="markAllDone('${recipe.id}')">✓ Mark All Done</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAll() {
+  const container = document.getElementById('mainContent');
+  let html = '';
+  let anyVisible = false;
+
+  const showingCategory = ['breakfast', 'lunch', 'dinner', 'dessert'].includes(activeFilter);
+  const showingAppliance = ['af', 'pc', 'combo'].includes(activeFilter);
+
+  if (showingAppliance || (activeFilter === 'all' && searchTerm)) {
+    // Flat list by appliance or search — no category headers
+    const visible = RECIPES.filter(r => matchesFilter(r) && matchesSearch(r));
+    if (visible.length === 0) {
+      html = `<div class="empty-state"><div class="emoji">🔍</div><p>No recipes found.<br>Try a different search or filter.</p></div>`;
+    } else {
+      html = `<div class="recipe-grid">${visible.map(renderRecipe).join('')}</div>`;
+      anyVisible = true;
+    }
+  } else {
+    // Categorized view
+    CATEGORIES.forEach(cat => {
+      if (activeFilter !== 'all' && activeFilter !== cat.key) return;
+      const visible = RECIPES.filter(r => r.category === cat.key && matchesSearch(r));
+      if (visible.length === 0) return;
+      anyVisible = true;
+      html += `
+        <div class="category-section">
+          <div class="category-header">
+            <span class="category-icon">${cat.icon}</span>
+            <span class="category-title">${cat.label}</span>
+            <span class="category-count">${visible.length} recipes</span>
+          </div>
+          <div class="recipe-grid">${visible.map(renderRecipe).join('')}</div>
+        </div>
+      `;
+    });
+    if (!anyVisible) {
+      html = `<div class="empty-state"><div class="emoji">🔍</div><p>No recipes found.</p></div>`;
+    }
+  }
+
+  container.innerHTML = html;
+}
+
+// ─── INTERACTIONS ──────────────────────────────────────────────────────────
+
+function toggleCard(id) {
+  expandedCard = expandedCard === id ? null : id;
+  renderAll();
+  if (expandedCard) {
+    setTimeout(() => {
+      const el = document.getElementById('card-' + id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
+}
+
+function switchTab(recipeId, tab) {
+  activeTab[recipeId] = tab;
+  renderAll();
+}
+
+function toggleIngredient(recipeId, index) {
+  const state = getState(recipeId);
+  state.ingredients[index] = !state.ingredients[index];
+  saveState(recipeId, state);
+  renderAll();
+}
+
+function toggleStep(recipeId, index) {
+  const state = getState(recipeId);
+  state.steps[index] = !state.steps[index];
+  saveState(recipeId, state);
+  renderAll();
+}
+
+function handlePhotoUpload(recipeId, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const state = getState(recipeId);
+    state.photo = e.target.result;
+    saveState(recipeId, state);
+    renderAll();
+  };
+  reader.readAsDataURL(file);
+}
+
+function removePhoto(recipeId) {
+  const state = getState(recipeId);
+  delete state.photo;
+  saveState(recipeId, state);
+  renderAll();
+}
+
+function saveNote(recipeId, value) {
+  const state = getState(recipeId);
+  state.notes = value;
+  saveState(recipeId, state);
+}
+
+function resetRecipe(recipeId) {
+  if (confirm('Reset all checkboxes and progress for this recipe?')) {
+    const state = getState(recipeId);
+    state.ingredients = {};
+    state.steps = {};
+    saveState(recipeId, state);
+    renderAll();
+  }
+}
+
+function markAllDone(recipeId) {
+  const recipe = RECIPES.find(r => r.id === recipeId);
+  if (!recipe) return;
+  const state = getState(recipeId);
+  recipe.ingredients.forEach((_, i) => state.ingredients[i] = true);
+  recipe.steps.forEach((_, i) => state.steps[i] = true);
+  saveState(recipeId, state);
+  renderAll();
+}
+
+// ─── MAIN TAB SWITCHING ────────────────────────────────────────────────────
+
+function switchMainTab(tab) {
+  document.getElementById('view-recipes').classList.toggle('hidden', tab !== 'recipes');
+  document.getElementById('view-shop').classList.toggle('hidden', tab !== 'shop');
+  document.getElementById('nav-recipes').classList.toggle('active', tab === 'recipes');
+  document.getElementById('nav-shop').classList.toggle('active', tab === 'shop');
+  if (tab === 'shop') renderShopList();
+}
+
+// ─── SHOPPING LIST ─────────────────────────────────────────────────────────
+
+const SHOP_CATEGORIES = [
+  { key: 'produce', label: '🥬 Produce & Fresh' },
+  { key: 'protein', label: '🥩 Proteins & Meat' },
+  { key: 'dairy', label: '🧀 Dairy & Eggs' },
+  { key: 'frozen', label: '🧊 Frozen' },
+  { key: 'pantry', label: '🥫 Pantry & Canned' },
+  { key: 'spices', label: '🌶️ Spices & Seasonings' },
+  { key: 'sauces', label: '🍯 Sauces & Condiments' },
+  { key: 'baking', label: '🍬 Baking & Sweet' },
+  { key: 'bread', label: '🍞 Bread & Tortillas' },
+  { key: 'drinks', label: '🥤 Drinks & Snacks' },
+  { key: 'household', label: '🧹 Household & Kitchen' },
+  { key: 'misc', label: '📦 Other' },
+];
+
+// Full memory bank for autocomplete suggestions
+let MEMORY_BANK = [
+  'Cottage cheese','Frozen chicken thighs','Frozen fish','Tilapia','Salmon','Tuna steaks',
+  'Sugar snap peas','Greek yogurt','Honey Greek yogurt','Biscoff cookies',
+  'Graham crackers','Cinnamon graham crackers','Milk','Almond milk','Half gallon milk',
+  'Frozen raspberries','Frozen berries','Frozen mixed berries','Potatoes','Monk fruit drops',
+  'Chocolate chips','Dark chocolate chips','Tortilla chips','Corn starch','Cutting board',
+  'Brown rice','Jasmine rice','Sushi rice','Angel hair pasta','Spaghetti','Elbow pasta',
+  'Dark chocolate chips','Water flavoring','Salsa','Chicken salad','Egg salad',
+  'Onion powder','Garlic powder','Smoked paprika','Cinnamon','Cumin','Cayenne pepper',
+  'Red pepper flakes','Italian seasoning','Lemon pepper','Seafood seasoning','Taco seasoning',
+  'Chili seasoning','Oregano','Vanilla extract','Baking powder','Salt','Black pepper',
+  'Eggs','Butter','Sour cream','Cream cheese','Shredded cheese','Monterey Jack','Gouda',
+  'Colby Jack','Parmesan','Mayo','Dijon mustard','Ketchup','Ranch','Hot sauce',
+  'Korean BBQ sauce','Worcestershire sauce','Dark soy sauce','Honey','Maple syrup',
+  'Canola oil','Avocado oil','Olive oil','Raspberry chipotle','Submarine dressing',
+  'Cocktail sauce','Sweet relish','Sliced jalapenos','Pickle juice',
+  'Canned chicken','Canned tuna','Canned corn','Canned diced tomatoes','Rotel',
+  'Chili beans','Baked beans','Refried beans','Black beans','Pinto beans',
+  'Tomato sauce','Tomato paste','Marinara sauce','Alfredo sauce','Classico sauce',
+  'Chicken broth','Beef broth','Bouillon cubes','Coconut milk',
+  'Frozen burger patties','Ground beef','Hot dogs','Chicken thighs','Chicken breast',
+  'Frozen shrimp','Frozen meatballs','Frozen chicken nuggets','Frozen tater tots',
+  'Frozen fries','Frozen waffles','Frozen hash browns','Frozen broccoli',
+  'Frozen sweet potato fries','Frozen popcorn chicken','Frozen jalapeno poppers',
+  'Frozen mozzarella sticks','Frozen egg rolls','Frozen breakfast sausage',
+  'El Monterey burritos','Pot stickers','Buffalo wings','Gortons fish',
+  'Pancake mix','Brownie mix','Brown sugar','Powdered sugar','Cornstarch',
+  'Bread','Flour tortillas','Corn tortillas','Hot dog buns','Burger buns',
+  'Saltine crackers','Graham crackers','Tortilla chips','Pop-Tarts',
+  'Celsius','Dr Pepper','Snickers','Avocado','Baby carrots','Lime','Lemon',
+  'Fresh raspberries','Banana','Onion',
+  'Perforated parchment liners','Silicone muffin cups','Meat thermometer',
+  'Ziploc freezer bags','Measuring spoons','Cutting board','Silicone brush',
+  'Salt shaker','Cast iron skillet','Small round cake pan','Oil mister bottle',
+  'Paper towels','Dawn dish soap','Downy detergent','Bathroom scale',
+];
+
+// Load saved memory from localStorage
+function loadMemory() {
+  try {
+    const saved = localStorage.getItem('fk_memory');
+    if (saved) {
+      const extra = JSON.parse(saved);
+      MEMORY_BANK = [...new Set([...MEMORY_BANK, ...extra])];
+    }
+  } catch {}
+}
+
+function saveToMemory(name) {
+  try {
+    const saved = JSON.parse(localStorage.getItem('fk_memory') || '[]');
+    if (!saved.includes(name)) {
+      saved.push(name);
+      localStorage.setItem('fk_memory', JSON.stringify(saved));
+      MEMORY_BANK = [...new Set([...MEMORY_BANK, name])];
+    }
+  } catch {}
+}
+
+// Shopping list state
+function getShopItems() {
+  try {
+    return JSON.parse(localStorage.getItem('fk_shoplist') || '[]');
+  } catch { return []; }
+}
+
+function saveShopItems(items) {
+  try { localStorage.setItem('fk_shoplist', JSON.stringify(items)); } catch {}
+}
+
+function guessCategory(name) {
+  const n = name.toLowerCase();
+  if (/yogurt|milk|egg|butter|cheese|cream|sour/.test(n)) return 'dairy';
+  if (/chicken|beef|pork|fish|tilapia|salmon|tuna|shrimp|hot dog|patty|patties|sausage|turkey|meat/.test(n)) return 'protein';
+  if (/frozen|ice cream/.test(n)) return 'frozen';
+  if (/carrot|avocado|banana|lemon|lime|berry|berries|onion|potato|snap pea|raspberry|tomato|lettuce|produce/.test(n)) return 'produce';
+  if (/powder|paprika|cumin|pepper|salt|seasoning|spice|oregano|cinnamon|vanilla|italian/.test(n)) return 'spices';
+  if (/sauce|bbq|ketchup|mayo|mustard|ranch|soy|honey|syrup|oil|vinegar|worcestershire|relish|salsa|dressing|chipotle|cocktail/.test(n)) return 'sauces';
+  if (/sugar|flour|baking|chocolate|chip|brownie|pancake|oat|cornstarch/.test(n)) return 'baking';
+  if (/bread|tortilla|bun|cracker|chip|waffle|pop.tart|toast/.test(n)) return 'bread';
+  if (/rice|pasta|bean|corn|tomato|broth|canned|ramen|noodle|soup/.test(n)) return 'pantry';
+  if (/celsius|soda|drink|water|juice|snicker|candy|cookie/.test(n)) return 'drinks';
+  if (/bag|liner|parchment|thermometer|scale|board|pan|skillet|mop|detergent|soap|towel|shaker|mold|cup|brush/.test(n)) return 'household';
+  return 'misc';
+}
+
+function addShopItem(nameOverride) {
+  const input = document.getElementById('shopInput');
+  const name = (nameOverride || input.value).trim();
+  if (!name) return;
+  const items = getShopItems();
+  // Check if already exists
+  const existing = items.find(i => i.name.toLowerCase() === name.toLowerCase());
+  if (existing) {
+    existing.qty = (existing.qty || 1) + 1;
+    saveShopItems(items);
+    input.value = '';
+    hideSuggestions();
+    renderShopList();
+    updateShopStats();
+    return;
+  }
+  items.push({
+    id: Date.now(),
+    name,
+    qty: 1,
+    bought: false,
+    category: guessCategory(name),
+    addedAt: Date.now()
+  });
+  saveShopItems(items);
+  saveToMemory(name);
+  input.value = '';
+  hideSuggestions();
+  renderShopList();
+  updateShopStats();
+}
+
+function toggleBought(id) {
+  const items = getShopItems();
+  const item = items.find(i => i.id === id);
+  if (item) item.bought = !item.bought;
+  saveShopItems(items);
+  renderShopList();
+  updateShopStats();
+}
+
+function changeQty(id, delta) {
+  const items = getShopItems();
+  const item = items.find(i => i.id === id);
+  if (item) {
+    item.qty = Math.max(1, (item.qty || 1) + delta);
+    saveShopItems(items);
+    renderShopList();
+  }
+}
+
+function deleteShopItem(id) {
+  let items = getShopItems();
+  items = items.filter(i => i.id !== id);
+  saveShopItems(items);
+  renderShopList();
+  updateShopStats();
+}
+
+function clearBought() {
+  let items = getShopItems();
+  items = items.filter(i => !i.bought);
+  saveShopItems(items);
+  renderShopList();
+  updateShopStats();
+}
+
+function uncheckAll() {
+  const items = getShopItems();
+  items.forEach(i => i.bought = false);
+  saveShopItems(items);
+  renderShopList();
+  updateShopStats();
+}
+
+function clearAll() {
+  if (confirm('Clear entire shopping list?')) {
+    saveShopItems([]);
+    renderShopList();
+    updateShopStats();
+  }
+}
+
+function updateShopStats() {
+  const items = getShopItems();
+  const bought = items.filter(i => i.bought).length;
+  const total = items.length;
+  document.getElementById('shopStats').textContent = `${bought}/${total} bought`;
+}
+
+function handleShopInput() {
+  const val = document.getElementById('shopInput').value.trim().toLowerCase();
+  if (!val || val.length < 2) { hideSuggestions(); return; }
+  const matches = MEMORY_BANK.filter(m => m.toLowerCase().includes(val)).slice(0, 6);
+  if (matches.length === 0) { hideSuggestions(); return; }
+  const box = document.getElementById('shopSuggestions');
+  box.innerHTML = matches.map(m =>
+    `<div class="shop-suggestion" onclick="addShopItem('${m.replace(/'/g, "\\'")}')">${m}</div>`
+  ).join('');
+  box.classList.add('visible');
+}
+
+function hideSuggestions() {
+  document.getElementById('shopSuggestions').classList.remove('visible');
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.shop-add-wrap')) hideSuggestions();
+});
+
+function renderShopList() {
+  const items = getShopItems();
+  const container = document.getElementById('shopList');
+  if (!container) return;
+  updateShopStats();
+
+  if (items.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="emoji">🛒</div><p>Your shopping list is empty.<br>Add items above.</p></div>`;
+    return;
+  }
+
+  // Group by category
+  const grouped = {};
+  items.forEach(item => {
+    const cat = item.category || 'misc';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(item);
+  });
+
+  // Sort: unbought first within each category
+  Object.keys(grouped).forEach(k => {
+    grouped[k].sort((a, b) => (a.bought ? 1 : 0) - (b.bought ? 1 : 0));
+  });
+
+  let html = '';
+  SHOP_CATEGORIES.forEach(cat => {
+    if (!grouped[cat.key] || grouped[cat.key].length === 0) return;
+    const catItems = grouped[cat.key];
+    const boughtCount = catItems.filter(i => i.bought).length;
+    html += `
+      <div class="shop-section" id="shopcat-${cat.key}">
+        <div class="shop-section-header" onclick="toggleShopSection('${cat.key}')">
+          <div class="shop-section-title">${cat.label}</div>
+          <div class="shop-section-count">${boughtCount}/${catItems.length}</div>
+          <div class="shop-section-chevron">▾</div>
+        </div>
+        <div class="shop-items">
+          ${catItems.map(item => `
+            <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}">
+              <div class="shop-item-cb" onclick="toggleBought(${item.id})"></div>
+              <div class="shop-item-name">${item.name}</div>
+              <div class="shop-qty">
+                <button class="shop-qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
+                <span class="shop-qty-num">${item.qty || 1}</span>
+                <button class="shop-qty-btn" onclick="changeQty(${item.id}, 1)">+</button>
+              </div>
+              <button class="shop-delete-btn" onclick="deleteShopItem(${item.id})">🗑</button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function toggleShopSection(key) {
+  const el = document.getElementById('shopcat-' + key);
+  if (el) el.classList.toggle('collapsed');
+}
+
+// ─── PRELOAD KEEP LIST ──────────────────────────────────────────────────────
+
+function preloadKeepList() {
+  const existing = getShopItems();
+  if (existing.length > 0) return; // Don't overwrite if list already has items
+
+  const toBuy = [
+    { name: 'Cottage cheese', cat: 'dairy' },
+    { name: 'Frozen chicken thighs', cat: 'frozen' },
+    { name: 'Frozen fish (tilapia/salmon/tuna)', cat: 'frozen' },
+    { name: 'Sugar snap peas', cat: 'produce' },
+    { name: 'Low fat Greek yogurt', cat: 'dairy' },
+    { name: 'Biscoff cookies', cat: 'drinks' },
+    { name: 'Graham crackers', cat: 'bread' },
+    { name: '2% half gallon milk', cat: 'dairy' },
+    { name: 'Frozen raspberries', cat: 'frozen' },
+    { name: 'Frozen berries mix', cat: 'frozen' },
+    { name: 'Potatoes', cat: 'produce' },
+    { name: 'Monk fruit drops', cat: 'drinks' },
+    { name: 'Chocolate chips', cat: 'baking' },
+    { name: 'Tortilla chips', cat: 'bread' },
+    { name: 'Corn starch', cat: 'baking' },
+    { name: 'Plates', cat: 'household' },
+    { name: 'Cutting board', cat: 'household' },
+    { name: 'Tray / small table', cat: 'household' },
+    { name: 'Brown rice', cat: 'pantry' },
+    { name: 'Dark chocolate chips (Tollhouse)', cat: 'baking' },
+    { name: 'Water flavoring (packets/drops)', cat: 'drinks' },
+    { name: 'Sushi rice', cat: 'pantry' },
+    { name: 'Salsa (Herdez or similar)', cat: 'sauces' },
+    { name: 'Chicken salad', cat: 'protein' },
+    { name: 'Egg salad', cat: 'dairy' },
+    { name: 'Downy detergent', cat: 'household' },
+    { name: 'Bathroom scale', cat: 'household' },
+    { name: 'Onion powder', cat: 'spices' },
+    { name: 'Garlic powder', cat: 'spices' },
+    { name: 'Smoked paprika', cat: 'spices' },
+  ];
+
+  const bought = [
+    { name: 'Bread', cat: 'bread' },
+    { name: 'Eggs', cat: 'dairy' },
+    { name: 'Cinnamon', cat: 'spices' },
+    { name: 'Sandwich meat (turkey)', cat: 'protein' },
+    { name: 'Frozen burger patties', cat: 'frozen' },
+    { name: 'Butter', cat: 'dairy' },
+    { name: 'Ground beef', cat: 'protein' },
+    { name: 'Baby carrots', cat: 'produce' },
+    { name: 'Canned corn', cat: 'pantry' },
+    { name: 'Canned chicken', cat: 'pantry' },
+    { name: 'Chicken broth', cat: 'pantry' },
+    { name: 'Celsius drinks', cat: 'drinks' },
+    { name: 'Baking powder', cat: 'baking' },
+    { name: 'Cumin', cat: 'spices' },
+    { name: 'Cup of noodles', cat: 'pantry' },
+    { name: 'Pasta sauce', cat: 'sauces' },
+    { name: 'Jasmine rice', cat: 'pantry' },
+    { name: 'Sour cream', cat: 'dairy' },
+    { name: 'Chip clips', cat: 'household' },
+    { name: 'Pop-Tarts', cat: 'bread' },
+    { name: 'Instant potatoes', cat: 'pantry' },
+    { name: 'Mixing bowl', cat: 'household' },
+    { name: 'Hot dogs', cat: 'protein' },
+    { name: 'Hot dog buns', cat: 'bread' },
+  ];
+
+  const items = [
+    ...toBuy.map(i => ({ id: Date.now() + Math.random(), name: i.name, qty: 1, bought: false, category: i.cat, addedAt: Date.now() })),
+    ...bought.map(i => ({ id: Date.now() + Math.random(), name: i.name, qty: 1, bought: true, category: i.cat, addedAt: Date.now() })),
+  ];
+
+  saveShopItems(items);
+}
+
+// ─── BACK TO TOP ───────────────────────────────────────────────────────────
+
+window.addEventListener('scroll', () => {
+  const btn = document.getElementById('backTop');
+  btn.classList.toggle('visible', window.scrollY > 300);
+});
+
+// ─── INIT ──────────────────────────────────────────────────────────────────
+
+loadMemory();
+preloadKeepList();
+renderAll();
+
