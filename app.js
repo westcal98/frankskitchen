@@ -1786,6 +1786,7 @@ function addShopItem(nameOverride) {
     saveShopItems(items);
     input.value = '';
     hideSuggestions();
+    collapseShopAdd();
     renderShopList();
     updateShopStats();
     return;
@@ -1802,6 +1803,7 @@ function addShopItem(nameOverride) {
   saveToMemory(name);
   input.value = '';
   hideSuggestions();
+  collapseShopAdd();
   renderShopList();
   updateShopStats();
 }
@@ -1919,7 +1921,14 @@ function hideSuggestions() {
 }
 
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.shop-add-wrap')) hideSuggestions();
+  // Collapse add panel when clicking outside it (but not when clicking the toolbar button)
+  if (!e.target.closest('#shopAddPanel') && !e.target.closest('#shopAddBtn')) {
+    const ap = document.getElementById('shopAddPanel');
+    if (ap && !ap.classList.contains('hidden')) collapseShopAdd();
+  }
+  // Hide suggestions when clicking outside the add panel
+  if (!e.target.closest('#shopAddPanel')) hideSuggestions();
+  // Close cat pickers
   if (!e.target.closest('.shop-cat-picker') && !e.target.closest('.shop-cat-edit-btn')) {
     document.querySelectorAll('.shop-cat-picker').forEach(el => el.classList.add('hidden'));
   }
@@ -1948,9 +1957,50 @@ function handleShopSearch() {
 
 function clearShopSearch() {
   shopSearchTerm = '';
-  document.getElementById('shopSearchInput').value = '';
-  document.getElementById('shopSearchClear').classList.add('hidden');
+  const inp   = document.getElementById('shopSearchInput');
+  const clear = document.getElementById('shopSearchClear');
+  const panel = document.getElementById('shopSearchPanel');
+  const btn   = document.getElementById('shopSearchBtn');
+  if (inp)   inp.value = '';
+  if (clear) clear.classList.add('hidden');
+  if (panel) panel.classList.add('hidden');
+  if (btn)   btn.classList.remove('active');
   renderShopList();
+}
+
+function toggleShopAdd() {
+  const panel = document.getElementById('shopAddPanel');
+  const btn   = document.getElementById('shopAddBtn');
+  if (!panel) return;
+  const opening = panel.classList.contains('hidden');
+  // Close search if open
+  const sp = document.getElementById('shopSearchPanel');
+  if (sp && !sp.classList.contains('hidden')) clearShopSearch();
+  panel.classList.toggle('hidden', !opening);
+  btn.classList.toggle('active', opening);
+  if (opening) requestAnimationFrame(() => document.getElementById('shopInput')?.focus());
+}
+
+function toggleShopSearch() {
+  const panel = document.getElementById('shopSearchPanel');
+  const btn   = document.getElementById('shopSearchBtn');
+  if (!panel) return;
+  const opening = panel.classList.contains('hidden');
+  // Close add if open
+  const ap = document.getElementById('shopAddPanel');
+  if (ap && !ap.classList.contains('hidden')) collapseShopAdd();
+  if (!opening) { clearShopSearch(); return; }
+  panel.classList.remove('hidden');
+  btn.classList.add('active');
+  requestAnimationFrame(() => document.getElementById('shopSearchInput')?.focus());
+}
+
+function collapseShopAdd() {
+  const panel = document.getElementById('shopAddPanel');
+  const btn   = document.getElementById('shopAddBtn');
+  if (panel) panel.classList.add('hidden');
+  if (btn)   btn.classList.remove('active');
+  hideSuggestions();
 }
 
 function toggleCatPicker(id) {

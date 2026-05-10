@@ -134,27 +134,37 @@
       <button class="shop-view-btn active" id="shopViewFull" onclick="setShopView('full')">Full List</button>
       <button class="shop-view-btn" id="shopViewNext" onclick="setShopView('next')">🛒 Next Run</button>
     </div>
-    <div class="shop-search-wrap">
-      <input class="shop-search-input" id="shopSearchInput" type="text" placeholder="Search items…" oninput="handleShopSearch()" autocomplete="off">
-      <button class="shop-search-clear hidden" id="shopSearchClear" onclick="clearShopSearch()">✕</button>
+    <div class="shop-toolbar">
+      <button class="shop-tb-add" id="shopAddBtn" onclick="toggleShopAdd()" title="Add item">+</button>
+      <div class="shop-toolbar-spacer"></div>
+      <div class="shop-actions-inline" id="shopActionsFull">
+        <button class="shop-action-btn" onclick="removeBought()">Remove Bought</button>
+        <button class="shop-action-btn" onclick="clearFull()">Clear Full</button>
+      </div>
+      <div class="shop-actions-inline hidden" id="shopActionsNext">
+        <button class="shop-action-btn danger" onclick="removeNext()">Remove Next</button>
+        <button class="shop-action-btn" onclick="clearNext()">Clear Next</button>
+      </div>
+      <button class="shop-tb-search" id="shopSearchBtn" onclick="toggleShopSearch()" title="Search">🔍</button>
     </div>
-    <div class="shop-actions" id="shopActionsFull">
-      <button class="shop-action-btn" onclick="removeBought()">Remove Bought</button>
-      <button class="shop-action-btn" onclick="clearFull()">Clear Full</button>
-    </div>
-    <div class="shop-actions hidden" id="shopActionsNext">
-      <button class="shop-action-btn danger" onclick="removeNext()">Remove Next</button>
-      <button class="shop-action-btn" onclick="clearNext()">Clear Next</button>
-    </div>
-    <div class="shop-add-wrap">
+    <div class="shop-add-panel hidden" id="shopAddPanel">
       <div class="shop-add-row">
-        <input class="shop-input" id="shopInput" type="text" placeholder="Add item..." 
-          oninput="handleShopInput()" 
-          onkeydown="if(event.key==='Enter')addShopItem()"
+        <input class="shop-input" id="shopInput" type="text" placeholder="Add item..."
+          oninput="handleShopInput()"
+          onkeydown="if(event.key==='Enter')addShopItem();else if(event.key==='Escape')collapseShopAdd()"
           autocomplete="off">
-        <button class="shop-add-btn" onclick="addShopItem()">+</button>
+        <button class="shop-add-btn" onclick="addShopItem()">Add</button>
       </div>
       <div class="shop-suggestions" id="shopSuggestions"></div>
+    </div>
+    <div class="shop-search-panel hidden" id="shopSearchPanel">
+      <div class="shop-search-wrap">
+        <input class="shop-search-input" id="shopSearchInput" type="text" placeholder="Search items…"
+          oninput="handleShopSearch()"
+          onkeydown="if(event.key==='Escape')clearShopSearch()"
+          autocomplete="off">
+        <button class="shop-search-clear hidden" id="shopSearchClear" onclick="clearShopSearch()">✕</button>
+      </div>
     </div>
     <div id="shopList"></div>
   </div>
