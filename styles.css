@@ -112,9 +112,13 @@ body::before {
 
 /* ── FILTER TABS ── */
 .filter-row {
+  position: sticky;
+  top: 137px; /* header(100) + nav-tabs(37) */
+  z-index: 99;
+  background: var(--bg);
   display: flex;
   gap: 6px;
-  padding: 0 16px 12px;
+  padding: 8px 16px 10px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -632,11 +636,12 @@ body::before {
 /* ── NAV TABS ── */
 .nav-tabs {
   display: flex;
-  background: var(--surface);
+  background: rgba(22, 19, 16, 0.98);
+  backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
   position: sticky;
-  top: 110px;
-  z-index: 99;
+  top: 100px; /* matches actual .app-header height (~100px) */
+  z-index: 100; /* was 99 — bumped to prevent animated cards bleeding through */
 }
 
 .nav-tab {
