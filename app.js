@@ -1008,6 +1008,22 @@ function resetState(recipeId) {
   try { localStorage.removeItem('fk_' + recipeId); } catch {}
 }
 
+// ─── CUSTOM RECIPES ─────────────────────────────────────────────────────────
+
+function getCustomRecipes() {
+  try {
+    return JSON.parse(localStorage.getItem('fk_custom_recipes') || '[]');
+  } catch { return []; }
+}
+
+function saveCustomRecipes(recipes) {
+  try { localStorage.setItem('fk_custom_recipes', JSON.stringify(recipes)); } catch {}
+}
+
+function getAllRecipes() {
+  return [...RECIPES, ...getCustomRecipes()];
+}
+
 // ─── FILTER & SEARCH ───────────────────────────────────────────────────────
 
 function setFilter(filter, btn) {
@@ -1167,6 +1183,7 @@ function renderRecipe(recipe) {
         <div class="recipe-footer">
           <button class="reset-btn" onclick="resetRecipe('${recipe.id}')">↺ Reset</button>
           <button class="complete-btn" onclick="markAllDone('${recipe.id}')">✓ Mark All Done</button>
+          ${recipe.custom ? `<button class="delete-custom-btn" onclick="deleteCustomRecipe('${recipe.id}')">🗑 Delete</button>` : ''}
         </div>
       </div>
     </div>
@@ -1183,7 +1200,7 @@ function renderAll() {
 
   if (showingAppliance || (activeFilter === 'all' && searchTerm)) {
     // Flat list by appliance or search — no category headers
-    const visible = RECIPES.filter(r => matchesFilter(r) && matchesSearch(r));
+    const visible = getAllRecipes().filter(r => matchesFilter(r) && matchesSearch(r));
     if (visible.length === 0) {
       html = `<div class="empty-state"><div class="emoji">🔍</div><p>No recipes found.<br>Try a different search or filter.</p></div>`;
     } else {
@@ -1194,7 +1211,7 @@ function renderAll() {
     // Categorized view
     CATEGORIES.forEach(cat => {
       if (activeFilter !== 'all' && activeFilter !== cat.key) return;
-      const visible = RECIPES.filter(r => r.category === cat.key && matchesSearch(r));
+      const visible = getAllRecipes().filter(r => r.category === cat.key && matchesSearch(r));
       if (visible.length === 0) return;
       anyVisible = true;
       html += `
@@ -1287,7 +1304,7 @@ function resetRecipe(recipeId) {
 }
 
 function markAllDone(recipeId) {
-  const recipe = RECIPES.find(r => r.id === recipeId);
+  const recipe = getAllRecipes().find(r => r.id === recipeId);
   if (!recipe) return;
   const state = getState(recipeId);
   recipe.ingredients.forEach((_, i) => state.ingredients[i] = true);
@@ -1331,7 +1348,7 @@ function saveRename(recipeId) {
   if (!input) return; // already processed (blur fires after Enter/Escape re-render)
   const newName = input.value.trim();
   const state = getState(recipeId);
-  const recipe = RECIPES.find(r => r.id === recipeId);
+  const recipe = getAllRecipes().find(r => r.id === recipeId);
   // Store custom name; null if blank or identical to original (revert)
   state.customName = (newName && newName !== (recipe ? recipe.name : '')) ? newName : null;
   saveState(recipeId, state);
@@ -1391,6 +1408,7 @@ function switchMainTab(tab) {
   document.getElementById('view-shop').classList.toggle('hidden', tab !== 'shop');
   document.getElementById('nav-recipes').classList.toggle('active', tab === 'recipes');
   document.getElementById('nav-shop').classList.toggle('active', tab === 'shop');
+  document.getElementById('addRecipeFab').classList.toggle('hidden', tab !== 'recipes');
   if (tab === 'shop') renderShopList();
 }
 
@@ -1743,6 +1761,154 @@ function preloadKeepList() {
 
   saveShopItems(items);
 }
+
+// ─── ADD RECIPE ─────────────────────────────────────────────────────────────
+
+function openAddRecipeForm() {
+  const modal = document.getElementById('addRecipeModal');
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  // Reset form fields
+  document.getElementById('rf-name').value = '';
+  document.getElementById('rf-category').value = '';
+  document.getElementById('rf-appliance').value = 'af';
+  document.getElementById('rf-time').value = '';
+  document.getElementById('rf-difficulty').value = 'Easy';
+  document.getElementById('rf-description').value = '';
+  document.getElementById('rf-notes').value = '';
+  // Clear dynamic rows and seed one of each
+  document.getElementById('rf-ingredients').innerHTML = '';
+  document.getElementById('rf-steps').innerHTML = '';
+  addIngredientRow();
+  addStepRow();
+  document.getElementById('rf-name').focus();
+}
+
+function closeAddRecipeForm() {
+  document.getElementById('addRecipeModal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function buildIngRow() {
+  const row = document.createElement('div');
+  row.className = 'dyn-row';
+  row.innerHTML = `
+    <input class="form-input dyn-amount" type="text" placeholder="Qty" autocomplete="off">
+    <input class="form-input dyn-item" type="text" placeholder="Ingredient" autocomplete="off">
+    <button type="button" class="dyn-remove" onclick="removeRow(this, false)">✕</button>
+  `;
+  return row;
+}
+
+function buildStepRow(num) {
+  const row = document.createElement('div');
+  row.className = 'dyn-row step-row';
+  row.innerHTML = `
+    <span class="step-num-label">${num}</span>
+    <textarea class="form-textarea dyn-step" rows="2" placeholder="Describe this step..."></textarea>
+    <button type="button" class="dyn-remove" onclick="removeRow(this, true)">✕</button>
+  `;
+  return row;
+}
+
+function addIngredientRow() {
+  const container = document.getElementById('rf-ingredients');
+  container.appendChild(buildIngRow());
+}
+
+function addStepRow() {
+  const container = document.getElementById('rf-steps');
+  const num = container.children.length + 1;
+  container.appendChild(buildStepRow(num));
+}
+
+function removeRow(btn, renumber) {
+  const row = btn.closest('.dyn-row');
+  const container = row.parentElement;
+  row.remove();
+  if (renumber) {
+    Array.from(container.querySelectorAll('.step-num-label')).forEach((el, i) => {
+      el.textContent = i + 1;
+    });
+  }
+}
+
+function saveNewRecipe() {
+  const name = document.getElementById('rf-name').value.trim();
+  const category = document.getElementById('rf-category').value;
+  if (!name) { alert('Please enter a recipe name.'); document.getElementById('rf-name').focus(); return; }
+  if (!category) { alert('Please select a category.'); document.getElementById('rf-category').focus(); return; }
+
+  // Collect ingredients
+  const ingRows = document.querySelectorAll('#rf-ingredients .dyn-row');
+  const ingredients = [];
+  ingRows.forEach(row => {
+    const amt = row.querySelector('.dyn-amount').value.trim();
+    const item = row.querySelector('.dyn-item').value.trim();
+    if (item) ingredients.push(amt ? `${amt} ${item}` : item);
+  });
+
+  // Collect steps
+  const stepRows = document.querySelectorAll('#rf-steps .dyn-row');
+  const steps = [];
+  stepRows.forEach(row => {
+    const text = row.querySelector('.dyn-step').value.trim();
+    if (text) steps.push(text);
+  });
+
+  const recipe = {
+    id: 'custom-' + Date.now(),
+    name,
+    emoji: '📝',
+    category,
+    appliance: document.getElementById('rf-appliance').value,
+    time: document.getElementById('rf-time').value.trim() || null,
+    difficulty: document.getElementById('rf-difficulty').value,
+    description: document.getElementById('rf-description').value.trim(),
+    ingredients,
+    steps,
+    notes: document.getElementById('rf-notes').value.trim(),
+    custom: true,
+  };
+
+  const customs = getCustomRecipes();
+  customs.push(recipe);
+  saveCustomRecipes(customs);
+
+  closeAddRecipeForm();
+  // Switch to the correct category filter so the new recipe is visible
+  activeFilter = category;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase().includes(category));
+  });
+  renderAll();
+
+  // Scroll to the new card
+  setTimeout(() => {
+    expandedCard = recipe.id;
+    renderAll();
+    setTimeout(() => {
+      const el = document.getElementById('card-' + recipe.id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  }, 80);
+}
+
+function deleteCustomRecipe(id) {
+  if (!confirm('Delete this recipe? This cannot be undone.')) return;
+  const customs = getCustomRecipes().filter(r => r.id !== id);
+  saveCustomRecipes(customs);
+  if (expandedCard === id) expandedCard = null;
+  renderAll();
+}
+
+// ESC closes the add-recipe modal
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('addRecipeModal');
+    if (modal && !modal.classList.contains('hidden')) closeAddRecipeForm();
+  }
+});
 
 // ─── BACK TO TOP ───────────────────────────────────────────────────────────
 
