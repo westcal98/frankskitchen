@@ -1102,11 +1102,55 @@ function renderRecipe(recipe) {
     </div>`;
   }).join('');
 
+  const timerPresets = getTimerPresets();
   const stepsList = recipe.steps.map((step, i) => {
     const checked = state.steps[i] ? 'checked' : '';
+    const tk = timerKey(recipe.id, i);
+    const dk = timerDomKey(recipe.id, i);
+    const ts = ACTIVE_TIMERS[tk];
+    const detectedSecs = parseStepTime(step);
+    const presetSecs = timerPresets[tk] !== undefined ? timerPresets[tk] : detectedSecs;
+
+    let timerZone;
+    if (ts && ts.running) {
+      timerZone = `
+        <div class="step-timer-row" id="timer-row-${dk}">
+          <div class="step-timer-display" id="timer-disp-${dk}">${formatTimerDisplay(ts.remaining)}</div>
+          <button class="timer-btn stop-btn" onclick="event.stopPropagation();stopTimer('${recipe.id}',${i})">■ Stop</button>
+        </div>`;
+    } else if (ts && ts.finished) {
+      timerZone = `
+        <div class="step-timer-row" id="timer-row-${dk}">
+          <div class="step-timer-display done" id="timer-disp-${dk}">00:00</div>
+          <button class="timer-btn again-btn" onclick="event.stopPropagation();startTimer('${recipe.id}',${i},${ts.total},${ts.isCustom})">↺ Again</button>
+          <button class="timer-btn stop-btn" onclick="event.stopPropagation();clearTimer('${recipe.id}',${i})">✕</button>
+        </div>`;
+    } else {
+      const presetBtn = presetSecs
+        ? `<button class="timer-btn preset-btn" onclick="event.stopPropagation();startTimer('${recipe.id}',${i},${presetSecs},false)">▶ ${formatTimerLabel(presetSecs)}</button>`
+        : '';
+      timerZone = `
+        <div class="step-timer-row" id="timer-row-${dk}">
+          ${presetBtn}
+          <button class="timer-btn custom-btn" onclick="event.stopPropagation();showCustomTimerInput('${recipe.id}',${i})">⏱ Custom</button>
+        </div>
+        <div class="step-timer-custom-row hidden" id="timer-custom-${dk}">
+          <input class="timer-custom-input" type="number" min="1" max="999" step="0.5" placeholder="min"
+            id="timer-custom-val-${dk}"
+            onclick="event.stopPropagation()"
+            oninput="event.stopPropagation()"
+            onkeydown="event.stopPropagation();if(event.key==='Enter')startCustomTimer('${recipe.id}',${i})">
+          <button class="timer-btn preset-btn" onclick="event.stopPropagation();startCustomTimer('${recipe.id}',${i})">▶ Start</button>
+          <button class="timer-btn stop-btn" onclick="event.stopPropagation();hideCustomTimerInput('${recipe.id}',${i})">✕</button>
+        </div>`;
+    }
+
     return `<div class="step-item ${checked}" onclick="toggleStep('${recipe.id}', ${i})">
       <div class="step-num"><span>${i + 1}</span></div>
-      <div class="step-text">${step}</div>
+      <div class="step-body">
+        <div class="step-text">${step}</div>
+        ${timerZone}
+      </div>
     </div>`;
   }).join('');
 
@@ -1909,6 +1953,175 @@ document.addEventListener('keydown', (e) => {
     if (modal && !modal.classList.contains('hidden')) closeAddRecipeForm();
   }
 });
+
+// ─── STEP TIMERS ────────────────────────────────────────────────────────────
+
+// In-memory timer state — survives re-renders, keyed by "recipeId:stepIndex"
+const ACTIVE_TIMERS = {};
+
+function getTimerPresets() {
+  try { return JSON.parse(localStorage.getItem('fk_timer_presets') || '{}'); } catch { return {}; }
+}
+function saveTimerPresets(obj) {
+  try { localStorage.setItem('fk_timer_presets', JSON.stringify(obj)); } catch {}
+}
+
+function timerKey(recipeId, stepIndex)    { return `${recipeId}:${stepIndex}`; }
+function timerDomKey(recipeId, stepIndex) { return `${recipeId}__${stepIndex}`; }
+
+function parseStepTime(text) {
+  const t = text.toLowerCase();
+  // "1 hour 30 min"
+  const hmMatch = t.match(/(\d+)\s*hours?\s*(?:and\s*)?(\d+)\s*min/);
+  if (hmMatch) return (+hmMatch[1] * 3600) + (+hmMatch[2] * 60);
+  // "2 hours"
+  const hMatch = t.match(/(\d+)\s*hours?(?!\s*\d)/);
+  if (hMatch) return +hMatch[1] * 3600;
+  // "8-10 minutes" → first number
+  const rangeMatch = t.match(/(\d+)[-–](\d+)\s*min/);
+  if (rangeMatch) return +rangeMatch[1] * 60;
+  // "12 minutes" / "1.5 min"
+  const minMatch = t.match(/(\d+(?:\.\d+)?)\s*min/);
+  if (minMatch) return Math.round(+minMatch[1] * 60);
+  // "30 seconds"
+  const secMatch = t.match(/(\d+)\s*sec/);
+  if (secMatch) return +secMatch[1];
+  return null;
+}
+
+function formatTimerLabel(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s ? `${m}m ${s}s` : `${m} min`;
+}
+
+function formatTimerDisplay(seconds) {
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const s = (seconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const tone = (freq, start, dur) => {
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.frequency.value = freq; osc.type = 'sine';
+      g.gain.setValueAtTime(0.4, ctx.currentTime + start);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    };
+    tone(880,  0,    0.15);
+    tone(880,  0.22, 0.15);
+    tone(1320, 0.44, 0.45);
+  } catch(e) {}
+}
+
+function startTimer(recipeId, stepIndex, seconds, isCustom) {
+  const key = timerKey(recipeId, stepIndex);
+  if (ACTIVE_TIMERS[key]) clearInterval(ACTIVE_TIMERS[key].interval);
+  ACTIVE_TIMERS[key] = {
+    total: seconds, remaining: seconds,
+    running: true, finished: false,
+    isCustom: !!isCustom, savedPreset: false,
+    interval: null,
+  };
+  ACTIVE_TIMERS[key].interval = setInterval(() => timerTick(recipeId, stepIndex), 1000);
+  renderAll();
+}
+
+function timerTick(recipeId, stepIndex) {
+  const key = timerKey(recipeId, stepIndex);
+  const t = ACTIVE_TIMERS[key];
+  if (!t || !t.running) return;
+  t.remaining = Math.max(0, t.remaining - 1);
+  // Direct DOM update — no re-render needed
+  const el = document.getElementById('timer-disp-' + timerDomKey(recipeId, stepIndex));
+  if (el) el.textContent = formatTimerDisplay(t.remaining);
+  if (t.remaining <= 0) timerDone(recipeId, stepIndex);
+}
+
+function timerDone(recipeId, stepIndex) {
+  const key = timerKey(recipeId, stepIndex);
+  const t = ACTIVE_TIMERS[key];
+  if (!t) return;
+  clearInterval(t.interval);
+  t.running = false; t.finished = true;
+
+  // Alert: sound + vibration
+  playBeep();
+  try { if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]); } catch(e) {}
+
+  // Update button row in place — avoid full re-render mid-animation
+  const dk = timerDomKey(recipeId, stepIndex);
+  const rowEl = document.getElementById('timer-row-' + dk);
+  if (rowEl) {
+    rowEl.innerHTML = `
+      <div class="step-timer-display done" id="timer-disp-${dk}">00:00</div>
+      <button class="timer-btn again-btn" onclick="event.stopPropagation();startTimer('${recipeId}',${stepIndex},${t.total},${t.isCustom})">↺ Again</button>
+      <button class="timer-btn stop-btn"  onclick="event.stopPropagation();clearTimer('${recipeId}',${stepIndex})">✕</button>`;
+  }
+
+  if (t.isCustom && !t.savedPreset) {
+    setTimeout(() => promptSavePreset(recipeId, stepIndex, t.total), 400);
+  }
+}
+
+function stopTimer(recipeId, stepIndex) {
+  const key = timerKey(recipeId, stepIndex);
+  const t = ACTIVE_TIMERS[key];
+  if (!t) return;
+  clearInterval(t.interval);
+  const { isCustom, savedPreset, total } = t;
+  delete ACTIVE_TIMERS[key];
+  renderAll();
+  if (isCustom && !savedPreset) {
+    setTimeout(() => promptSavePreset(recipeId, stepIndex, total), 100);
+  }
+}
+
+function clearTimer(recipeId, stepIndex) {
+  const key = timerKey(recipeId, stepIndex);
+  if (ACTIVE_TIMERS[key]) { clearInterval(ACTIVE_TIMERS[key].interval); delete ACTIVE_TIMERS[key]; }
+  renderAll();
+}
+
+function showCustomTimerInput(recipeId, stepIndex) {
+  const dk = timerDomKey(recipeId, stepIndex);
+  const el = document.getElementById('timer-custom-' + dk);
+  if (!el) return;
+  el.classList.remove('hidden');
+  const inp = document.getElementById('timer-custom-val-' + dk);
+  if (inp) { inp.focus(); inp.select(); }
+}
+
+function hideCustomTimerInput(recipeId, stepIndex) {
+  const el = document.getElementById('timer-custom-' + timerDomKey(recipeId, stepIndex));
+  if (el) el.classList.add('hidden');
+}
+
+function startCustomTimer(recipeId, stepIndex) {
+  const inp = document.getElementById('timer-custom-val-' + timerDomKey(recipeId, stepIndex));
+  if (!inp) return;
+  const mins = parseFloat(inp.value);
+  if (!mins || mins <= 0) { inp.focus(); return; }
+  startTimer(recipeId, stepIndex, Math.round(mins * 60), true);
+}
+
+function promptSavePreset(recipeId, stepIndex, totalSeconds) {
+  const label = formatTimerLabel(totalSeconds);
+  if (confirm(`Save ${label} as the preset for this step?`)) {
+    const presets = getTimerPresets();
+    presets[timerKey(recipeId, stepIndex)] = totalSeconds;
+    saveTimerPresets(presets);
+    const t = ACTIVE_TIMERS[timerKey(recipeId, stepIndex)];
+    if (t) t.savedPreset = true;
+  }
+}
 
 // ─── BACK TO TOP ───────────────────────────────────────────────────────────
 
