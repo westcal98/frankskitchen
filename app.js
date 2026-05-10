@@ -1035,7 +1035,9 @@ function matchesFilter(recipe) {
 
 function matchesSearch(recipe) {
   if (!searchTerm) return true;
+  const customName = (getState(recipe.id).customName || '').toLowerCase();
   return recipe.name.toLowerCase().includes(searchTerm) ||
+    customName.includes(searchTerm) ||
     recipe.description.toLowerCase().includes(searchTerm) ||
     recipe.ingredients.some(i => i.toLowerCase().includes(searchTerm));
 }
@@ -1065,6 +1067,7 @@ function renderRecipe(recipe) {
   const state = getState(recipe.id);
   const isExpanded = expandedCard === recipe.id;
   const tab = activeTab[recipe.id] || 'ingredients';
+  const displayName = state.customName || recipe.name;
   const baseServings = RECIPE_SERVINGS[recipe.id] || 2;
   const currentServings = state.servings != null ? state.servings : baseServings;
   const ratio = currentServings / baseServings;
@@ -1096,7 +1099,10 @@ function renderRecipe(recipe) {
       <div class="recipe-card-header" onclick="toggleCard('${recipe.id}')">
         <div class="recipe-emoji">${recipe.emoji}</div>
         <div class="recipe-header-text">
-          <div class="recipe-name">${recipe.name}</div>
+          <div class="recipe-name-wrap">
+            <div class="recipe-name">${displayName}</div>
+            <button class="rename-btn" onclick="event.stopPropagation();startRename('${recipe.id}')" title="Rename recipe">✏️</button>
+          </div>
           <div class="recipe-meta">
             ${applianceTag(recipe.appliance)}
             <span class="meta-tag tag-time">⏱ ${recipe.time}</span>
@@ -1274,6 +1280,7 @@ function resetRecipe(recipeId) {
     state.ingredients = {};
     state.steps = {};
     state.servings = null;
+    state.customName = null;
     saveState(recipeId, state);
     renderAll();
   }
@@ -1285,6 +1292,48 @@ function markAllDone(recipeId) {
   const state = getState(recipeId);
   recipe.ingredients.forEach((_, i) => state.ingredients[i] = true);
   recipe.steps.forEach((_, i) => state.steps[i] = true);
+  saveState(recipeId, state);
+  renderAll();
+}
+
+// ─── RENAME RECIPE ─────────────────────────────────────────────────────────
+
+function startRename(recipeId) {
+  const card = document.getElementById('card-' + recipeId);
+  if (!card) return;
+  const nameEl = card.querySelector('.recipe-name');
+  const pencilBtn = card.querySelector('.rename-btn');
+  if (!nameEl || !pencilBtn) return;
+  const currentName = nameEl.textContent.trim();
+  pencilBtn.style.display = 'none';
+  // Swap name div for an inline input
+  nameEl.outerHTML = `<input class="rename-input" id="rename-${recipeId}"
+    value="${currentName.replace(/"/g, '&quot;')}"
+    onkeydown="handleRenameKey(event,'${recipeId}')"
+    onblur="saveRename('${recipeId}')"
+    onclick="event.stopPropagation()">`;
+  const input = document.getElementById('rename-' + recipeId);
+  if (input) { input.focus(); input.select(); }
+}
+
+function handleRenameKey(event, recipeId) {
+  event.stopPropagation();
+  if (event.key === 'Enter')  { event.preventDefault(); saveRename(recipeId); }
+  if (event.key === 'Escape') { event.preventDefault(); cancelRename(recipeId); }
+}
+
+function cancelRename(recipeId) {
+  renderAll();
+}
+
+function saveRename(recipeId) {
+  const input = document.getElementById('rename-' + recipeId);
+  if (!input) return; // already processed (blur fires after Enter/Escape re-render)
+  const newName = input.value.trim();
+  const state = getState(recipeId);
+  const recipe = RECIPES.find(r => r.id === recipeId);
+  // Store custom name; null if blank or identical to original (revert)
+  state.customName = (newName && newName !== (recipe ? recipe.name : '')) ? newName : null;
   saveState(recipeId, state);
   renderAll();
 }
