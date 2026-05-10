@@ -16,7 +16,10 @@
 <header class="app-header">
   <div class="header-top">
     <div class="app-title">Frank's <span>Kitchen</span></div>
-    <div class="header-badge">Chef IQ + Ninja AF</div>
+    <div class="header-right">
+      <div class="header-badge">Chef IQ + Ninja AF</div>
+      <button class="settings-gear-btn" onclick="openSettings()" title="Settings">⚙</button>
+    </div>
   </div>
   <div class="search-wrap">
     <input class="search-input" type="text" placeholder="Search recipes..." id="searchInput" oninput="handleSearch()">
@@ -144,6 +147,45 @@
     <div id="shopList"></div>
   </div>
 </div>
+<!-- ── SETTINGS PANEL ── -->
+<div id="settingsPanel" class="settings-overlay hidden" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-sheet">
+    <div class="settings-header">
+      <div class="settings-title">Settings</div>
+      <button class="modal-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="settings-body">
+      <div class="settings-section-label">Backup &amp; Restore</div>
+      <button class="settings-row" onclick="exportData()">
+        <span class="settings-row-icon">⬇</span>
+        <div class="settings-row-text">
+          <div class="settings-row-title">Export Data</div>
+          <div class="settings-row-sub">Download recipes, notes &amp; shopping list as JSON</div>
+        </div>
+      </button>
+      <label class="settings-row" for="importFileInput">
+        <span class="settings-row-icon">⬆</span>
+        <div class="settings-row-text">
+          <div class="settings-row-title">Import Data</div>
+          <div class="settings-row-sub">Restore from a backup JSON file</div>
+        </div>
+        <input type="file" id="importFileInput" accept=".json" style="display:none"
+          onchange="importData(this.files[0]);this.value=''">
+      </label>
+      <button class="settings-row" onclick="exportPhotos()">
+        <span class="settings-row-icon">📷</span>
+        <div class="settings-row-text">
+          <div class="settings-row-title">Export Photos</div>
+          <div class="settings-row-sub">Download all recipe photos as a zip</div>
+        </div>
+      </button>
+      <div class="settings-divider"></div>
+      <div class="settings-section-label">Storage</div>
+      <div class="settings-storage-row" id="storageUsage">Checking…</div>
+    </div>
+  </div>
+</div>
+
 <script src="app.js"></script>
 </body>
 </html>

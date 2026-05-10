@@ -993,35 +993,183 @@ let searchTerm = '';
 let expandedCard = null;
 let activeTab = {};
 
+// In-memory cache for all persisted data — loaded from IndexedDB at startup.
+// All reads are synchronous (from cache); writes update cache + fire async IDB write.
+const DB_CACHE = {
+  recipe_states:  {},  // { recipeId: stateObj }
+  custom_recipes: [],  // array of user-created recipe objects
+  shoplist:       [],  // array of shopping list item objects
+  memory:         [],  // user-added autocomplete strings
+  timer_presets:  {},  // { "recipeId:stepIndex": seconds }
+};
+
 function getState(recipeId) {
-  try {
-    const raw = localStorage.getItem('fk_' + recipeId);
-    return raw ? JSON.parse(raw) : { ingredients: {}, steps: {}, notes: '', servings: null };
-  } catch { return { ingredients: {}, steps: {}, notes: '', servings: null }; }
+  return DB_CACHE.recipe_states[recipeId]
+    || { ingredients: {}, steps: {}, notes: '', servings: null };
 }
 
 function saveState(recipeId, state) {
-  try { localStorage.setItem('fk_' + recipeId, JSON.stringify(state)); } catch {}
+  DB_CACHE.recipe_states[recipeId] = state;
+  _idbPut('recipe_states', recipeId, state);
 }
 
 function resetState(recipeId) {
-  try { localStorage.removeItem('fk_' + recipeId); } catch {}
+  delete DB_CACHE.recipe_states[recipeId];
+  _idbDel('recipe_states', recipeId);
 }
 
 // ─── CUSTOM RECIPES ─────────────────────────────────────────────────────────
 
 function getCustomRecipes() {
-  try {
-    return JSON.parse(localStorage.getItem('fk_custom_recipes') || '[]');
-  } catch { return []; }
+  return DB_CACHE.custom_recipes;
 }
 
 function saveCustomRecipes(recipes) {
-  try { localStorage.setItem('fk_custom_recipes', JSON.stringify(recipes)); } catch {}
+  DB_CACHE.custom_recipes = recipes;
+  _idbPut('kv', 'custom_recipes', recipes);
 }
 
 function getAllRecipes() {
   return [...RECIPES, ...getCustomRecipes()];
+}
+
+// ─── MAIN DATABASE (IndexedDB) ──────────────────────────────────────────────
+// DB: "fk_store"   Stores: "kv" (keyed values) + "recipe_states" (per-recipe)
+// DB_CACHE is always the source of truth for reads. Writes go to cache first,
+// then fire-and-forget to IDB. Falls back to localStorage if IDB unavailable.
+
+let _db = null;
+const _DB_NAME = 'fk_store';
+const _DB_VER  = 1;
+
+function _openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(_DB_NAME, _DB_VER);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('kv'))            db.createObjectStore('kv');
+      if (!db.objectStoreNames.contains('recipe_states')) db.createObjectStore('recipe_states');
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = ()  => reject(req.error);
+  });
+}
+
+function _idbPut(store, key, value) {
+  if (!_db) { try { localStorage.setItem('fk_' + key, JSON.stringify(value)); } catch(e) {} return; }
+  try { _db.transaction(store, 'readwrite').objectStore(store).put(value, key); } catch(e) {}
+}
+
+function _idbDel(store, key) {
+  if (!_db) { try { localStorage.removeItem('fk_' + key); } catch(e) {} return; }
+  try { _db.transaction(store, 'readwrite').objectStore(store).delete(key); } catch(e) {}
+}
+
+function _idbGet(store, key) {
+  return new Promise(resolve => {
+    if (!_db) { resolve(undefined); return; }
+    const req = _db.transaction(store, 'readonly').objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => resolve(undefined);
+  });
+}
+
+function _idbCursor(store, cb) {
+  return new Promise(resolve => {
+    if (!_db) { resolve(); return; }
+    const tx  = _db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).openCursor();
+    req.onsuccess = e => { const c = e.target.result; if (c) { cb(c.key, c.value); c.continue(); } };
+    tx.oncomplete = resolve;
+    tx.onerror    = resolve;
+  });
+}
+
+async function initDB() {
+  try {
+    _db = await _openDB();
+
+    // ── Load recipe states ──────────────────────────────────────────────────
+    await _idbCursor('recipe_states', (key, val) => { DB_CACHE.recipe_states[key] = val; });
+
+    // ── Load kv entries ─────────────────────────────────────────────────────
+    const custom = await _idbGet('kv', 'custom_recipes');
+    if (custom) DB_CACHE.custom_recipes = custom;
+
+    const shop = await _idbGet('kv', 'shoplist');
+    if (shop)   DB_CACHE.shoplist = shop;
+
+    const mem = await _idbGet('kv', 'memory');
+    if (mem) {
+      DB_CACHE.memory = mem;
+      MEMORY_BANK = [...new Set([...MEMORY_BANK, ...mem])];
+    }
+
+    const tp = await _idbGet('kv', 'timer_presets');
+    if (tp) DB_CACHE.timer_presets = tp;
+
+    // ── One-time migration from localStorage ────────────────────────────────
+    const lsKeys = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k) lsKeys.push(k); }
+
+    for (const k of lsKeys) {
+      if (!k.startsWith('fk_')) continue;
+
+      if (k === 'fk_custom_recipes' && !DB_CACHE.custom_recipes.length) {
+        try { const d = JSON.parse(localStorage.getItem(k)); if (d && d.length) { DB_CACHE.custom_recipes = d; _idbPut('kv', 'custom_recipes', d); } } catch(e) {}
+        continue;
+      }
+      if (k === 'fk_shoplist' && !DB_CACHE.shoplist.length) {
+        try { const d = JSON.parse(localStorage.getItem(k)); if (d && d.length) { DB_CACHE.shoplist = d; _idbPut('kv', 'shoplist', d); } } catch(e) {}
+        continue;
+      }
+      if (k === 'fk_memory' && !DB_CACHE.memory.length) {
+        try {
+          const d = JSON.parse(localStorage.getItem(k));
+          if (d && d.length) { DB_CACHE.memory = d; MEMORY_BANK = [...new Set([...MEMORY_BANK, ...d])]; _idbPut('kv', 'memory', d); }
+        } catch(e) {}
+        continue;
+      }
+      if (k === 'fk_timer_presets' && !Object.keys(DB_CACHE.timer_presets).length) {
+        try { const d = JSON.parse(localStorage.getItem(k)); if (d && Object.keys(d).length) { DB_CACHE.timer_presets = d; _idbPut('kv', 'timer_presets', d); } } catch(e) {}
+        continue;
+      }
+      // Per-recipe state
+      if (!k.startsWith('fk_shop') && k !== 'fk_custom_recipes' && k !== 'fk_timer_presets' && k !== 'fk_memory') {
+        const rid = k.slice(3);
+        if (DB_CACHE.recipe_states[rid]) continue;
+        try {
+          const d = JSON.parse(localStorage.getItem(k));
+          if (d && typeof d === 'object') {
+            delete d.photo; // photos live in their own DB (initPhotos)
+            DB_CACHE.recipe_states[rid] = d;
+            _idbPut('recipe_states', rid, d);
+          }
+        } catch(e) {}
+      }
+    }
+
+  } catch(e) {
+    console.warn('IndexedDB unavailable — using localStorage fallback:', e);
+    _loadFromLocalStorage();
+  }
+
+  // preloadKeepList runs here so it sees the real shoplist from DB_CACHE
+  preloadKeepList();
+}
+
+function _loadFromLocalStorage() {
+  try { const d = JSON.parse(localStorage.getItem('fk_custom_recipes')); if (d) DB_CACHE.custom_recipes = d; } catch(e) {}
+  try { const d = JSON.parse(localStorage.getItem('fk_shoplist'));       if (d) DB_CACHE.shoplist = d;       } catch(e) {}
+  try { const d = JSON.parse(localStorage.getItem('fk_memory')); if (d) { DB_CACHE.memory = d; MEMORY_BANK = [...new Set([...MEMORY_BANK, ...d])]; } } catch(e) {}
+  try { const d = JSON.parse(localStorage.getItem('fk_timer_presets'));  if (d) DB_CACHE.timer_presets = d;  } catch(e) {}
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith('fk_') || k.startsWith('fk_shop') ||
+        k === 'fk_custom_recipes' || k === 'fk_timer_presets' || k === 'fk_memory') continue;
+    try { const d = JSON.parse(localStorage.getItem(k)); if (d && typeof d === 'object') { delete d.photo; DB_CACHE.recipe_states[k.slice(3)] = d; } } catch(e) {}
+  }
+  preloadKeepList();
 }
 
 // ─── FILTER & SEARCH ───────────────────────────────────────────────────────
@@ -1508,37 +1656,25 @@ let MEMORY_BANK = [
   'Paper towels','Dawn dish soap','Downy detergent','Bathroom scale',
 ];
 
-// Load saved memory from localStorage
-function loadMemory() {
-  try {
-    const saved = localStorage.getItem('fk_memory');
-    if (saved) {
-      const extra = JSON.parse(saved);
-      MEMORY_BANK = [...new Set([...MEMORY_BANK, ...extra])];
-    }
-  } catch {}
-}
+// loadMemory is a no-op — memory is now loaded inside initDB()
+function loadMemory() {}
 
 function saveToMemory(name) {
-  try {
-    const saved = JSON.parse(localStorage.getItem('fk_memory') || '[]');
-    if (!saved.includes(name)) {
-      saved.push(name);
-      localStorage.setItem('fk_memory', JSON.stringify(saved));
-      MEMORY_BANK = [...new Set([...MEMORY_BANK, name])];
-    }
-  } catch {}
+  if (!DB_CACHE.memory.includes(name)) {
+    DB_CACHE.memory.push(name);
+    MEMORY_BANK = [...new Set([...MEMORY_BANK, name])];
+    _idbPut('kv', 'memory', DB_CACHE.memory);
+  }
 }
 
 // Shopping list state
 function getShopItems() {
-  try {
-    return JSON.parse(localStorage.getItem('fk_shoplist') || '[]');
-  } catch { return []; }
+  return DB_CACHE.shoplist;
 }
 
 function saveShopItems(items) {
-  try { localStorage.setItem('fk_shoplist', JSON.stringify(items)); } catch {}
+  DB_CACHE.shoplist = items;
+  _idbPut('kv', 'shoplist', items);
 }
 
 function guessCategory(name) {
@@ -2076,10 +2212,11 @@ document.addEventListener('keydown', (e) => {
 const ACTIVE_TIMERS = {};
 
 function getTimerPresets() {
-  try { return JSON.parse(localStorage.getItem('fk_timer_presets') || '{}'); } catch { return {}; }
+  return DB_CACHE.timer_presets;
 }
 function saveTimerPresets(obj) {
-  try { localStorage.setItem('fk_timer_presets', JSON.stringify(obj)); } catch {}
+  DB_CACHE.timer_presets = obj;
+  _idbPut('kv', 'timer_presets', obj);
 }
 
 function timerKey(recipeId, stepIndex)    { return `${recipeId}:${stepIndex}`; }
@@ -2239,6 +2376,140 @@ function promptSavePreset(recipeId, stepIndex, totalSeconds) {
   }
 }
 
+// ─── SETTINGS ────────────────────────────────────────────────────────────────
+
+function openSettings() {
+  document.getElementById('settingsPanel').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  updateStorageDisplay();
+}
+
+function closeSettings() {
+  document.getElementById('settingsPanel').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+async function updateStorageDisplay() {
+  const el = document.getElementById('storageUsage');
+  if (!el) return;
+  try {
+    if (navigator.storage && navigator.storage.estimate) {
+      const { usage, quota } = await navigator.storage.estimate();
+      const usedMB   = (usage  / 1024 / 1024).toFixed(1);
+      const quotaStr = quota > 1e9
+        ? (quota / 1024 / 1024 / 1024).toFixed(1) + ' GB'
+        : (quota / 1024 / 1024).toFixed(0)         + ' MB';
+      el.textContent = `Using ${usedMB} MB of ~${quotaStr} available`;
+    } else {
+      el.textContent = 'Storage info unavailable in this browser';
+    }
+  } catch(e) { el.textContent = 'Storage info unavailable'; }
+}
+
+function exportData() {
+  const payload = {
+    version:        1,
+    exportedAt:     new Date().toISOString(),
+    custom_recipes: DB_CACHE.custom_recipes,
+    recipe_states:  DB_CACHE.recipe_states,
+    shoplist:       DB_CACHE.shoplist,
+    memory:         DB_CACHE.memory,
+    timer_presets:  DB_CACHE.timer_presets,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href:     url,
+    download: `frankskitchen-backup-${new Date().toISOString().slice(0,10)}.json`,
+  });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function importData(file) {
+  if (!file) return;
+  try {
+    const payload = JSON.parse(await file.text());
+    if (!payload || !payload.version) { alert("Not a valid Frank's Kitchen backup file."); return; }
+
+    if (Array.isArray(payload.custom_recipes)) {
+      DB_CACHE.custom_recipes = payload.custom_recipes;
+      _idbPut('kv', 'custom_recipes', payload.custom_recipes);
+    }
+    if (payload.recipe_states && typeof payload.recipe_states === 'object') {
+      for (const [id, st] of Object.entries(payload.recipe_states)) {
+        DB_CACHE.recipe_states[id] = st;
+        _idbPut('recipe_states', id, st);
+      }
+    }
+    if (Array.isArray(payload.shoplist)) {
+      DB_CACHE.shoplist = payload.shoplist;
+      _idbPut('kv', 'shoplist', payload.shoplist);
+    }
+    if (Array.isArray(payload.memory)) {
+      DB_CACHE.memory = payload.memory;
+      MEMORY_BANK = [...new Set([...MEMORY_BANK, ...payload.memory])];
+      _idbPut('kv', 'memory', payload.memory);
+    }
+    if (payload.timer_presets && typeof payload.timer_presets === 'object') {
+      DB_CACHE.timer_presets = payload.timer_presets;
+      _idbPut('kv', 'timer_presets', payload.timer_presets);
+    }
+    renderAll();
+    alert('✓ Import successful!');
+  } catch(e) { alert('Import failed: ' + e.message); }
+}
+
+async function exportPhotos() {
+  const entries = Object.entries(PHOTO_CACHE);
+  if (!entries.length) { alert('No photos to export.'); return; }
+
+  // Load JSZip on-demand (only when user requests this feature)
+  try {
+    await new Promise((resolve, reject) => {
+      if (window.JSZip) { resolve(); return; }
+      const s = Object.assign(document.createElement('script'), {
+        src:     'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+        onload:  resolve,
+        onerror: reject,
+      });
+      document.head.appendChild(s);
+    });
+
+    const zip    = new JSZip();
+    const folder = zip.folder('photos');
+    for (const [recipeId, dataUrl] of entries) {
+      const base64 = dataUrl.split(',')[1];
+      const ext    = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
+      folder.file(`${recipeId}.${ext}`, base64, { base64: true });
+    }
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), {
+      href:     url,
+      download: `frankskitchen-photos-${new Date().toISOString().slice(0,10)}.zip`,
+    });
+    a.click();
+    URL.revokeObjectURL(url);
+
+  } catch(e) {
+    // JSZip unavailable (offline) — fall back to individual downloads
+    if (!confirm(`Could not load zip library. Download ${entries.length} photo(s) individually?`)) return;
+    for (const [recipeId, dataUrl] of entries) {
+      const ext = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
+      Object.assign(document.createElement('a'), { href: dataUrl, download: `${recipeId}.${ext}` }).click();
+      await new Promise(r => setTimeout(r, 350));
+    }
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const sp = document.getElementById('settingsPanel');
+    if (sp && !sp.classList.contains('hidden')) { closeSettings(); return; }
+  }
+});
+
 // ─── BACK TO TOP ───────────────────────────────────────────────────────────
 
 window.addEventListener('scroll', () => {
@@ -2247,10 +2518,10 @@ window.addEventListener('scroll', () => {
 });
 
 // ─── INIT ──────────────────────────────────────────────────────────────────
+// initDB  — loads all app data into DB_CACHE from IndexedDB (migrates from
+//            localStorage on first run), then calls preloadKeepList().
+// initPhotos — loads photos into PHOTO_CACHE from the photo IndexedDB.
+// Both must complete before the first renderAll().
 
-loadMemory();
-preloadKeepList();
-// initPhotos loads IndexedDB photos into PHOTO_CACHE before first render
-// so photos are already in memory when renderRecipe() runs.
-initPhotos().then(renderAll).catch(renderAll);
+Promise.all([initDB(), initPhotos()]).then(renderAll).catch(renderAll);
 
