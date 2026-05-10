@@ -302,6 +302,26 @@ body::before {
 .tag-easy { background: #1a2a1a; color: #70c570; }
 .tag-medium { background: #2a2010; color: #d4a050; }
 
+.star-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--muted2);
+  padding: 2px 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: 3px;
+  transition: transform 0.15s, color 0.15s;
+  opacity: 0.45;
+}
+.star-btn.favorited {
+  color: var(--gold);
+  opacity: 1;
+}
+.star-btn:hover { opacity: 1; transform: scale(1.2); }
+
 .recipe-chevron {
   font-size: 18px;
   color: var(--muted);

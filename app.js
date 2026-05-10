@@ -1000,6 +1000,7 @@ const DB_CACHE = {
   recipe_states:    {},  // { recipeId: stateObj }
   custom_recipes:   [],  // array of user-created recipe objects
   deleted_recipes:  [],  // IDs of built-in recipes the user has deleted
+  favorites:        [],  // IDs of favorited recipes
   shoplist:         [],  // array of shopping list item objects
   memory:           [],  // user-added autocomplete strings
   timer_presets:    {},  // { "recipeId:stepIndex": seconds }
@@ -1035,6 +1036,34 @@ function getAllRecipes() {
   const deleted = DB_CACHE.deleted_recipes;
   const builtIn = deleted.length ? RECIPES.filter(r => !deleted.includes(r.id)) : RECIPES;
   return [...builtIn, ...getCustomRecipes()];
+}
+
+// ─── FAVORITES ───────────────────────────────────────────────────────────────
+
+function isFavorited(id) {
+  return DB_CACHE.favorites.includes(id);
+}
+
+function saveFavorites(arr) {
+  DB_CACHE.favorites = arr;
+  _idbPut('kv', 'favorites', arr);
+}
+
+function toggleFavorite(id) {
+  const favs = DB_CACHE.favorites.slice();
+  const idx = favs.indexOf(id);
+  if (idx === -1) favs.push(id); else favs.splice(idx, 1);
+  saveFavorites(favs);
+  // Re-render just this card's star without a full renderAll
+  const btn = document.getElementById('star-' + id);
+  if (btn) {
+    const nowFav = isFavorited(id);
+    btn.textContent = nowFav ? '★' : '☆';
+    btn.classList.toggle('favorited', nowFav);
+    btn.title = nowFav ? 'Remove from favorites' : 'Add to favorites';
+  }
+  // If favorites filter is active, a full re-render is needed to show/hide the card
+  if (activeFilter === 'favorites') renderAll();
 }
 
 // ─── MAIN DATABASE (IndexedDB) ──────────────────────────────────────────────
@@ -1120,6 +1149,9 @@ async function initDB() {
     const dr = await _idbGet('kv', 'deleted_recipes');
     if (dr) DB_CACHE.deleted_recipes = dr;
 
+    const fav = await _idbGet('kv', 'favorites');
+    if (fav) DB_CACHE.favorites = fav;
+
     // ── One-time migration from localStorage ────────────────────────────────
     const lsKeys = [];
     for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k) lsKeys.push(k); }
@@ -1200,6 +1232,7 @@ function handleSearch() {
 
 function matchesFilter(recipe) {
   if (activeFilter === 'all') return true;
+  if (activeFilter === 'favorites') return isFavorited(recipe.id);
   if (activeFilter === 'breakfast' || activeFilter === 'lunch' || activeFilter === 'dinner' || activeFilter === 'dessert') {
     return recipe.category === activeFilter;
   }
@@ -1329,6 +1362,10 @@ function renderRecipe(recipe) {
             ${difficultyTag(recipe.difficulty)}
           </div>
         </div>
+        <button class="star-btn ${isFavorited(recipe.id) ? 'favorited' : ''}" id="star-${recipe.id}"
+          onclick="event.stopPropagation();toggleFavorite('${recipe.id}')"
+          title="${isFavorited(recipe.id) ? 'Remove from favorites' : 'Add to favorites'}"
+        >${isFavorited(recipe.id) ? '★' : '☆'}</button>
         <div class="recipe-chevron">▾</div>
       </div>
       <div class="recipe-body">
@@ -1404,11 +1441,14 @@ function renderAll() {
   const showingCategory = ['breakfast', 'lunch', 'dinner', 'dessert'].includes(activeFilter);
   const showingAppliance = ['af', 'pc', 'combo'].includes(activeFilter);
 
-  if (showingAppliance || (activeFilter === 'all' && searchTerm)) {
-    // Flat list by appliance or search — no category headers
+  if (showingAppliance || activeFilter === 'favorites' || (activeFilter === 'all' && searchTerm)) {
+    // Flat list by appliance, favorites, or search — no category headers
     const visible = getAllRecipes().filter(r => matchesFilter(r) && matchesSearch(r));
     if (visible.length === 0) {
-      html = `<div class="empty-state"><div class="emoji">🔍</div><p>No recipes found.<br>Try a different search or filter.</p></div>`;
+      const emptyMsg = activeFilter === 'favorites'
+        ? `<div class="empty-state"><div class="emoji">⭐</div><p>No favorites yet.<br>Tap ☆ on any recipe to add it here.</p></div>`
+        : `<div class="empty-state"><div class="emoji">🔍</div><p>No recipes found.<br>Try a different search or filter.</p></div>`;
+      html = emptyMsg;
     } else {
       html = `<div class="recipe-grid">${visible.map(renderRecipe).join('')}</div>`;
       anyVisible = true;
@@ -2529,6 +2569,7 @@ function exportData() {
     exportedAt:       new Date().toISOString(),
     custom_recipes:   DB_CACHE.custom_recipes,
     deleted_recipes:  DB_CACHE.deleted_recipes,
+    favorites:        DB_CACHE.favorites,
     recipe_states:    DB_CACHE.recipe_states,
     shoplist:         DB_CACHE.shoplist,
     memory:           DB_CACHE.memory,
@@ -2557,6 +2598,10 @@ async function importData(file) {
     if (Array.isArray(payload.deleted_recipes)) {
       DB_CACHE.deleted_recipes = payload.deleted_recipes;
       _idbPut('kv', 'deleted_recipes', payload.deleted_recipes);
+    }
+    if (Array.isArray(payload.favorites)) {
+      DB_CACHE.favorites = payload.favorites;
+      _idbPut('kv', 'favorites', payload.favorites);
     }
     if (payload.recipe_states && typeof payload.recipe_states === 'object') {
       for (const [id, st] of Object.entries(payload.recipe_states)) {
