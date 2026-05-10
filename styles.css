@@ -1505,6 +1505,8 @@ body::before {
   text-decoration: none;
 }
 .settings-row:hover { border-color: var(--border2); background: var(--surface); }
+.settings-row.danger:hover { border-color: var(--red2); background: rgba(220,53,69,0.06); }
+.settings-row.danger .settings-row-title { color: var(--red2); }
 
 .settings-row-icon {
   font-size: 20px;

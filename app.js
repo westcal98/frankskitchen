@@ -1086,6 +1086,11 @@ function _idbCursor(store, cb) {
   });
 }
 
+function _idbClearStore(store) {
+  if (!_db) return;
+  try { _db.transaction(store, 'readwrite').objectStore(store).clear(); } catch(e) {}
+}
+
 async function initDB() {
   try {
     _db = await _openDB();
@@ -1753,7 +1758,7 @@ function deleteShopItem(id) {
   updateShopStats();
 }
 
-function clearBought() {
+function removeBought() {
   let items = getShopItems();
   items = items.filter(i => !i.bought);
   saveShopItems(items);
@@ -1761,7 +1766,7 @@ function clearBought() {
   updateShopStats();
 }
 
-function uncheckAll() {
+function clearFull() {
   const items = getShopItems();
   items.forEach(i => i.bought = false);
   saveShopItems(items);
@@ -1769,11 +1774,37 @@ function uncheckAll() {
   updateShopStats();
 }
 
-function clearAll() {
-  if (confirm('Clear entire shopping list?')) {
+function clearNext() {
+  const items = getShopItems();
+  items.filter(i => i.nextRun).forEach(i => i.bought = false);
+  saveShopItems(items);
+  renderShopList();
+  updateShopStats();
+}
+
+function removeNext() {
+  const items = getShopItems();
+  items.forEach(i => i.nextRun = false);
+  saveShopItems(items);
+  renderShopList();
+  updateShopStats();
+}
+
+function removeAllItems() {
+  if (confirm('Remove all shopping list items? This cannot be undone.')) {
     saveShopItems([]);
     renderShopList();
     updateShopStats();
+  }
+}
+
+function removeAllRecipes() {
+  if (confirm('Remove all custom recipes and reset all recipe states? Built-in recipes will be restored to defaults. This cannot be undone.')) {
+    saveCustomRecipes([]);
+    DB_CACHE.recipe_states = {};
+    _idbClearStore('recipe_states');
+    renderAll();
+    closeSettings();
   }
 }
 
@@ -1815,6 +1846,8 @@ function setShopView(view) {
   shopView = view;
   document.getElementById('shopViewFull').classList.toggle('active', view === 'full');
   document.getElementById('shopViewNext').classList.toggle('active', view === 'next');
+  document.getElementById('shopActionsFull').classList.toggle('hidden', view === 'next');
+  document.getElementById('shopActionsNext').classList.toggle('hidden', view === 'full');
   renderShopList();
 }
 
