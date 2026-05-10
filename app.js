@@ -2567,33 +2567,61 @@ function formatTimerDisplay(seconds) {
   return `${m}:${s}`;
 }
 
-function playBeep() {
+function getDingSettings() {
+  const p = DB_CACHE.preferences || {};
+  return {
+    style:   p.dingStyle   || 'repeat',
+    volume:  p.dingVolume  || 'loud',
+    vibrate: p.dingVibrate !== false,
+  };
+}
+
+function playTimerAlert(style, volume) {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const tone = (freq, start, dur) => {
+    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+    const gain = volume === 'subtle' ? 0.2 : 0.72;
+    const ding = (freq, start, dur) => {
       const osc = ctx.createOscillator();
       const g   = ctx.createGain();
       osc.connect(g); g.connect(ctx.destination);
-      osc.frequency.value = freq; osc.type = 'sine';
-      g.gain.setValueAtTime(0.4, ctx.currentTime + start);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.type = 'sine'; osc.frequency.value = freq;
+      g.gain.setValueAtTime(gain, ctx.currentTime + start);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
       osc.start(ctx.currentTime + start);
-      osc.stop(ctx.currentTime + start + dur + 0.05);
+      osc.stop(ctx.currentTime + start + dur + 0.06);
     };
-    tone(880,  0,    0.15);
-    tone(880,  0.22, 0.15);
-    tone(1320, 0.44, 0.45);
+    if (style === 'pattern') {
+      // Ding! Fries Are Done: rhythmic triple-ding
+      ding(880, 0,    0.10);
+      ding(880, 0.14, 0.10);
+      ding(880, 0.28, 0.18);
+    } else if (style === 'repeat') {
+      // I Know You Hear Me: sharp attention-getter
+      ding(1046, 0,    0.10);
+      ding(1320, 0.14, 0.55);
+    } else {
+      // One & Done: classic 3-note melody
+      ding(880,  0,    0.15);
+      ding(880,  0.22, 0.15);
+      ding(1320, 0.44, 0.45);
+    }
   } catch(e) {}
 }
 
+// Legacy alias (kept for safety)
+function playBeep() { playTimerAlert('once', 'loud'); }
+
 function startTimer(recipeId, stepIndex, seconds, isCustom) {
   const key = timerKey(recipeId, stepIndex);
-  if (ACTIVE_TIMERS[key]) clearInterval(ACTIVE_TIMERS[key].interval);
+  if (ACTIVE_TIMERS[key]) {
+    clearInterval(ACTIVE_TIMERS[key].interval);
+    if (ACTIVE_TIMERS[key].alertInterval) clearInterval(ACTIVE_TIMERS[key].alertInterval);
+  }
   ACTIVE_TIMERS[key] = {
     total: seconds, remaining: seconds,
     running: true, finished: false,
     isCustom: !!isCustom, savedPreset: false,
-    interval: null,
+    interval: null, alertInterval: null,
   };
   ACTIVE_TIMERS[key].interval = setInterval(() => timerTick(recipeId, stepIndex), 1000);
   renderAll();
@@ -2617,11 +2645,63 @@ function timerDone(recipeId, stepIndex) {
   clearInterval(t.interval);
   t.running = false; t.finished = true;
 
-  // Alert: sound + vibration
-  playBeep();
-  try { if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]); } catch(e) {}
+  const ds = getDingSettings();
 
-  // Update button row in place — avoid full re-render mid-animation
+  // Initial alert: sound + vibration
+  playTimerAlert(ds.style, ds.volume);
+  if (ds.vibrate) {
+    try {
+      if (navigator.vibrate) navigator.vibrate(
+        ds.volume === 'loud' ? [400, 100, 400, 100, 400] : [200, 100, 200]
+      );
+    } catch(e) {}
+  }
+
+  const dk = timerDomKey(recipeId, stepIndex);
+  const rowEl = document.getElementById('timer-row-' + dk);
+
+  if (ds.style !== 'once') {
+    // Repeating alert — show dismiss button, defer preset prompt until dismissed
+    const intervalMs = ds.style === 'pattern' ? 1500 : 3000;
+    t.alertInterval = setInterval(() => {
+      playTimerAlert(ds.style, ds.volume);
+      if (ds.vibrate) {
+        try {
+          if (navigator.vibrate) navigator.vibrate(
+            ds.volume === 'loud' ? [300, 100, 300] : [150, 100, 150]
+          );
+        } catch(e) {}
+      }
+    }, intervalMs);
+
+    if (rowEl) {
+      rowEl.innerHTML = `
+        <div class="step-timer-display alerting" id="timer-disp-${dk}">⏰</div>
+        <button class="timer-btn dismiss-btn" onclick="event.stopPropagation();dismissTimerAlert('${recipeId}',${stepIndex})">🔔 I Got It</button>`;
+    }
+  } else {
+    // One & Done — show normal done state, prompt preset right away
+    if (rowEl) {
+      rowEl.innerHTML = `
+        <div class="step-timer-display done" id="timer-disp-${dk}">00:00</div>
+        <button class="timer-btn again-btn" onclick="event.stopPropagation();startTimer('${recipeId}',${stepIndex},${t.total},${t.isCustom})">↺ Again</button>
+        <button class="timer-btn stop-btn"  onclick="event.stopPropagation();clearTimer('${recipeId}',${stepIndex})">✕</button>`;
+    }
+    if (t.isCustom && !t.savedPreset) {
+      setTimeout(() => promptSavePreset(recipeId, stepIndex, t.total), 400);
+    }
+  }
+}
+
+function dismissTimerAlert(recipeId, stepIndex) {
+  const key = timerKey(recipeId, stepIndex);
+  const t = ACTIVE_TIMERS[key];
+  if (!t) return;
+
+  // Stop repeating alert
+  if (t.alertInterval) { clearInterval(t.alertInterval); t.alertInterval = null; }
+
+  // Update DOM to done state
   const dk = timerDomKey(recipeId, stepIndex);
   const rowEl = document.getElementById('timer-row-' + dk);
   if (rowEl) {
@@ -2631,8 +2711,9 @@ function timerDone(recipeId, stepIndex) {
       <button class="timer-btn stop-btn"  onclick="event.stopPropagation();clearTimer('${recipeId}',${stepIndex})">✕</button>`;
   }
 
+  // THEN show save preset prompt (after alert is resolved)
   if (t.isCustom && !t.savedPreset) {
-    setTimeout(() => promptSavePreset(recipeId, stepIndex, t.total), 400);
+    setTimeout(() => promptSavePreset(recipeId, stepIndex, t.total), 200);
   }
 }
 
@@ -2651,7 +2732,11 @@ function stopTimer(recipeId, stepIndex) {
 
 function clearTimer(recipeId, stepIndex) {
   const key = timerKey(recipeId, stepIndex);
-  if (ACTIVE_TIMERS[key]) { clearInterval(ACTIVE_TIMERS[key].interval); delete ACTIVE_TIMERS[key]; }
+  if (ACTIVE_TIMERS[key]) {
+    clearInterval(ACTIVE_TIMERS[key].interval);
+    if (ACTIVE_TIMERS[key].alertInterval) clearInterval(ACTIVE_TIMERS[key].alertInterval);
+    delete ACTIVE_TIMERS[key];
+  }
   renderAll();
 }
 
@@ -2709,11 +2794,35 @@ function renderPreferences() {
   if (sBtn) sBtn.classList.toggle('active', tab === 'shop');
 }
 
+function setDingSetting(key, value) {
+  const prefs = Object.assign({}, DB_CACHE.preferences, { [key]: value });
+  savePreferences(prefs);
+  renderDingSettings();
+}
+
+function renderDingSettings() {
+  const ds = getDingSettings();
+
+  // Style rows
+  const styleMap = { repeat: 'dsRepeat', once: 'dsOnce', pattern: 'dsPattern' };
+  Object.values(styleMap).forEach(id => document.getElementById(id)?.classList.remove('active'));
+  document.getElementById(styleMap[ds.style])?.classList.add('active');
+
+  // Volume toggle
+  document.getElementById('dingSubtle')?.classList.toggle('active', ds.volume === 'subtle');
+  document.getElementById('dingLoud')?.classList.toggle('active', ds.volume === 'loud');
+
+  // Vibration toggle
+  document.getElementById('dingVibrateOn')?.classList.toggle('active', ds.vibrate);
+  document.getElementById('dingVibrateOff')?.classList.toggle('active', !ds.vibrate);
+}
+
 function openSettings() {
   document.getElementById('settingsPanel').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
   updateStorageDisplay();
   renderPreferences();
+  renderDingSettings();
   renderSettingsCategories();
 }
 

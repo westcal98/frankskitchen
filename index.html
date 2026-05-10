@@ -185,6 +185,49 @@
         </div>
       </div>
       <div class="settings-divider"></div>
+      <div class="settings-section-label">Ding Settings 🔔</div>
+      <div class="ding-style-list" id="dingStyleList">
+        <button class="ding-style-row" id="dsRepeat" onclick="setDingSetting('dingStyle','repeat')">
+          <div class="ding-style-dot"></div>
+          <div class="ding-style-text">
+            <div class="ding-style-title">I Know You Hear Me</div>
+            <div class="ding-style-sub">Dings every 3 sec until you dismiss</div>
+          </div>
+        </button>
+        <button class="ding-style-row" id="dsOnce" onclick="setDingSetting('dingStyle','once')">
+          <div class="ding-style-dot"></div>
+          <div class="ding-style-text">
+            <div class="ding-style-title">One &amp; Done</div>
+            <div class="ding-style-sub">Single ding, timer stops</div>
+          </div>
+        </button>
+        <button class="ding-style-row" id="dsPattern" onclick="setDingSetting('dingStyle','pattern')">
+          <div class="ding-style-dot"></div>
+          <div class="ding-style-text">
+            <div class="ding-style-title">Ding! Fries Are Done</div>
+            <div class="ding-style-sub">Rhythmic ding-ding-ding until you dismiss</div>
+          </div>
+        </button>
+      </div>
+      <div class="settings-row-static">
+        <div class="settings-row-text">
+          <div class="settings-row-title">Volume</div>
+        </div>
+        <div class="shop-view-toggle settings-pref-toggle" id="dingVolumeToggle">
+          <button class="shop-view-btn" id="dingSubtle" onclick="setDingSetting('dingVolume','subtle')">Subtle</button>
+          <button class="shop-view-btn" id="dingLoud" onclick="setDingSetting('dingVolume','loud')">Kitchen Loud</button>
+        </div>
+      </div>
+      <div class="settings-row-static">
+        <div class="settings-row-text">
+          <div class="settings-row-title">Vibration</div>
+        </div>
+        <div class="shop-view-toggle settings-pref-toggle" id="dingVibrateToggle">
+          <button class="shop-view-btn" id="dingVibrateOn" onclick="setDingSetting('dingVibrate',true)">Shake It</button>
+          <button class="shop-view-btn" id="dingVibrateOff" onclick="setDingSetting('dingVibrate',false)">Silent But Deadly</button>
+        </div>
+      </div>
+      <div class="settings-divider"></div>
       <div class="settings-section-label">Backup &amp; Restore</div>
       <button class="settings-row" onclick="exportData()">
         <span class="settings-row-icon">⬇</span>
