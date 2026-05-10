@@ -1034,6 +1034,73 @@ body::before {
 .shop-action-btn:hover { border-color: var(--gold); color: var(--gold); }
 .shop-action-btn.danger:hover { border-color: var(--red2); color: var(--red2); }
 
+/* ── SHOP VIEW TOGGLE ── */
+.shop-view-toggle {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+}
+.shop-view-btn {
+  flex: 1;
+  padding: 7px 12px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'DM Sans', sans-serif;
+}
+.shop-view-btn.active {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+/* ── NEXT RUN CART BUTTON ── */
+.shop-nextrun-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.35;
+  transition: all 0.15s;
+}
+.shop-nextrun-btn.active {
+  opacity: 1;
+  border-color: var(--gold);
+  background: rgba(200,146,42,0.12);
+}
+.shop-nextrun-btn:hover { opacity: 0.8; }
+
+/* ── NEXT RUN EMPTY STATE ── */
+.shop-nextrun-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+}
+.shop-nextrun-empty-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+.shop-nextrun-empty p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 /* ── SERVING SIZE ── */
 .serving-row {
   display: flex;

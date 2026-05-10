@@ -990,6 +990,7 @@ const RECIPE_SERVINGS = {
 
 let activeFilter = 'all';
 let searchTerm = '';
+let shopView = 'full';
 let expandedCard = null;
 let activeTab = {};
 
@@ -1778,9 +1779,16 @@ function clearAll() {
 
 function updateShopStats() {
   const items = getShopItems();
-  const bought = items.filter(i => i.bought).length;
-  const total = items.length;
-  document.getElementById('shopStats').textContent = `${bought}/${total} bought`;
+  const el = document.getElementById('shopStats');
+  if (!el) return;
+  if (shopView === 'next') {
+    const flagged = items.filter(i => i.nextRun).length;
+    const bought = items.filter(i => i.nextRun && i.bought).length;
+    el.textContent = `${bought}/${flagged} in cart`;
+  } else {
+    const bought = items.filter(i => i.bought).length;
+    el.textContent = `${bought}/${items.length} bought`;
+  }
 }
 
 function handleShopInput() {
@@ -1803,12 +1811,49 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('.shop-add-wrap')) hideSuggestions();
 });
 
+function setShopView(view) {
+  shopView = view;
+  document.getElementById('shopViewFull').classList.toggle('active', view === 'full');
+  document.getElementById('shopViewNext').classList.toggle('active', view === 'next');
+  renderShopList();
+}
+
+function toggleNextRun(id) {
+  const items = getShopItems();
+  const item = items.find(i => i.id === id);
+  if (item) { item.nextRun = !item.nextRun; saveShopItems(items); renderShopList(); }
+}
+
 function renderShopList() {
   const items = getShopItems();
   const container = document.getElementById('shopList');
   if (!container) return;
   updateShopStats();
 
+  if (shopView === 'next') {
+    const flagged = items.filter(i => i.nextRun);
+    if (flagged.length === 0) {
+      container.innerHTML = `
+        <div class="shop-nextrun-empty">
+          <div class="shop-nextrun-empty-icon">🛒</div>
+          <p>No items flagged for next run.<br>Tap 🛒 on any item in <strong>Full List</strong> to add it here.</p>
+        </div>`;
+      return;
+    }
+    flagged.sort((a, b) => (a.bought ? 1 : 0) - (b.bought ? 1 : 0));
+    container.innerHTML = `<div class="shop-nextrun-list">
+      ${flagged.map(item => `
+        <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}">
+          <div class="shop-item-cb" onclick="toggleBought(${item.id})"></div>
+          <div class="shop-item-name">${item.name}</div>
+          ${(item.qty || 1) > 1 ? `<span class="shop-qty-num">${item.qty}</span>` : ''}
+          <button class="shop-nextrun-btn active" onclick="toggleNextRun(${item.id})" title="Remove from Next Run">🛒</button>
+        </div>`).join('')}
+    </div>`;
+    return;
+  }
+
+  // FULL VIEW
   if (items.length === 0) {
     container.innerHTML = `<div class="empty-state"><div class="emoji">🛒</div><p>Your shopping list is empty.<br>Add items above.</p></div>`;
     return;
@@ -1849,6 +1894,7 @@ function renderShopList() {
                 <span class="shop-qty-num">${item.qty || 1}</span>
                 <button class="shop-qty-btn" onclick="changeQty(${item.id}, 1)">+</button>
               </div>
+              <button class="shop-nextrun-btn ${item.nextRun ? 'active' : ''}" onclick="toggleNextRun(${item.id})" title="${item.nextRun ? 'Remove from Next Run' : 'Add to Next Run'}">🛒</button>
               <button class="shop-delete-btn" onclick="deleteShopItem(${item.id})">🗑</button>
             </div>
           `).join('')}
