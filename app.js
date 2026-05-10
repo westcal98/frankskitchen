@@ -2831,6 +2831,14 @@ function closeSettings() {
   document.body.style.overflow = '';
 }
 
+function toggleAccordion(id) {
+  const body = document.getElementById('acc-body-' + id);
+  const chev = document.getElementById('acc-chev-' + id);
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (chev) chev.textContent = open ? '▴' : '▾';
+}
+
 // ─── SETTINGS: CATEGORIES ─────────────────────────────────────────────────
 
 function renderSettingsCategories() {

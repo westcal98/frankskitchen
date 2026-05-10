@@ -260,6 +260,114 @@
       <div id="settingsCatList"></div>
       <button class="settings-add-cat-btn" onclick="addNewCategory()">+ New Category</button>
       <div class="settings-divider"></div>
+      <div class="settings-accordion">
+        <button class="settings-accordion-hdr" onclick="toggleAccordion('whatsNew')">
+          <span class="settings-section-label">What's New</span>
+          <span class="settings-acc-chevron" id="acc-chev-whatsNew">▾</span>
+        </button>
+        <div class="settings-accordion-body" id="acc-body-whatsNew">
+          <div class="acc-version">v1.0</div>
+          <ul class="acc-list">
+            <li>Initial release of Frank's Kitchen</li>
+            <li>Full recipe library with categories and appliance filters</li>
+            <li>Shopping list with Next Run mode and category management</li>
+            <li>Step timers with Ding Settings</li>
+            <li>Favorites, custom recipes, and recipe management</li>
+            <li>Cloud storage with backup and restore</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
+      <div class="settings-accordion">
+        <button class="settings-accordion-hdr" onclick="toggleAccordion('howToUse')">
+          <span class="settings-section-label">How to Use</span>
+          <span class="settings-acc-chevron" id="acc-chev-howToUse">▾</span>
+        </button>
+        <div class="settings-accordion-body" id="acc-body-howToUse">
+          <div class="acc-section-title">Recipes</div>
+          <p class="acc-text">Tap any recipe card to expand the full recipe including ingredients, steps, and notes. Use the category filter pills at the top to browse by meal type — Breakfast, Lunch, Dinner, or Dessert. Filter by appliance using the Chef IQ + Ninja AF button at the top right. Tap the star on any recipe card to add it to your Favorites. Tap the pencil icon to rename a recipe. Tap the trash icon inside a recipe to delete it.</p>
+          <div class="acc-section-title">Adding Your Own Recipe</div>
+          <p class="acc-text">Tap the "+ Add Recipe" button at the bottom left of the Recipes tab. Fill in the recipe name, category, appliance, cook time, difficulty, description, ingredients, steps, and notes. Tap Save when done. Your recipe will appear in the list immediately and can be edited or deleted at any time.</p>
+          <div class="acc-section-title">Step Timers</div>
+          <p class="acc-text">Inside any recipe, steps that have a time associated with them show a Preset timer button and a Custom timer button side by side. Tap Preset to start the suggested time. Tap Custom to enter your own time. Multiple timers can run simultaneously across different steps. When a timer hits zero it will alert based on your Ding Settings. Tap "I Got It" to dismiss.</p>
+          <div class="acc-section-title">Shopping List</div>
+          <p class="acc-text">Tap the "+ Add Item" button at the bottom left of the Shopping tab to add a new item. Assign it a category when adding. Tap an item to check it off as bought — it will appear struck through. Use the category filter pills to browse by category. Use the search icon to find a specific item quickly.</p>
+          <div class="acc-section-title">Next Run Mode</div>
+          <p class="acc-text">Tap the cart icon on any shopping list item to flag it for your next shopping run. Toggle between Full List and Next Run views using the button at the top of the Shopping tab. Next Run view shows only your flagged items in a clean flat list — perfect for in-store use. Checking an item in Next Run also checks it in Full List.</p>
+          <div class="acc-section-title">Shopping List Actions</div>
+          <ul class="acc-list">
+            <li>Remove Bought — deletes all checked items from Full List</li>
+            <li>Clear Full — unchecks all items in Full List</li>
+            <li>Clear Next — unchecks all items in Next Run view only</li>
+            <li>Remove Next — removes all cart flags, clears Next Run list while keeping items in Full List</li>
+          </ul>
+          <div class="acc-section-title">Settings</div>
+          <p class="acc-text">Access Settings via the gear icon. From here you can:</p>
+          <ul class="acc-list">
+            <li>Manage and reorder shopping categories</li>
+            <li>Set your default opening tab</li>
+            <li>Configure Ding Settings for step timer alerts</li>
+            <li>Export or import a full backup of your data</li>
+            <li>View storage usage</li>
+            <li>Remove all items or all recipes if needed</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
+      <div class="settings-accordion">
+        <button class="settings-accordion-hdr" onclick="toggleAccordion('features')">
+          <span class="settings-section-label">Features</span>
+          <span class="settings-acc-chevron" id="acc-chev-features">▾</span>
+        </button>
+        <div class="settings-accordion-body" id="acc-body-features">
+          <div class="acc-section-title">Recipes</div>
+          <ul class="acc-list">
+            <li>Full recipe library organized by category</li>
+            <li>Filter by category: Breakfast, Lunch, Dinner, Dessert</li>
+            <li>Filter by appliance: Air Fryer, Pressure Cooker, Both</li>
+            <li>Favorites — star any recipe to save it to your Favorites list</li>
+            <li>Rename any recipe with the pencil icon</li>
+            <li>Delete any recipe with the trash icon</li>
+            <li>Add your own custom recipes with full ingredient and step builder</li>
+            <li>Photo upload per recipe</li>
+            <li>Adjustable serving size</li>
+            <li>Notes tab per recipe</li>
+          </ul>
+          <div class="acc-section-title">Step Timers</div>
+          <ul class="acc-list">
+            <li>Preset timer per step based on step instructions</li>
+            <li>Custom timer input per step</li>
+            <li>Multiple simultaneous timers</li>
+            <li>Configurable alerts via Ding Settings</li>
+            <li>Save custom times as new presets</li>
+          </ul>
+          <div class="acc-section-title">Shopping List</div>
+          <ul class="acc-list">
+            <li>Add items with category assignment</li>
+            <li>Category filter pills for fast browsing</li>
+            <li>Search bar to find items quickly</li>
+            <li>Next Run mode — flag items for next shopping trip</li>
+            <li>Synced check states between Full List and Next Run</li>
+            <li>Cart icon to flag items for Next Run</li>
+            <li>Remove Bought, Clear Full, Clear Next, Remove Next actions</li>
+          </ul>
+          <div class="acc-section-title">Settings &amp; Data</div>
+          <ul class="acc-list">
+            <li>Custom shopping categories — add, rename, reorder, delete</li>
+            <li>Default tab preference — open to Recipes or Shopping</li>
+            <li>Ding Settings — alert style, volume, vibration</li>
+            <li>Export full data backup as JSON</li>
+            <li>Import backup to restore data</li>
+            <li>Storage usage indicator</li>
+            <li>Remove All Items option</li>
+            <li>Remove All Recipes option</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
       <div class="settings-section-label">Danger Zone</div>
       <button class="settings-row danger" onclick="removeAllItems()">
         <span class="settings-row-icon">🗑</span>

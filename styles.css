@@ -1902,5 +1902,80 @@ body::before {
   line-height: 1.5;
 }
 
+/* ── SETTINGS ACCORDION ── */
+.settings-accordion { }
+
+.settings-accordion-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+.settings-accordion-hdr .settings-section-label {
+  margin: 0;
+}
+.settings-acc-chevron {
+  font-size: 13px;
+  color: var(--muted);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.settings-accordion-body {
+  display: none;
+  padding: 10px 0 4px;
+}
+.settings-accordion-body.open { display: block; }
+
+.acc-version {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--gold2);
+  background: rgba(200,146,42,0.12);
+  border: 1px solid rgba(200,146,42,0.25);
+  border-radius: 20px;
+  padding: 3px 10px;
+  margin-bottom: 10px;
+}
+.acc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 6px;
+}
+.acc-list li {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.55;
+  padding: 3px 0 3px 14px;
+  position: relative;
+}
+.acc-list li::before {
+  content: '–';
+  position: absolute;
+  left: 0;
+  color: var(--muted);
+}
+.acc-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 14px 0 6px;
+}
+.acc-section-title:first-child { margin-top: 4px; }
+.acc-text {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+
 .hidden { display: none !important; }
 
