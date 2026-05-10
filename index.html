@@ -135,6 +135,13 @@
 
 <div id="view-shop" class="hidden">
   <div class="shop-wrap">
+    <div class="shop-recovery-banner hidden" id="shopRecoveryBanner">
+      <span>Some items were moved to Other after a recent update. Would you like to review them?</span>
+      <div class="shop-recovery-actions">
+        <button onclick="reviewOtherItems()">Review</button>
+        <button onclick="dismissRecovery()">Dismiss</button>
+      </div>
+    </div>
     <div class="shop-view-toggle">
       <button class="shop-view-btn active" id="shopViewFull" onclick="setShopView('full')">Full List</button>
       <button class="shop-view-btn" id="shopViewNext" onclick="setShopView('next')">🛒 Next Run</button>

@@ -1078,6 +1078,7 @@ function toggleFavorite(id) {
 let _db = null;
 const _DB_NAME = 'fk_store';
 const _DB_VER  = 1;
+const APP_SCHEMA_VERSION = 1;
 
 function _openDB() {
   return new Promise((resolve, reject) => {
@@ -1162,7 +1163,9 @@ async function initDB() {
     const prefs = await _idbGet('kv', 'preferences');
     if (prefs && typeof prefs === 'object') DB_CACHE.preferences = prefs;
 
+    const sv = await _idbGet('kv', 'schema_version');
     migrateShoplistCategories();
+    await runMigrations(sv);
 
     // ── One-time migration from localStorage ────────────────────────────────
     const lsKeys = [];
@@ -1700,7 +1703,32 @@ function switchMainTab(tab) {
     if (rsp && !rsp.classList.contains('hidden')) clearRecipeSearch();
     renderShopFilterRow();
     renderShopList();
+    showRecoveryBanner();
   }
+}
+
+function showRecoveryBanner() {
+  const banner = document.getElementById('shopRecoveryBanner');
+  if (!banner) return;
+  const needed = DB_CACHE._recoveryNeeded;
+  const shown  = DB_CACHE.preferences && DB_CACHE.preferences.recoveryShown;
+  banner.classList.toggle('hidden', !needed || !!shown);
+}
+
+function reviewOtherItems() {
+  shopFilter = 'other';
+  renderShopFilterRow();
+  renderShopList();
+  dismissRecovery();
+}
+
+function dismissRecovery() {
+  const banner = document.getElementById('shopRecoveryBanner');
+  if (banner) banner.classList.add('hidden');
+  DB_CACHE._recoveryNeeded = false;
+  const prefs = Object.assign({}, DB_CACHE.preferences, { recoveryShown: true });
+  DB_CACHE.preferences = prefs;
+  _idbPut('kv', 'preferences', prefs);
 }
 
 // ─── SHOPPING LIST ─────────────────────────────────────────────────────────
@@ -1730,19 +1758,50 @@ function saveShopCategories(cats) {
   DB_CACHE.shop_categories = cats;
   _idbPut('kv', 'shop_categories', cats);
   renderShopFilterRow();
+  renderShopList();
 }
 
 function migrateShoplistCategories() {
   const items = getShopItems();
-  const catKeys = new Set(getShopCategories().map(c => c.key));
   let changed = false;
   items.forEach(item => {
-    let cat = item.category;
-    if (OLD_CAT_MAP[cat]) { cat = OLD_CAT_MAP[cat]; changed = true; }
-    if (!catKeys.has(cat)) { cat = 'other'; changed = true; }
-    if (cat !== item.category) { item.category = cat; changed = true; }
+    const mapped = OLD_CAT_MAP[item.category];
+    if (mapped) { item.category = mapped; changed = true; }
+    // Items with unknown category keys are NOT reassigned here — they keep their
+    // original assignment and render visually under Other via renderShopList().
   });
   if (changed) saveShopItems(items);
+}
+
+// ── Schema versioning & migrations ──────────────────────────────────────────
+
+function migrate_0_to_1() {
+  // Mark user-created categories (non-default keys) with custom:true
+  const defaultKeys = new Set(DEFAULT_SHOP_CATEGORIES.map(c => c.key));
+  const cats = DB_CACHE.shop_categories;
+  let catChanged = false;
+  cats.forEach(c => {
+    if (!defaultKeys.has(c.key) && !c.custom) { c.custom = true; catChanged = true; }
+  });
+  if (catChanged) {
+    _idbPut('kv', 'shop_categories', cats);
+    console.log('[FK] migration 0→1: custom categories flagged');
+  }
+  // If any items are in "other" at migration time, offer the user a recovery prompt
+  const items = getShopItems();
+  if (items.some(i => i.category === 'other')) {
+    DB_CACHE._recoveryNeeded = true;
+    console.log('[FK] migration 0→1: recovery flag set — items found in Other');
+  }
+}
+
+async function runMigrations(storedVersion) {
+  const from = typeof storedVersion === 'number' ? storedVersion : 0;
+  if (from >= APP_SCHEMA_VERSION) return;
+  console.log(`[FK] Running migrations v${from}→v${APP_SCHEMA_VERSION}`);
+  if (from < 1) migrate_0_to_1();
+  _idbPut('kv', 'schema_version', APP_SCHEMA_VERSION);
+  console.log(`[FK] Schema updated to v${APP_SCHEMA_VERSION}`);
 }
 
 // Full memory bank for autocomplete suggestions
@@ -2936,7 +2995,7 @@ function deleteCategory(key) {
 function addNewCategory() {
   const key = 'cat-' + Date.now();
   const cats = getShopCategories().slice();
-  cats.push({ key, label: 'New Category' });
+  cats.push({ key, label: 'New Category', custom: true });
   saveShopCategories(cats);
   renderSettingsCategories();
   requestAnimationFrame(() => startRenameCategory(key));
