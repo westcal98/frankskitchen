@@ -43,8 +43,82 @@
 <div class="main-content" id="mainContent"></div>
 
 <button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+<button class="add-recipe-fab" id="addRecipeFab" onclick="openAddRecipeForm()">+ Add Recipe</button>
 
 </div><!-- end view-recipes -->
+
+<!-- ── ADD RECIPE MODAL ── -->
+<div id="addRecipeModal" class="modal-overlay hidden" onclick="if(event.target===this)closeAddRecipeForm()">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div class="modal-title">New Recipe</div>
+      <button class="modal-close" onclick="closeAddRecipeForm()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Recipe Name *</label>
+        <input class="form-input" id="rf-name" type="text" placeholder="e.g. Crispy Chicken Thighs" maxlength="80" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category *</label>
+          <select class="form-select" id="rf-category">
+            <option value="">Select...</option>
+            <option value="breakfast">Breakfast</option>
+            <option value="lunch">Lunch</option>
+            <option value="dinner">Dinner</option>
+            <option value="dessert">Dessert</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Appliance</label>
+          <select class="form-select" id="rf-appliance">
+            <option value="af">Air Fryer</option>
+            <option value="pc">Pressure Cooker</option>
+            <option value="combo">Both</option>
+            <option value="none">No Cook</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Cook Time</label>
+          <input class="form-input" id="rf-time" type="text" placeholder="e.g. 30 min" maxlength="30" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Difficulty</label>
+          <select class="form-select" id="rf-difficulty">
+            <option value="Easy">Easy</option>
+            <option value="Medium">Medium</option>
+            <option value="Hard">Hard</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="rf-description" placeholder="Short description of this recipe..." rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ingredients</label>
+        <div id="rf-ingredients"></div>
+        <button type="button" class="dyn-add-btn" onclick="addIngredientRow()">+ Add Ingredient</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Steps</label>
+        <div id="rf-steps"></div>
+        <button type="button" class="dyn-add-btn" onclick="addStepRow()">+ Add Step</button>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Chef's Notes</label>
+        <textarea class="form-textarea" id="rf-notes" placeholder="Tips, substitutions, dial-in times..." rows="3"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-cancel-btn" onclick="closeAddRecipeForm()">Cancel</button>
+      <button class="modal-save-btn" onclick="saveNewRecipe()">Save Recipe</button>
+    </div>
+  </div>
+</div>
 
 <div id="view-shop" class="hidden">
   <div class="shop-wrap">
