@@ -1213,9 +1213,9 @@ function renderRecipe(recipe) {
         <div class="recipe-tab-content ${tab === 'photo' ? 'active' : ''}" id="tab-photo-${recipe.id}">
           <div class="section-label">My Photo</div>
           <input type="file" accept="image/*" class="photo-input" id="photo-input-${recipe.id}" onchange="handlePhotoUpload('${recipe.id}', this)">
-          ${state.photo ? `
+          ${PHOTO_CACHE[recipe.id] ? `
             <div class="photo-preview">
-              <img src="${state.photo}" alt="Recipe photo">
+              <img src="${PHOTO_CACHE[recipe.id]}" alt="Recipe photo">
               <button class="photo-remove-btn" onclick="removePhoto('${recipe.id}')">✕</button>
             </div>
           ` : `
@@ -1309,23 +1309,20 @@ function toggleStep(recipeId, index) {
   renderAll();
 }
 
-function handlePhotoUpload(recipeId, input) {
+async function handlePhotoUpload(recipeId, input) {
   const file = input.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const state = getState(recipeId);
-    state.photo = e.target.result;
-    saveState(recipeId, state);
+  try {
+    const dataUrl = await compressPhoto(file, 900, 0.78);
+    await savePhoto(recipeId, dataUrl);
     renderAll();
-  };
-  reader.readAsDataURL(file);
+  } catch(e) {
+    console.error('Photo upload failed:', e);
+  }
 }
 
 function removePhoto(recipeId) {
-  const state = getState(recipeId);
-  delete state.photo;
-  saveState(recipeId, state);
+  deletePhoto(recipeId);
   renderAll();
 }
 
@@ -1739,63 +1736,76 @@ function preloadKeepList() {
   if (existing.length > 0) return; // Don't overwrite if list already has items
 
   const toBuy = [
+    // 🥬 Produce
+    { name: 'Bananas', cat: 'produce' },
+    { name: 'Baby spinach (bag)', cat: 'produce' },
+    { name: 'Cherry tomatoes', cat: 'produce' },
+    { name: 'Avocados (2)', cat: 'produce' },
+    { name: 'Yellow onions', cat: 'produce' },
+    { name: 'Garlic bulb', cat: 'produce' },
+    { name: 'Russet potatoes', cat: 'produce' },
+    { name: 'Broccoli', cat: 'produce' },
+    // 🥩 Protein
+    { name: 'Chicken thighs (boneless)', cat: 'protein' },
+    { name: 'Ground beef (85/15)', cat: 'protein' },
+    { name: 'Salmon fillets', cat: 'protein' },
+    { name: 'Shrimp (frozen, peeled)', cat: 'frozen' },
+    { name: 'Frozen chicken breasts', cat: 'frozen' },
+    // 🧀 Dairy
+    { name: 'Greek yogurt (plain, 32oz)', cat: 'dairy' },
+    { name: 'Shredded mozzarella', cat: 'dairy' },
+    { name: 'Parmesan (shredded)', cat: 'dairy' },
     { name: 'Cottage cheese', cat: 'dairy' },
-    { name: 'Frozen chicken thighs', cat: 'frozen' },
-    { name: 'Frozen fish (tilapia/salmon/tuna)', cat: 'frozen' },
-    { name: 'Sugar snap peas', cat: 'produce' },
-    { name: 'Low fat Greek yogurt', cat: 'dairy' },
-    { name: 'Biscoff cookies', cat: 'drinks' },
-    { name: 'Graham crackers', cat: 'bread' },
-    { name: '2% half gallon milk', cat: 'dairy' },
-    { name: 'Frozen raspberries', cat: 'frozen' },
-    { name: 'Frozen berries mix', cat: 'frozen' },
-    { name: 'Potatoes', cat: 'produce' },
-    { name: 'Monk fruit drops', cat: 'drinks' },
-    { name: 'Chocolate chips', cat: 'baking' },
-    { name: 'Tortilla chips', cat: 'bread' },
-    { name: 'Corn starch', cat: 'baking' },
-    { name: 'Plates', cat: 'household' },
-    { name: 'Cutting board', cat: 'household' },
-    { name: 'Tray / small table', cat: 'household' },
-    { name: 'Brown rice', cat: 'pantry' },
-    { name: 'Dark chocolate chips (Tollhouse)', cat: 'baking' },
-    { name: 'Water flavoring (packets/drops)', cat: 'drinks' },
-    { name: 'Sushi rice', cat: 'pantry' },
-    { name: 'Salsa (Herdez or similar)', cat: 'sauces' },
-    { name: 'Chicken salad', cat: 'protein' },
-    { name: 'Egg salad', cat: 'dairy' },
-    { name: 'Downy detergent', cat: 'household' },
-    { name: 'Bathroom scale', cat: 'household' },
+    { name: '2% milk (half gallon)', cat: 'dairy' },
+    // 🥫 Pantry
+    { name: 'Olive oil', cat: 'pantry' },
+    { name: 'Chicken broth (32oz)', cat: 'pantry' },
+    { name: 'Diced tomatoes (canned)', cat: 'pantry' },
+    { name: 'Jasmine rice (2lb)', cat: 'pantry' },
+    { name: 'Pasta (penne)', cat: 'pantry' },
+    { name: 'Panko bread crumbs', cat: 'pantry' },
+    // 🍯 Sauces
+    { name: 'Soy sauce', cat: 'sauces' },
+    { name: 'Salsa (Herdez)', cat: 'sauces' },
+    { name: 'Hot sauce (Cholula)', cat: 'sauces' },
+    // 🌶️ Spices
+    { name: 'Chili powder', cat: 'spices' },
+    { name: 'Italian seasoning', cat: 'spices' },
     { name: 'Onion powder', cat: 'spices' },
-    { name: 'Garlic powder', cat: 'spices' },
     { name: 'Smoked paprika', cat: 'spices' },
+    // 🍬 Baking
+    { name: 'Dark chocolate chips', cat: 'baking' },
+    { name: 'Corn starch', cat: 'baking' },
+    // 🍞 Bread
+    { name: 'Flour tortillas (large)', cat: 'bread' },
+    { name: 'Hot dog buns', cat: 'bread' },
+    // 🧹 Household
+    { name: 'Paper towels', cat: 'household' },
+    { name: 'Dish soap', cat: 'household' },
+    { name: 'Parchment paper', cat: 'household' },
+    // 🥤 Drinks
+    { name: 'Celsius (variety pack)', cat: 'drinks' },
+    { name: 'Water flavoring drops', cat: 'drinks' },
   ];
 
   const bought = [
-    { name: 'Bread', cat: 'bread' },
-    { name: 'Eggs', cat: 'dairy' },
-    { name: 'Cinnamon', cat: 'spices' },
-    { name: 'Sandwich meat (turkey)', cat: 'protein' },
+    // Already in the cart / pantry — these test the "next run" cleared state
+    { name: 'Eggs (dozen)', cat: 'dairy' },
+    { name: 'Butter (unsalted)', cat: 'dairy' },
+    { name: 'Sandwich bread', cat: 'bread' },
+    { name: 'Ground turkey', cat: 'protein' },
     { name: 'Frozen burger patties', cat: 'frozen' },
-    { name: 'Butter', cat: 'dairy' },
-    { name: 'Ground beef', cat: 'protein' },
-    { name: 'Baby carrots', cat: 'produce' },
-    { name: 'Canned corn', cat: 'pantry' },
-    { name: 'Canned chicken', cat: 'pantry' },
-    { name: 'Chicken broth', cat: 'pantry' },
-    { name: 'Celsius drinks', cat: 'drinks' },
-    { name: 'Baking powder', cat: 'baking' },
+    { name: 'Garlic powder', cat: 'spices' },
     { name: 'Cumin', cat: 'spices' },
-    { name: 'Cup of noodles', cat: 'pantry' },
-    { name: 'Pasta sauce', cat: 'sauces' },
-    { name: 'Jasmine rice', cat: 'pantry' },
+    { name: 'Cinnamon', cat: 'spices' },
+    { name: 'Pasta sauce (jar)', cat: 'sauces' },
+    { name: 'Canned corn', cat: 'pantry' },
     { name: 'Sour cream', cat: 'dairy' },
-    { name: 'Chip clips', cat: 'household' },
+    { name: 'Baking powder', cat: 'baking' },
     { name: 'Pop-Tarts', cat: 'bread' },
-    { name: 'Instant potatoes', cat: 'pantry' },
-    { name: 'Mixing bowl', cat: 'household' },
     { name: 'Hot dogs', cat: 'protein' },
-    { name: 'Hot dog buns', cat: 'bread' },
+    { name: 'Cup noodles', cat: 'pantry' },
+    { name: 'Chip clips', cat: 'household' },
   ];
 
   const items = [
@@ -1804,6 +1814,112 @@ function preloadKeepList() {
   ];
 
   saveShopItems(items);
+}
+
+// ─── PHOTO STORAGE (IndexedDB) ───────────────────────────────────────────────
+// Photos are stored in IndexedDB (not localStorage) to avoid 5 MB quota issues.
+// An in-memory PHOTO_CACHE map is loaded at startup and kept in sync, so
+// renderRecipe() can stay synchronous.
+
+const PHOTO_CACHE = {};
+let _photoDB = null;
+const _PHOTO_DB  = 'fk_photos';
+const _PHOTO_VER = 1;
+const _PHOTO_STR = 'photos';
+
+function _openPhotoDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(_PHOTO_DB, _PHOTO_VER);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(_PHOTO_STR);
+    req.onsuccess  = e => resolve(e.target.result);
+    req.onerror    = () => reject(req.error);
+  });
+}
+
+async function initPhotos() {
+  try {
+    _photoDB = await _openPhotoDB();
+
+    // Load all photos into the in-memory cache
+    await new Promise(resolve => {
+      const tx  = _photoDB.transaction(_PHOTO_STR, 'readonly');
+      const req = tx.objectStore(_PHOTO_STR).openCursor();
+      req.onsuccess = e => {
+        const c = e.target.result;
+        if (c) { PHOTO_CACHE[c.key] = c.value; c.continue(); }
+      };
+      tx.oncomplete = resolve;
+      tx.onerror    = resolve;
+    });
+
+    // One-time migration: lift photos out of localStorage state objects
+    const lsKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k) lsKeys.push(k);
+    }
+    for (const k of lsKeys) {
+      if (!k.startsWith('fk_')) continue;
+      if (k === 'fk_custom_recipes' || k === 'fk_timer_presets' || k.startsWith('fk_shop')) continue;
+      try {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        const st = JSON.parse(raw);
+        if (st && st.photo) {
+          await savePhoto(k.slice(3), st.photo);   // strip 'fk_' prefix
+          delete st.photo;
+          localStorage.setItem(k, JSON.stringify(st));
+        }
+      } catch(e) {}
+    }
+  } catch(e) {
+    console.warn('Photo DB unavailable — photos will not persist:', e);
+  }
+}
+
+async function savePhoto(recipeId, dataUrl) {
+  PHOTO_CACHE[recipeId] = dataUrl;
+  if (!_photoDB) return;
+  try {
+    _photoDB.transaction(_PHOTO_STR, 'readwrite').objectStore(_PHOTO_STR).put(dataUrl, recipeId);
+  } catch(e) {}
+}
+
+function deletePhoto(recipeId) {
+  delete PHOTO_CACHE[recipeId];
+  if (!_photoDB) return;
+  try {
+    _photoDB.transaction(_PHOTO_STR, 'readwrite').objectStore(_PHOTO_STR).delete(recipeId);
+  } catch(e) {}
+}
+
+// Resize + JPEG-compress an image File before storing.
+// maxPx: longest-edge cap in pixels.  quality: JPEG 0–1.
+function compressPhoto(file, maxPx, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const blobUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(blobUrl);
+      let { width: w, height: h } = img;
+      if (w > maxPx || h > maxPx) {
+        if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else        { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => {
+      // Fallback: store the raw data URL
+      const fr = new FileReader();
+      fr.onload  = e => resolve(e.target.result);
+      fr.onerror = reject;
+      fr.readAsDataURL(file);
+    };
+    img.src = blobUrl;
+  });
 }
 
 // ─── ADD RECIPE ─────────────────────────────────────────────────────────────
@@ -2134,5 +2250,7 @@ window.addEventListener('scroll', () => {
 
 loadMemory();
 preloadKeepList();
-renderAll();
+// initPhotos loads IndexedDB photos into PHOTO_CACHE before first render
+// so photos are already in memory when renderRecipe() runs.
+initPhotos().then(renderAll).catch(renderAll);
 
