@@ -209,6 +209,21 @@
   </div>
 </div>
 
+<!-- ── DELETE RECIPE CONFIRM ── -->
+<div id="deleteRecipeModal" class="modal-overlay hidden" onclick="if(event.target===this)closeDeleteConfirm()">
+  <div class="modal-container" style="max-width:320px">
+    <div class="modal-body" style="text-align:center;padding:28px 24px 8px">
+      <div style="font-size:36px;margin-bottom:14px">🗑️</div>
+      <div id="deleteRecipeName" style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px"></div>
+      <div style="font-size:13px;color:var(--muted)">This cannot be undone.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-cancel-btn" onclick="closeDeleteConfirm()">Cancel</button>
+      <button class="modal-save-btn danger" onclick="executeDeleteRecipe()">Delete</button>
+    </div>
+  </div>
+</div>
+
 <script src="app.js"></script>
 </body>
 </html>

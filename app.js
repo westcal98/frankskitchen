@@ -997,11 +997,12 @@ let activeTab = {};
 // In-memory cache for all persisted data — loaded from IndexedDB at startup.
 // All reads are synchronous (from cache); writes update cache + fire async IDB write.
 const DB_CACHE = {
-  recipe_states:  {},  // { recipeId: stateObj }
-  custom_recipes: [],  // array of user-created recipe objects
-  shoplist:       [],  // array of shopping list item objects
-  memory:         [],  // user-added autocomplete strings
-  timer_presets:  {},  // { "recipeId:stepIndex": seconds }
+  recipe_states:    {},  // { recipeId: stateObj }
+  custom_recipes:   [],  // array of user-created recipe objects
+  deleted_recipes:  [],  // IDs of built-in recipes the user has deleted
+  shoplist:         [],  // array of shopping list item objects
+  memory:           [],  // user-added autocomplete strings
+  timer_presets:    {},  // { "recipeId:stepIndex": seconds }
 };
 
 function getState(recipeId) {
@@ -1031,7 +1032,9 @@ function saveCustomRecipes(recipes) {
 }
 
 function getAllRecipes() {
-  return [...RECIPES, ...getCustomRecipes()];
+  const deleted = DB_CACHE.deleted_recipes;
+  const builtIn = deleted.length ? RECIPES.filter(r => !deleted.includes(r.id)) : RECIPES;
+  return [...builtIn, ...getCustomRecipes()];
 }
 
 // ─── MAIN DATABASE (IndexedDB) ──────────────────────────────────────────────
@@ -1113,6 +1116,9 @@ async function initDB() {
 
     const tp = await _idbGet('kv', 'timer_presets');
     if (tp) DB_CACHE.timer_presets = tp;
+
+    const dr = await _idbGet('kv', 'deleted_recipes');
+    if (dr) DB_CACHE.deleted_recipes = dr;
 
     // ── One-time migration from localStorage ────────────────────────────────
     const lsKeys = [];
@@ -1381,7 +1387,9 @@ function renderRecipe(recipe) {
         <div class="recipe-footer">
           <button class="reset-btn" onclick="resetRecipe('${recipe.id}')">↺ Reset</button>
           <button class="complete-btn" onclick="markAllDone('${recipe.id}')">✓ Mark All Done</button>
-          ${recipe.custom ? `<button class="delete-custom-btn" onclick="deleteCustomRecipe('${recipe.id}')">🗑 Delete</button>` : ''}
+        </div>
+        <div class="recipe-delete-zone">
+          <button class="recipe-delete-btn" onclick="event.stopPropagation();confirmDeleteRecipe('${recipe.id}','${displayName.replace(/'/g, "\\'")}')">🗑 Delete Recipe</button>
         </div>
       </div>
     </div>
@@ -2269,10 +2277,40 @@ function saveNewRecipe() {
   }, 80);
 }
 
-function deleteCustomRecipe(id) {
-  if (!confirm('Delete this recipe? This cannot be undone.')) return;
-  const customs = getCustomRecipes().filter(r => r.id !== id);
-  saveCustomRecipes(customs);
+let _pendingDeleteId = null;
+
+function confirmDeleteRecipe(id, name) {
+  _pendingDeleteId = id;
+  document.getElementById('deleteRecipeName').textContent = `Delete "${name}"?`;
+  document.getElementById('deleteRecipeModal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDeleteConfirm() {
+  _pendingDeleteId = null;
+  document.getElementById('deleteRecipeModal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function executeDeleteRecipe() {
+  const id = _pendingDeleteId;
+  if (!id) return;
+  closeDeleteConfirm();
+
+  // Find the recipe across built-in + custom
+  const recipe = [...RECIPES, ...getCustomRecipes()].find(r => r.id === id);
+  if (!recipe) return;
+
+  if (recipe.custom) {
+    saveCustomRecipes(getCustomRecipes().filter(r => r.id !== id));
+  } else {
+    if (!DB_CACHE.deleted_recipes.includes(id)) {
+      DB_CACHE.deleted_recipes.push(id);
+      _idbPut('kv', 'deleted_recipes', DB_CACHE.deleted_recipes);
+    }
+  }
+
+  resetState(id);
   if (expandedCard === id) expandedCard = null;
   renderAll();
 }
@@ -2487,13 +2525,14 @@ async function updateStorageDisplay() {
 
 function exportData() {
   const payload = {
-    version:        1,
-    exportedAt:     new Date().toISOString(),
-    custom_recipes: DB_CACHE.custom_recipes,
-    recipe_states:  DB_CACHE.recipe_states,
-    shoplist:       DB_CACHE.shoplist,
-    memory:         DB_CACHE.memory,
-    timer_presets:  DB_CACHE.timer_presets,
+    version:          1,
+    exportedAt:       new Date().toISOString(),
+    custom_recipes:   DB_CACHE.custom_recipes,
+    deleted_recipes:  DB_CACHE.deleted_recipes,
+    recipe_states:    DB_CACHE.recipe_states,
+    shoplist:         DB_CACHE.shoplist,
+    memory:           DB_CACHE.memory,
+    timer_presets:    DB_CACHE.timer_presets,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -2514,6 +2553,10 @@ async function importData(file) {
     if (Array.isArray(payload.custom_recipes)) {
       DB_CACHE.custom_recipes = payload.custom_recipes;
       _idbPut('kv', 'custom_recipes', payload.custom_recipes);
+    }
+    if (Array.isArray(payload.deleted_recipes)) {
+      DB_CACHE.deleted_recipes = payload.deleted_recipes;
+      _idbPut('kv', 'deleted_recipes', payload.deleted_recipes);
     }
     if (payload.recipe_states && typeof payload.recipe_states === 'object') {
       for (const [id, st] of Object.entries(payload.recipe_states)) {
