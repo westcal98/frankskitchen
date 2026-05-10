@@ -1031,6 +1031,16 @@ body::before {
 
 .shop-delete-btn:hover { border-color: var(--red2); color: var(--red2); background: rgba(185,50,50,0.1); }
 
+/* ── SHOP FILTER ROW ── */
+.shop-filter-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 0 10px;
+}
+.shop-filter-row::-webkit-scrollbar { display: none; }
+
 /* ── SHOP TOOLBAR ── */
 .shop-toolbar {
   display: flex;
@@ -1039,34 +1049,18 @@ body::before {
   margin-bottom: 10px;
 }
 
-.shop-toolbar-spacer { flex: 1; }
+.shop-toolbar .shop-stats {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
 
 .shop-actions-inline {
   display: flex;
   gap: 6px;
-}
-
-.shop-tb-add {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: none;
-  background: var(--gold);
-  color: #0d0b08;
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: background 0.15s, transform 0.2s;
-}
-.shop-tb-add:hover { background: var(--gold2); }
-.shop-tb-add.active {
-  background: var(--gold2);
-  transform: rotate(45deg);
 }
 
 .shop-tb-search {
@@ -1272,8 +1266,9 @@ body::before {
 
 .serving-num.scaled { color: var(--gold2); }
 
-/* ── ADD RECIPE FAB ── */
-.add-recipe-fab {
+/* ── ADD RECIPE / SHOP FABs ── */
+.add-recipe-fab,
+.add-shop-fab {
   position: fixed;
   bottom: 20px;
   left: 20px;
@@ -1291,7 +1286,8 @@ body::before {
   box-shadow: 0 4px 16px rgba(200, 146, 42, 0.4);
   transition: background 0.2s, transform 0.15s;
 }
-.add-recipe-fab:hover { background: var(--gold2); transform: translateY(-1px); }
+.add-recipe-fab:hover,
+.add-shop-fab:hover { background: var(--gold2); transform: translateY(-1px); }
 
 /* ── MODAL ── */
 .modal-overlay {
@@ -1807,6 +1803,21 @@ body::before {
   height: 1px;
   background: var(--border);
   margin: 16px 0;
+}
+
+.settings-row-static {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+.settings-row-static .settings-row-text { flex: 1; }
+
+.settings-pref-toggle {
+  margin-bottom: 0;
+  flex-shrink: 0;
+  width: auto;
+  min-width: 160px;
 }
 
 .settings-storage-row {

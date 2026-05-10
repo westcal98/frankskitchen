@@ -126,17 +126,13 @@
 
 <div id="view-shop" class="hidden">
   <div class="shop-wrap">
-    <div class="shop-header">
-      <div class="shop-title">Shopping List</div>
-      <div class="shop-stats" id="shopStats">0 items</div>
-    </div>
     <div class="shop-view-toggle">
       <button class="shop-view-btn active" id="shopViewFull" onclick="setShopView('full')">Full List</button>
       <button class="shop-view-btn" id="shopViewNext" onclick="setShopView('next')">🛒 Next Run</button>
     </div>
+    <div class="shop-filter-row" id="shopFilterRow"></div>
     <div class="shop-toolbar">
-      <button class="shop-tb-add" id="shopAddBtn" onclick="toggleShopAdd()" title="Add item">+</button>
-      <div class="shop-toolbar-spacer"></div>
+      <div class="shop-stats" id="shopStats">0 items</div>
       <div class="shop-actions-inline" id="shopActionsFull">
         <button class="shop-action-btn" onclick="removeBought()">Remove Bought</button>
         <button class="shop-action-btn" onclick="clearFull()">Clear Full</button>
@@ -168,6 +164,7 @@
     </div>
     <div id="shopList"></div>
   </div>
+  <button class="add-shop-fab hidden" id="addShopFab" onclick="toggleShopAdd()">+ Add Item</button>
 </div>
 <!-- ── SETTINGS PANEL ── -->
 <div id="settingsPanel" class="settings-overlay hidden" onclick="if(event.target===this)closeSettings()">
@@ -177,6 +174,17 @@
       <button class="modal-close" onclick="closeSettings()">✕</button>
     </div>
     <div class="settings-body">
+      <div class="settings-section-label">Preferences</div>
+      <div class="settings-row-static">
+        <div class="settings-row-text">
+          <div class="settings-row-title">Open app to</div>
+        </div>
+        <div class="shop-view-toggle settings-pref-toggle" id="defaultTabToggle">
+          <button class="shop-view-btn" id="prefTabRecipes" onclick="setDefaultTab('recipes')">Recipes</button>
+          <button class="shop-view-btn" id="prefTabShop" onclick="setDefaultTab('shop')">Shopping</button>
+        </div>
+      </div>
+      <div class="settings-divider"></div>
       <div class="settings-section-label">Backup &amp; Restore</div>
       <button class="settings-row" onclick="exportData()">
         <span class="settings-row-icon">⬇</span>

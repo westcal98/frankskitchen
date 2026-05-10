@@ -991,6 +991,7 @@ const RECIPE_SERVINGS = {
 let activeFilter = 'all';
 let searchTerm = '';
 let shopView = 'full';
+let shopFilter = 'all';
 let shopSearchTerm = '';
 let expandedCard = null;
 let activeTab = {};
@@ -1001,6 +1002,7 @@ const DB_CACHE = {
   recipe_states:    {},  // { recipeId: stateObj }
   custom_recipes:   [],  // array of user-created recipe objects
   deleted_recipes:  [],  // IDs of built-in recipes the user has deleted
+  preferences:      {},  // { defaultTab: 'shop' | 'recipes' }
   favorites:        [],  // IDs of favorited recipes
   shoplist:         [],  // array of shopping list item objects
   shop_categories:  [],  // ordered category list (falls back to DEFAULT_SHOP_CATEGORIES)
@@ -1156,6 +1158,9 @@ async function initDB() {
 
     const sc = await _idbGet('kv', 'shop_categories');
     if (sc && sc.length) DB_CACHE.shop_categories = sc;
+
+    const prefs = await _idbGet('kv', 'preferences');
+    if (prefs && typeof prefs === 'object') DB_CACHE.preferences = prefs;
 
     migrateShoplistCategories();
 
@@ -1659,7 +1664,11 @@ function switchMainTab(tab) {
   document.getElementById('nav-recipes').classList.toggle('active', tab === 'recipes');
   document.getElementById('nav-shop').classList.toggle('active', tab === 'shop');
   document.getElementById('addRecipeFab').classList.toggle('hidden', tab !== 'recipes');
-  if (tab === 'shop') renderShopList();
+  document.getElementById('addShopFab').classList.toggle('hidden', tab !== 'shop');
+  if (tab === 'shop') {
+    renderShopFilterRow();
+    renderShopList();
+  }
 }
 
 // ─── SHOPPING LIST ─────────────────────────────────────────────────────────
@@ -1688,6 +1697,7 @@ function getShopCategories() {
 function saveShopCategories(cats) {
   DB_CACHE.shop_categories = cats;
   _idbPut('kv', 'shop_categories', cats);
+  renderShopFilterRow();
 }
 
 function migrateShoplistCategories() {
@@ -1921,8 +1931,8 @@ function hideSuggestions() {
 }
 
 document.addEventListener('click', (e) => {
-  // Collapse add panel when clicking outside it (but not when clicking the toolbar button)
-  if (!e.target.closest('#shopAddPanel') && !e.target.closest('#shopAddBtn')) {
+  // Collapse add panel when clicking outside it (but not when clicking the FAB)
+  if (!e.target.closest('#shopAddPanel') && !e.target.closest('#addShopFab')) {
     const ap = document.getElementById('shopAddPanel');
     if (ap && !ap.classList.contains('hidden')) collapseShopAdd();
   }
@@ -1970,14 +1980,12 @@ function clearShopSearch() {
 
 function toggleShopAdd() {
   const panel = document.getElementById('shopAddPanel');
-  const btn   = document.getElementById('shopAddBtn');
   if (!panel) return;
   const opening = panel.classList.contains('hidden');
   // Close search if open
   const sp = document.getElementById('shopSearchPanel');
   if (sp && !sp.classList.contains('hidden')) clearShopSearch();
   panel.classList.toggle('hidden', !opening);
-  btn.classList.toggle('active', opening);
   if (opening) requestAnimationFrame(() => document.getElementById('shopInput')?.focus());
 }
 
@@ -1997,9 +2005,7 @@ function toggleShopSearch() {
 
 function collapseShopAdd() {
   const panel = document.getElementById('shopAddPanel');
-  const btn   = document.getElementById('shopAddBtn');
   if (panel) panel.classList.add('hidden');
-  if (btn)   btn.classList.remove('active');
   hideSuggestions();
 }
 
@@ -2018,15 +2024,32 @@ function changeItemCategory(id, newCat) {
   renderShopList();
 }
 
+function renderShopFilterRow() {
+  const row = document.getElementById('shopFilterRow');
+  if (!row) return;
+  const cats = getShopCategories();
+  const allBtn = shopFilter === 'all' ? 'active' : '';
+  row.innerHTML = `<button class="filter-btn ${allBtn}" onclick="setShopFilter('all', this)">All</button>` +
+    cats.map(cat => `<button class="filter-btn ${shopFilter === cat.key ? 'active' : ''}" onclick="setShopFilter('${cat.key}', this)">${cat.label}</button>`).join('');
+}
+
+function setShopFilter(key, btn) {
+  shopFilter = key;
+  document.querySelectorAll('#shopFilterRow .filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderShopList();
+}
+
 function renderShopList() {
   const allItems = getShopItems();
   const container = document.getElementById('shopList');
   if (!container) return;
 
-  // Apply search filter
+  // Apply category filter then search filter
+  const catFiltered = shopFilter === 'all' ? allItems : allItems.filter(i => i.category === shopFilter);
   const items = shopSearchTerm
-    ? allItems.filter(i => i.name.toLowerCase().includes(shopSearchTerm))
-    : allItems;
+    ? catFiltered.filter(i => i.name.toLowerCase().includes(shopSearchTerm))
+    : catFiltered;
 
   updateShopStats();
 
@@ -2667,10 +2690,30 @@ function promptSavePreset(recipeId, stepIndex, totalSeconds) {
 
 // ─── SETTINGS ────────────────────────────────────────────────────────────────
 
+function savePreferences(prefs) {
+  DB_CACHE.preferences = prefs;
+  _idbPut('kv', 'preferences', prefs);
+}
+
+function setDefaultTab(tab) {
+  const prefs = Object.assign({}, DB_CACHE.preferences, { defaultTab: tab });
+  savePreferences(prefs);
+  renderPreferences();
+}
+
+function renderPreferences() {
+  const tab = (DB_CACHE.preferences && DB_CACHE.preferences.defaultTab) || 'shop';
+  const rBtn = document.getElementById('prefTabRecipes');
+  const sBtn = document.getElementById('prefTabShop');
+  if (rBtn) rBtn.classList.toggle('active', tab === 'recipes');
+  if (sBtn) sBtn.classList.toggle('active', tab === 'shop');
+}
+
 function openSettings() {
   document.getElementById('settingsPanel').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
   updateStorageDisplay();
+  renderPreferences();
   renderSettingsCategories();
 }
 
@@ -2861,6 +2904,7 @@ function exportData() {
     recipe_states:    DB_CACHE.recipe_states,
     shoplist:         DB_CACHE.shoplist,
     shop_categories:  DB_CACHE.shop_categories,
+    preferences:      DB_CACHE.preferences,
     memory:           DB_CACHE.memory,
     timer_presets:    DB_CACHE.timer_presets,
   };
@@ -2914,6 +2958,10 @@ async function importData(file) {
     if (payload.timer_presets && typeof payload.timer_presets === 'object') {
       DB_CACHE.timer_presets = payload.timer_presets;
       _idbPut('kv', 'timer_presets', payload.timer_presets);
+    }
+    if (payload.preferences && typeof payload.preferences === 'object') {
+      DB_CACHE.preferences = payload.preferences;
+      _idbPut('kv', 'preferences', payload.preferences);
     }
     renderAll();
     alert('✓ Import successful!');
@@ -2983,5 +3031,10 @@ window.addEventListener('scroll', () => {
 // initPhotos — loads photos into PHOTO_CACHE from the photo IndexedDB.
 // Both must complete before the first renderAll().
 
-Promise.all([initDB(), initPhotos()]).then(renderAll).catch(renderAll);
+function applyDefaultTab() {
+  const tab = (DB_CACHE.preferences && DB_CACHE.preferences.defaultTab) || 'shop';
+  switchMainTab(tab);
+}
+
+Promise.all([initDB(), initPhotos()]).then(() => { renderAll(); applyDefaultTab(); }).catch(renderAll);
 
