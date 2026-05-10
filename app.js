@@ -991,6 +991,7 @@ const RECIPE_SERVINGS = {
 let activeFilter = 'all';
 let searchTerm = '';
 let shopView = 'full';
+let shopSearchTerm = '';
 let expandedCard = null;
 let activeTab = {};
 
@@ -1002,6 +1003,7 @@ const DB_CACHE = {
   deleted_recipes:  [],  // IDs of built-in recipes the user has deleted
   favorites:        [],  // IDs of favorited recipes
   shoplist:         [],  // array of shopping list item objects
+  shop_categories:  [],  // ordered category list (falls back to DEFAULT_SHOP_CATEGORIES)
   memory:           [],  // user-added autocomplete strings
   timer_presets:    {},  // { "recipeId:stepIndex": seconds }
 };
@@ -1151,6 +1153,11 @@ async function initDB() {
 
     const fav = await _idbGet('kv', 'favorites');
     if (fav) DB_CACHE.favorites = fav;
+
+    const sc = await _idbGet('kv', 'shop_categories');
+    if (sc && sc.length) DB_CACHE.shop_categories = sc;
+
+    migrateShoplistCategories();
 
     // ── One-time migration from localStorage ────────────────────────────────
     const lsKeys = [];
@@ -1657,20 +1664,44 @@ function switchMainTab(tab) {
 
 // ─── SHOPPING LIST ─────────────────────────────────────────────────────────
 
-const SHOP_CATEGORIES = [
-  { key: 'produce', label: '🥬 Produce & Fresh' },
-  { key: 'protein', label: '🥩 Proteins & Meat' },
-  { key: 'dairy', label: '🧀 Dairy & Eggs' },
-  { key: 'frozen', label: '🧊 Frozen' },
-  { key: 'pantry', label: '🥫 Pantry & Canned' },
-  { key: 'spices', label: '🌶️ Spices & Seasonings' },
-  { key: 'sauces', label: '🍯 Sauces & Condiments' },
-  { key: 'baking', label: '🍬 Baking & Sweet' },
-  { key: 'bread', label: '🍞 Bread & Tortillas' },
-  { key: 'drinks', label: '🥤 Drinks & Snacks' },
-  { key: 'household', label: '🧹 Household & Kitchen' },
-  { key: 'misc', label: '📦 Other' },
+const DEFAULT_SHOP_CATEGORIES = [
+  { key: 'produce',   label: '🥬 Produce' },
+  { key: 'protein',   label: '🥩 Protein' },
+  { key: 'dairy',     label: '🧀 Dairy' },
+  { key: 'snacks',    label: '🍿 Snacks' },
+  { key: 'pantry',    label: '🥫 Pantry' },
+  { key: 'frozen',    label: '🧊 Frozen' },
+  { key: 'beverages', label: '🥤 Beverages' },
+  { key: 'other',     label: '📦 Other' },
 ];
+
+// Old key → new key map used during migration
+const OLD_CAT_MAP = {
+  spices: 'pantry', sauces: 'pantry', baking: 'pantry',
+  bread: 'snacks', drinks: 'beverages', household: 'other', misc: 'other',
+};
+
+function getShopCategories() {
+  return DB_CACHE.shop_categories.length ? DB_CACHE.shop_categories : DEFAULT_SHOP_CATEGORIES;
+}
+
+function saveShopCategories(cats) {
+  DB_CACHE.shop_categories = cats;
+  _idbPut('kv', 'shop_categories', cats);
+}
+
+function migrateShoplistCategories() {
+  const items = getShopItems();
+  const catKeys = new Set(getShopCategories().map(c => c.key));
+  let changed = false;
+  items.forEach(item => {
+    let cat = item.category;
+    if (OLD_CAT_MAP[cat]) { cat = OLD_CAT_MAP[cat]; changed = true; }
+    if (!catKeys.has(cat)) { cat = 'other'; changed = true; }
+    if (cat !== item.category) { item.category = cat; changed = true; }
+  });
+  if (changed) saveShopItems(items);
+}
 
 // Full memory bank for autocomplete suggestions
 let MEMORY_BANK = [
@@ -1733,18 +1764,14 @@ function saveShopItems(items) {
 
 function guessCategory(name) {
   const n = name.toLowerCase();
-  if (/yogurt|milk|egg|butter|cheese|cream|sour/.test(n)) return 'dairy';
-  if (/chicken|beef|pork|fish|tilapia|salmon|tuna|shrimp|hot dog|patty|patties|sausage|turkey|meat/.test(n)) return 'protein';
-  if (/frozen|ice cream/.test(n)) return 'frozen';
-  if (/carrot|avocado|banana|lemon|lime|berry|berries|onion|potato|snap pea|raspberry|tomato|lettuce|produce/.test(n)) return 'produce';
-  if (/powder|paprika|cumin|pepper|salt|seasoning|spice|oregano|cinnamon|vanilla|italian/.test(n)) return 'spices';
-  if (/sauce|bbq|ketchup|mayo|mustard|ranch|soy|honey|syrup|oil|vinegar|worcestershire|relish|salsa|dressing|chipotle|cocktail/.test(n)) return 'sauces';
-  if (/sugar|flour|baking|chocolate|chip|brownie|pancake|oat|cornstarch/.test(n)) return 'baking';
-  if (/bread|tortilla|bun|cracker|chip|waffle|pop.tart|toast/.test(n)) return 'bread';
-  if (/rice|pasta|bean|corn|tomato|broth|canned|ramen|noodle|soup/.test(n)) return 'pantry';
-  if (/celsius|soda|drink|water|juice|snicker|candy|cookie/.test(n)) return 'drinks';
-  if (/bag|liner|parchment|thermometer|scale|board|pan|skillet|mop|detergent|soap|towel|shaker|mold|cup|brush/.test(n)) return 'household';
-  return 'misc';
+  if (/yogurt|milk|egg|butter|cheese|cream|sour cream/.test(n)) return 'dairy';
+  if (/chicken|beef|pork|fish|tilapia|salmon|tuna|shrimp|hot.?dog|patty|patties|sausage|turkey|ground meat|steak|brisket/.test(n)) return 'protein';
+  if (/\bfrozen\b|ice cream/.test(n)) return 'frozen';
+  if (/carrot|avocado|banana|lemon|lime|berry|berries|onion|potato|snap pea|raspberry|tomato|lettuce|spinach|garlic|broccoli|celery|pepper|jalapeno|mango|apple|orange/.test(n)) return 'produce';
+  if (/celsius|soda|dr pepper|water|juice|coffee|tea|lemonade|gatorade|energy drink/.test(n)) return 'beverages';
+  if (/chip|cracker|pop.tart|poptart|snicker|candy|granola bar|pretzel|popcorn|nuts|trail mix|oreo|cookie|biscoff|graham/.test(n)) return 'snacks';
+  if (/bag|liner|parchment|thermometer|scale|board|pan|skillet|detergent|soap|towel|shaker|mold|brush|mop|sponge/.test(n)) return 'other';
+  return 'pantry';
 }
 
 function addShopItem(nameOverride) {
@@ -1841,6 +1868,11 @@ function removeNext() {
 function removeAllItems() {
   if (confirm('Remove all shopping list items? This cannot be undone.')) {
     saveShopItems([]);
+    shopSearchTerm = '';
+    const si = document.getElementById('shopSearchInput');
+    const sc = document.getElementById('shopSearchClear');
+    if (si) si.value = '';
+    if (sc) sc.classList.add('hidden');
     renderShopList();
     updateShopStats();
   }
@@ -1888,6 +1920,9 @@ function hideSuggestions() {
 
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.shop-add-wrap')) hideSuggestions();
+  if (!e.target.closest('.shop-cat-picker') && !e.target.closest('.shop-cat-edit-btn')) {
+    document.querySelectorAll('.shop-cat-picker').forEach(el => el.classList.add('hidden'));
+  }
 });
 
 function setShopView(view) {
@@ -1905,20 +1940,58 @@ function toggleNextRun(id) {
   if (item) { item.nextRun = !item.nextRun; saveShopItems(items); renderShopList(); }
 }
 
-function renderShopList() {
+function handleShopSearch() {
+  shopSearchTerm = document.getElementById('shopSearchInput').value.toLowerCase();
+  document.getElementById('shopSearchClear').classList.toggle('hidden', !shopSearchTerm);
+  renderShopList();
+}
+
+function clearShopSearch() {
+  shopSearchTerm = '';
+  document.getElementById('shopSearchInput').value = '';
+  document.getElementById('shopSearchClear').classList.add('hidden');
+  renderShopList();
+}
+
+function toggleCatPicker(id) {
+  const picker = document.getElementById('catpicker-' + id);
+  if (!picker) return;
+  const isHidden = picker.classList.contains('hidden');
+  document.querySelectorAll('.shop-cat-picker').forEach(el => el.classList.add('hidden'));
+  if (isHidden) picker.classList.remove('hidden');
+}
+
+function changeItemCategory(id, newCat) {
   const items = getShopItems();
+  const item = items.find(i => i.id === id);
+  if (item) { item.category = newCat; saveShopItems(items); }
+  renderShopList();
+}
+
+function renderShopList() {
+  const allItems = getShopItems();
   const container = document.getElementById('shopList');
   if (!container) return;
+
+  // Apply search filter
+  const items = shopSearchTerm
+    ? allItems.filter(i => i.name.toLowerCase().includes(shopSearchTerm))
+    : allItems;
+
   updateShopStats();
+
+  const cats = getShopCategories();
+  const catPickerHtml = (item) =>
+    `<div class="shop-cat-picker hidden" id="catpicker-${item.id}">
+      ${cats.map(cat => `<button class="cat-pick-btn${item.category === cat.key ? ' active' : ''}" onclick="changeItemCategory(${item.id},'${cat.key}')">${cat.label}</button>`).join('')}
+    </div>`;
 
   if (shopView === 'next') {
     const flagged = items.filter(i => i.nextRun);
     if (flagged.length === 0) {
-      container.innerHTML = `
-        <div class="shop-nextrun-empty">
-          <div class="shop-nextrun-empty-icon">🛒</div>
-          <p>No items flagged for next run.<br>Tap 🛒 on any item in <strong>Full List</strong> to add it here.</p>
-        </div>`;
+      container.innerHTML = shopSearchTerm
+        ? `<div class="shop-nextrun-empty"><div class="shop-nextrun-empty-icon">🔍</div><p>No Next Run items match "${shopSearchTerm}".</p></div>`
+        : `<div class="shop-nextrun-empty"><div class="shop-nextrun-empty-icon">🛒</div><p>No items flagged for next run.<br>Tap 🛒 on any item in <strong>Full List</strong> to add it here.</p></div>`;
       return;
     }
     flagged.sort((a, b) => (a.bought ? 1 : 0) - (b.bought ? 1 : 0));
@@ -1928,61 +2001,74 @@ function renderShopList() {
           <div class="shop-item-cb" onclick="toggleBought(${item.id})"></div>
           <div class="shop-item-name">${item.name}</div>
           ${(item.qty || 1) > 1 ? `<span class="shop-qty-num">${item.qty}</span>` : ''}
+          <button class="shop-cat-edit-btn" onclick="event.stopPropagation();toggleCatPicker(${item.id})" title="Change category">🏷️</button>
           <button class="shop-nextrun-btn active" onclick="toggleNextRun(${item.id})" title="Remove from Next Run">🛒</button>
-        </div>`).join('')}
+        </div>
+        ${catPickerHtml(item)}`).join('')}
     </div>`;
     return;
   }
 
   // FULL VIEW
   if (items.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="emoji">🛒</div><p>Your shopping list is empty.<br>Add items above.</p></div>`;
+    container.innerHTML = shopSearchTerm
+      ? `<div class="empty-state"><div class="emoji">🔍</div><p>No items match "${shopSearchTerm}".</p></div>`
+      : `<div class="empty-state"><div class="emoji">🛒</div><p>Your shopping list is empty.<br>Add items above.</p></div>`;
     return;
   }
 
-  // Group by category
+  const catKeys = new Set(cats.map(c => c.key));
+
+  // Group by category; items with unknown keys fall into 'other'
   const grouped = {};
   items.forEach(item => {
-    const cat = item.category || 'misc';
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(item);
+    const key = catKeys.has(item.category) ? item.category : 'other';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(item);
   });
 
-  // Sort: unbought first within each category
   Object.keys(grouped).forEach(k => {
     grouped[k].sort((a, b) => (a.bought ? 1 : 0) - (b.bought ? 1 : 0));
   });
 
-  let html = '';
-  SHOP_CATEGORIES.forEach(cat => {
-    if (!grouped[cat.key] || grouped[cat.key].length === 0) return;
-    const catItems = grouped[cat.key];
-    const boughtCount = catItems.filter(i => i.bought).length;
-    html += `
-      <div class="shop-section" id="shopcat-${cat.key}">
-        <div class="shop-section-header" onclick="toggleShopSection('${cat.key}')">
-          <div class="shop-section-title">${cat.label}</div>
-          <div class="shop-section-count">${boughtCount}/${catItems.length}</div>
-          <div class="shop-section-chevron">▾</div>
-        </div>
-        <div class="shop-items">
-          ${catItems.map(item => `
-            <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}">
-              <div class="shop-item-cb" onclick="toggleBought(${item.id})"></div>
-              <div class="shop-item-name">${item.name}</div>
-              <div class="shop-qty">
-                <button class="shop-qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
-                <span class="shop-qty-num">${item.qty || 1}</span>
-                <button class="shop-qty-btn" onclick="changeQty(${item.id}, 1)">+</button>
-              </div>
-              <button class="shop-nextrun-btn ${item.nextRun ? 'active' : ''}" onclick="toggleNextRun(${item.id})" title="${item.nextRun ? 'Remove from Next Run' : 'Add to Next Run'}">🛒</button>
-              <button class="shop-delete-btn" onclick="deleteShopItem(${item.id})">🗑</button>
-            </div>
-          `).join('')}
-        </div>
+  const renderItemRows = (catItems) => catItems.map(item => `
+    <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}">
+      <div class="shop-item-cb" onclick="toggleBought(${item.id})"></div>
+      <div class="shop-item-name">${item.name}</div>
+      <div class="shop-qty">
+        <button class="shop-qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
+        <span class="shop-qty-num">${item.qty || 1}</span>
+        <button class="shop-qty-btn" onclick="changeQty(${item.id}, 1)">+</button>
       </div>
-    `;
+      <button class="shop-cat-edit-btn" onclick="event.stopPropagation();toggleCatPicker(${item.id})" title="Change category">🏷️</button>
+      <button class="shop-nextrun-btn ${item.nextRun ? 'active' : ''}" onclick="toggleNextRun(${item.id})" title="${item.nextRun ? 'Remove from Next Run' : 'Add to Next Run'}">🛒</button>
+      <button class="shop-delete-btn" onclick="deleteShopItem(${item.id})">🗑</button>
+    </div>
+    ${catPickerHtml(item)}`).join('');
+
+  const sectionHtml = (key, label, catItems) => {
+    const boughtCount = catItems.filter(i => i.bought).length;
+    return `<div class="shop-section" id="shopcat-${key}">
+      <div class="shop-section-header" onclick="toggleShopSection('${key}')">
+        <div class="shop-section-title">${label}</div>
+        <div class="shop-section-count">${boughtCount}/${catItems.length}</div>
+        <div class="shop-section-chevron">▾</div>
+      </div>
+      <div class="shop-items">${renderItemRows(catItems)}</div>
+    </div>`;
+  };
+
+  let html = '';
+  cats.forEach(cat => {
+    if (grouped[cat.key] && grouped[cat.key].length) {
+      html += sectionHtml(cat.key, cat.label, grouped[cat.key]);
+    }
   });
+
+  // Orphaned items (went to 'other' bucket but 'other' isn't a known category key)
+  if (grouped['other'] && grouped['other'].length && !catKeys.has('other')) {
+    html += sectionHtml('__other', '📦 Other', grouped['other']);
+  }
 
   container.innerHTML = html;
 }
@@ -2027,48 +2113,44 @@ function preloadKeepList() {
     { name: 'Jasmine rice (2lb)', cat: 'pantry' },
     { name: 'Pasta (penne)', cat: 'pantry' },
     { name: 'Panko bread crumbs', cat: 'pantry' },
-    // 🍯 Sauces
-    { name: 'Soy sauce', cat: 'sauces' },
-    { name: 'Salsa (Herdez)', cat: 'sauces' },
-    { name: 'Hot sauce (Cholula)', cat: 'sauces' },
-    // 🌶️ Spices
-    { name: 'Chili powder', cat: 'spices' },
-    { name: 'Italian seasoning', cat: 'spices' },
-    { name: 'Onion powder', cat: 'spices' },
-    { name: 'Smoked paprika', cat: 'spices' },
-    // 🍬 Baking
-    { name: 'Dark chocolate chips', cat: 'baking' },
-    { name: 'Corn starch', cat: 'baking' },
-    // 🍞 Bread
-    { name: 'Flour tortillas (large)', cat: 'bread' },
-    { name: 'Hot dog buns', cat: 'bread' },
-    // 🧹 Household
-    { name: 'Paper towels', cat: 'household' },
-    { name: 'Dish soap', cat: 'household' },
-    { name: 'Parchment paper', cat: 'household' },
-    // 🥤 Drinks
-    { name: 'Celsius (variety pack)', cat: 'drinks' },
-    { name: 'Water flavoring drops', cat: 'drinks' },
+    { name: 'Soy sauce', cat: 'pantry' },
+    { name: 'Salsa (Herdez)', cat: 'pantry' },
+    { name: 'Hot sauce (Cholula)', cat: 'pantry' },
+    { name: 'Chili powder', cat: 'pantry' },
+    { name: 'Italian seasoning', cat: 'pantry' },
+    { name: 'Onion powder', cat: 'pantry' },
+    { name: 'Smoked paprika', cat: 'pantry' },
+    { name: 'Dark chocolate chips', cat: 'pantry' },
+    { name: 'Corn starch', cat: 'pantry' },
+    { name: 'Flour tortillas (large)', cat: 'pantry' },
+    { name: 'Hot dog buns', cat: 'pantry' },
+    // 🍿 Snacks
+    { name: 'Pop-Tarts', cat: 'snacks' },
+    // 🥤 Beverages
+    { name: 'Celsius (variety pack)', cat: 'beverages' },
+    { name: 'Water flavoring drops', cat: 'beverages' },
+    // 📦 Other
+    { name: 'Paper towels', cat: 'other' },
+    { name: 'Dish soap', cat: 'other' },
+    { name: 'Parchment paper', cat: 'other' },
   ];
 
   const bought = [
-    // Already in the cart / pantry — these test the "next run" cleared state
     { name: 'Eggs (dozen)', cat: 'dairy' },
     { name: 'Butter (unsalted)', cat: 'dairy' },
-    { name: 'Sandwich bread', cat: 'bread' },
+    { name: 'Sandwich bread', cat: 'pantry' },
     { name: 'Ground turkey', cat: 'protein' },
     { name: 'Frozen burger patties', cat: 'frozen' },
-    { name: 'Garlic powder', cat: 'spices' },
-    { name: 'Cumin', cat: 'spices' },
-    { name: 'Cinnamon', cat: 'spices' },
-    { name: 'Pasta sauce (jar)', cat: 'sauces' },
+    { name: 'Garlic powder', cat: 'pantry' },
+    { name: 'Cumin', cat: 'pantry' },
+    { name: 'Cinnamon', cat: 'pantry' },
+    { name: 'Pasta sauce (jar)', cat: 'pantry' },
     { name: 'Canned corn', cat: 'pantry' },
     { name: 'Sour cream', cat: 'dairy' },
-    { name: 'Baking powder', cat: 'baking' },
-    { name: 'Pop-Tarts', cat: 'bread' },
+    { name: 'Baking powder', cat: 'pantry' },
     { name: 'Hot dogs', cat: 'protein' },
     { name: 'Cup noodles', cat: 'pantry' },
-    { name: 'Chip clips', cat: 'household' },
+    { name: 'Chip clips', cat: 'other' },
   ];
 
   const items = [
@@ -2539,11 +2621,167 @@ function openSettings() {
   document.getElementById('settingsPanel').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
   updateStorageDisplay();
+  renderSettingsCategories();
 }
 
 function closeSettings() {
   document.getElementById('settingsPanel').classList.add('hidden');
   document.body.style.overflow = '';
+}
+
+// ─── SETTINGS: CATEGORIES ─────────────────────────────────────────────────
+
+function renderSettingsCategories() {
+  const el = document.getElementById('settingsCatList');
+  if (!el) return;
+  const cats = getShopCategories();
+  const items = getShopItems();
+  const counts = {};
+  items.forEach(i => { counts[i.category] = (counts[i.category] || 0) + 1; });
+
+  el.innerHTML = cats.map(cat => {
+    const n = counts[cat.key] || 0;
+    const canDel = n === 0;
+    return `<div class="settings-cat-row" id="catrow-${cat.key}" data-cat-key="${cat.key}"
+        draggable="true"
+        ondragstart="catDragStart(event,'${cat.key}')"
+        ondragover="catDragOver(event,'${cat.key}')"
+        ondrop="catDrop(event,'${cat.key}')"
+        ondragend="catDragEnd()">
+      <span class="cat-drag-handle"
+        ontouchstart="catTouchStart(event,'${cat.key}')"
+        ontouchmove="catTouchMove(event)"
+        ontouchend="catTouchEnd(event)">⠿</span>
+      <span class="settings-cat-label" id="catlabel-${cat.key}" onclick="startRenameCategory('${cat.key}')">${cat.label}</span>
+      ${n > 0 ? `<span class="settings-cat-count">${n}</span>` : '<span class="settings-cat-count"></span>'}
+      <button class="settings-cat-del${canDel ? '' : ' disabled'}"
+        onclick="${canDel ? `deleteCategory('${cat.key}')` : ''}"
+        title="${canDel ? 'Delete' : `${n} item${n !== 1 ? 's' : ''} — move them first`}">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function startRenameCategory(key) {
+  const span = document.getElementById('catlabel-' + key);
+  if (!span || span.querySelector('input')) return;
+  const cur = span.textContent;
+  span.innerHTML = `<input class="settings-cat-input" value="${cur.replace(/"/g, '&quot;')}"
+    onblur="saveRenameCategory('${key}', this.value)"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${cur.replace(/'/g, "\\'")}';this.blur()}"
+    onclick="event.stopPropagation()">`;
+  const inp = span.querySelector('input');
+  inp.focus();
+  inp.select();
+}
+
+function saveRenameCategory(key, newLabel) {
+  const label = newLabel.trim();
+  if (label) {
+    const cats = getShopCategories().slice();
+    const cat = cats.find(c => c.key === key);
+    if (cat) { cat.label = label; saveShopCategories(cats); }
+  }
+  renderSettingsCategories();
+}
+
+function deleteCategory(key) {
+  const items = getShopItems();
+  if (items.some(i => i.category === key)) return; // safety — button is disabled anyway
+  saveShopCategories(getShopCategories().filter(c => c.key !== key));
+  renderSettingsCategories();
+}
+
+function addNewCategory() {
+  const key = 'cat-' + Date.now();
+  const cats = getShopCategories().slice();
+  cats.push({ key, label: 'New Category' });
+  saveShopCategories(cats);
+  renderSettingsCategories();
+  requestAnimationFrame(() => startRenameCategory(key));
+}
+
+// Drag-to-reorder: mouse events
+let _dragSrcKey = null;
+
+function catDragStart(e, key) {
+  _dragSrcKey = key;
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.classList.add('dragging');
+}
+
+function catDragOver(e, key) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.settings-cat-row').forEach(r => r.classList.remove('drag-over'));
+  if (key !== _dragSrcKey) document.getElementById('catrow-' + key)?.classList.add('drag-over');
+}
+
+function catDrop(e, key) {
+  e.preventDefault();
+  if (!_dragSrcKey || _dragSrcKey === key) return;
+  const cats = getShopCategories().slice();
+  const si = cats.findIndex(c => c.key === _dragSrcKey);
+  const di = cats.findIndex(c => c.key === key);
+  if (si < 0 || di < 0) return;
+  const [moved] = cats.splice(si, 1);
+  cats.splice(di, 0, moved);
+  saveShopCategories(cats);
+  _dragSrcKey = null;
+  renderSettingsCategories();
+}
+
+function catDragEnd() {
+  document.querySelectorAll('.settings-cat-row').forEach(r => r.classList.remove('drag-over', 'dragging'));
+  _dragSrcKey = null;
+}
+
+// Drag-to-reorder: touch events
+let _touchDragKey = null;
+let _touchDragEl  = null;
+
+function catTouchStart(e, key) {
+  e.stopPropagation();
+  _touchDragKey = key;
+  _touchDragEl  = e.currentTarget.closest('.settings-cat-row');
+  _touchDragEl.classList.add('dragging');
+}
+
+function catTouchMove(e) {
+  if (!_touchDragKey) return;
+  e.preventDefault();
+  const y = e.touches[0].clientY;
+  const rows = [...document.querySelectorAll('.settings-cat-row')];
+  rows.forEach(r => r.classList.remove('drag-over'));
+  const target = rows.find(r => {
+    const rect = r.getBoundingClientRect();
+    return y >= rect.top && y <= rect.bottom && r !== _touchDragEl;
+  });
+  if (target) target.classList.add('drag-over');
+}
+
+function catTouchEnd(e) {
+  if (!_touchDragKey) return;
+  const y = e.changedTouches[0].clientY;
+  const rows = [...document.querySelectorAll('.settings-cat-row')];
+  const target = rows.find(r => {
+    const rect = r.getBoundingClientRect();
+    return y >= rect.top && y <= rect.bottom && r !== _touchDragEl;
+  });
+  if (target) {
+    const dstKey = target.dataset.catKey;
+    const cats = getShopCategories().slice();
+    const si = cats.findIndex(c => c.key === _touchDragKey);
+    const di = cats.findIndex(c => c.key === dstKey);
+    if (si >= 0 && di >= 0) {
+      const [moved] = cats.splice(si, 1);
+      cats.splice(di, 0, moved);
+      saveShopCategories(cats);
+    }
+  }
+  rows.forEach(r => r.classList.remove('drag-over', 'dragging'));
+  _touchDragKey = null;
+  _touchDragEl  = null;
+  renderSettingsCategories();
 }
 
 async function updateStorageDisplay() {
@@ -2572,6 +2810,7 @@ function exportData() {
     favorites:        DB_CACHE.favorites,
     recipe_states:    DB_CACHE.recipe_states,
     shoplist:         DB_CACHE.shoplist,
+    shop_categories:  DB_CACHE.shop_categories,
     memory:           DB_CACHE.memory,
     timer_presets:    DB_CACHE.timer_presets,
   };
@@ -2602,6 +2841,10 @@ async function importData(file) {
     if (Array.isArray(payload.favorites)) {
       DB_CACHE.favorites = payload.favorites;
       _idbPut('kv', 'favorites', payload.favorites);
+    }
+    if (Array.isArray(payload.shop_categories) && payload.shop_categories.length) {
+      DB_CACHE.shop_categories = payload.shop_categories;
+      _idbPut('kv', 'shop_categories', payload.shop_categories);
     }
     if (payload.recipe_states && typeof payload.recipe_states === 'object') {
       for (const [id, st] of Object.entries(payload.recipe_states)) {

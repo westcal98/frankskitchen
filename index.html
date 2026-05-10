@@ -134,6 +134,10 @@
       <button class="shop-view-btn active" id="shopViewFull" onclick="setShopView('full')">Full List</button>
       <button class="shop-view-btn" id="shopViewNext" onclick="setShopView('next')">🛒 Next Run</button>
     </div>
+    <div class="shop-search-wrap">
+      <input class="shop-search-input" id="shopSearchInput" type="text" placeholder="Search items…" oninput="handleShopSearch()" autocomplete="off">
+      <button class="shop-search-clear hidden" id="shopSearchClear" onclick="clearShopSearch()">✕</button>
+    </div>
     <div class="shop-actions" id="shopActionsFull">
       <button class="shop-action-btn" onclick="removeBought()">Remove Bought</button>
       <button class="shop-action-btn" onclick="clearFull()">Clear Full</button>
@@ -190,6 +194,10 @@
       <div class="settings-divider"></div>
       <div class="settings-section-label">Storage</div>
       <div class="settings-storage-row" id="storageUsage">Checking…</div>
+      <div class="settings-divider"></div>
+      <div class="settings-section-label">Shopping Categories</div>
+      <div id="settingsCatList"></div>
+      <button class="settings-add-cat-btn" onclick="addNewCategory()">+ New Category</button>
       <div class="settings-divider"></div>
       <div class="settings-section-label">Danger Zone</div>
       <button class="settings-row danger" onclick="removeAllItems()">
