@@ -1238,7 +1238,36 @@ function setFilter(filter, btn) {
 }
 
 function handleSearch() {
-  searchTerm = document.getElementById('searchInput').value.toLowerCase();
+  // Legacy — no longer wired to an element; kept as no-op for safety
+}
+
+function toggleRecipeSearch() {
+  const panel = document.getElementById('recipeSearchPanel');
+  const btn   = document.getElementById('recipeSearchBtn');
+  if (!panel) return;
+  const opening = panel.classList.contains('hidden');
+  if (!opening) { clearRecipeSearch(); return; }
+  panel.classList.remove('hidden');
+  btn.classList.add('active');
+  requestAnimationFrame(() => document.getElementById('recipeSearchInput')?.focus());
+}
+
+function handleRecipeSearch() {
+  searchTerm = document.getElementById('recipeSearchInput').value.toLowerCase();
+  document.getElementById('recipeSearchClear').classList.toggle('hidden', !searchTerm);
+  renderAll();
+}
+
+function clearRecipeSearch() {
+  searchTerm = '';
+  const inp   = document.getElementById('recipeSearchInput');
+  const clear = document.getElementById('recipeSearchClear');
+  const panel = document.getElementById('recipeSearchPanel');
+  const btn   = document.getElementById('recipeSearchBtn');
+  if (inp)   inp.value = '';
+  if (clear) clear.classList.add('hidden');
+  if (panel) panel.classList.add('hidden');
+  if (btn)   btn.classList.remove('active');
   renderAll();
 }
 
@@ -1666,6 +1695,9 @@ function switchMainTab(tab) {
   document.getElementById('addRecipeFab').classList.toggle('hidden', tab !== 'recipes');
   document.getElementById('addShopFab').classList.toggle('hidden', tab !== 'shop');
   if (tab === 'shop') {
+    // Collapse recipe search when leaving Recipes tab
+    const rsp = document.getElementById('recipeSearchPanel');
+    if (rsp && !rsp.classList.contains('hidden')) clearRecipeSearch();
     renderShopFilterRow();
     renderShopList();
   }

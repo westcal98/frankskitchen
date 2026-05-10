@@ -21,14 +21,11 @@
       <button class="settings-gear-btn" onclick="openSettings()" title="Settings">⚙</button>
     </div>
   </div>
-  <div class="search-wrap">
-    <input class="search-input" type="text" placeholder="Search recipes..." id="searchInput" oninput="handleSearch()">
-  </div>
 </header>
 
 <div class="nav-tabs">
-  <button class="nav-tab active" id="nav-recipes" onclick="switchMainTab('recipes')">🍳 Recipes</button>
   <button class="nav-tab" id="nav-shop" onclick="switchMainTab('shop')">🛒 Shopping</button>
+  <button class="nav-tab" id="nav-recipes" onclick="switchMainTab('recipes')">🍳 Recipes</button>
 </div>
 
 <div id="view-recipes">
@@ -42,6 +39,18 @@
   <button class="filter-btn" onclick="setFilter('af', this)">Air Fryer</button>
   <button class="filter-btn" onclick="setFilter('pc', this)">Pressure Cooker</button>
   <button class="filter-btn" onclick="setFilter('combo', this)">Both</button>
+</div>
+<div class="recipe-toolbar">
+  <button class="shop-tb-search" id="recipeSearchBtn" onclick="toggleRecipeSearch()" title="Search recipes">🔍</button>
+</div>
+<div class="shop-search-panel recipe-search-panel hidden" id="recipeSearchPanel">
+  <div class="shop-search-wrap">
+    <input class="shop-search-input" id="recipeSearchInput" type="text" placeholder="Search recipes…"
+      oninput="handleRecipeSearch()"
+      onkeydown="if(event.key==='Escape')clearRecipeSearch()"
+      autocomplete="off">
+    <button class="shop-search-clear hidden" id="recipeSearchClear" onclick="clearRecipeSearch()">✕</button>
+  </div>
 </div>
 
 <div class="main-content" id="mainContent"></div>
@@ -273,7 +282,7 @@
             <li>Shopping list with Next Run mode and category management</li>
             <li>Step timers with Ding Settings</li>
             <li>Favorites, custom recipes, and recipe management</li>
-            <li>Cloud storage with backup and restore</li>
+            <li>Local backup and restore via JSON export to device</li>
           </ul>
         </div>
       </div>
