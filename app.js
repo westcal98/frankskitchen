@@ -3571,3 +3571,90 @@ function applyDefaultTab() {
 
 Promise.all([initDB(), initPhotos()]).then(() => { renderAll(); applyDefaultTab(); }).catch(renderAll);
 
+// ─── SERVICE WORKER ─────────────────────────────────────────────────────────
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      console.log('[FK] Service worker registered:', reg.scope);
+    }).catch(err => {
+      console.warn('[FK] Service worker registration failed:', err);
+    });
+  });
+}
+
+// ─── PWA INSTALL PROMPT ─────────────────────────────────────────────────────
+// Android / Chrome: capture beforeinstallprompt and show custom banner.
+// iOS: show banner when running in browser (not already in standalone mode).
+
+(function initInstallPrompt() {
+  const DISMISSED_KEY = 'fk_install_dismissed';
+
+  function isDismissed() {
+    try { return !!localStorage.getItem(DISMISSED_KEY); } catch(e) { return false; }
+  }
+  function markDismissed() {
+    try { localStorage.setItem(DISMISSED_KEY, '1'); } catch(e) {}
+  }
+  function isStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
+  }
+
+  function showBanner() {
+    if (isDismissed() || isStandalone()) return;
+    const banner = document.getElementById('installBanner');
+    if (banner) banner.classList.remove('hidden');
+  }
+
+  function hideBanner() {
+    const banner = document.getElementById('installBanner');
+    if (banner) banner.classList.add('hidden');
+  }
+
+  // Android / Chrome / Edge — deferred install prompt
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showBanner();
+  });
+
+  // Wire up Install button
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('installBannerBtn');
+    const dismiss = document.getElementById('installBannerDismiss');
+
+    if (btn) {
+      btn.addEventListener('click', async () => {
+        hideBanner();
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log('[FK] Install prompt outcome:', outcome);
+          deferredPrompt = null;
+        }
+        markDismissed();
+      });
+    }
+
+    if (dismiss) {
+      dismiss.addEventListener('click', () => {
+        hideBanner();
+        markDismissed();
+      });
+    }
+
+    // iOS Safari — show banner if in browser (not standalone)
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (isIOS && !isStandalone() && !isDismissed()) {
+      // Delay slightly so it doesn't compete with app init
+      setTimeout(() => {
+        const sub = document.querySelector('.install-banner-sub');
+        if (sub) sub.textContent = 'Tap Share → Add to Home Screen';
+        showBanner();
+      }, 2000);
+    }
+  });
+})();
+

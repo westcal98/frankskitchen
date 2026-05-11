@@ -8,3 +8,4 @@ wrangler.toml
 *.md
 .github/
 package*.json
+gen-icons.js
