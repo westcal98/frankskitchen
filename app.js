@@ -1006,15 +1006,16 @@ let activeTab = {};
 // In-memory cache for all persisted data — loaded from IndexedDB at startup.
 // All reads are synchronous (from cache); writes update cache + fire async IDB write.
 const DB_CACHE = {
-  recipe_states:    {},  // { recipeId: stateObj }
-  custom_recipes:   [],  // array of user-created recipe objects
-  deleted_recipes:  [],  // IDs of built-in recipes the user has deleted
-  preferences:      {},  // { defaultTab: 'shop' | 'recipes' }
-  favorites:        [],  // IDs of favorited recipes
-  shoplist:         [],  // array of shopping list item objects
-  shop_categories:  [],  // ordered category list (falls back to DEFAULT_SHOP_CATEGORIES)
-  memory:           [],  // user-added autocomplete strings
-  timer_presets:    {},  // { "recipeId:stepIndex": seconds }
+  recipe_states:      {},  // { recipeId: stateObj }
+  custom_recipes:     [],  // array of user-created recipe objects
+  deleted_recipes:    [],  // IDs of built-in recipes the user has deleted
+  preferences:        {},  // { defaultTab: 'shop' | 'recipes' }
+  favorites:          [],  // IDs of favorited recipes
+  shoplist:           [],  // array of shopping list item objects
+  shop_categories:    [],  // ordered category list (falls back to DEFAULT_SHOP_CATEGORIES)
+  shop_cat_collapse:  {},  // { [categoryKey]: true } — persisted collapsed state
+  memory:             [],  // user-added autocomplete strings
+  timer_presets:      {},  // { "recipeId:stepIndex": seconds }
 };
 
 function getState(recipeId) {
@@ -1240,6 +1241,9 @@ async function initDB() {
     const sc = await _idbGet('kv', 'shop_categories');
     if (sc && sc.length) DB_CACHE.shop_categories = sc;
 
+    const scc = await _idbGet('kv', 'shop_cat_collapse');
+    if (scc && typeof scc === 'object' && !Array.isArray(scc)) DB_CACHE.shop_cat_collapse = scc;
+
     const prefs = await _idbGet('kv', 'preferences');
     if (prefs && typeof prefs === 'object') DB_CACHE.preferences = prefs;
 
@@ -1253,7 +1257,7 @@ async function initDB() {
 
     const KV_KEYS = new Set([
       'fk_shoplist', 'fk_custom_recipes', 'fk_memory', 'fk_timer_presets',
-      'fk_favorites', 'fk_shop_categories', 'fk_preferences', 'fk_schema_version',
+      'fk_favorites', 'fk_shop_categories', 'fk_shop_cat_collapse', 'fk_preferences', 'fk_schema_version',
     ]);
 
     for (const k of lsKeys) {
@@ -2487,7 +2491,8 @@ function renderShopList() {
 
   const sectionHtml = (key, label, catItems) => {
     const boughtCount = catItems.filter(i => i.bought).length;
-    return `<div class="shop-section" id="shopcat-${key}">
+    const isCollapsed = !!DB_CACHE.shop_cat_collapse[key];
+    return `<div class="shop-section${isCollapsed ? ' collapsed' : ''}" id="shopcat-${key}">
       <div class="shop-section-header" onclick="toggleShopSection('${key}')">
         <div class="shop-section-title">${label}</div>
         <div class="shop-section-count">${boughtCount}/${catItems.length}</div>
@@ -2513,8 +2518,11 @@ function renderShopList() {
 }
 
 function toggleShopSection(key) {
+  const collapse = DB_CACHE.shop_cat_collapse;
+  collapse[key] = !collapse[key];
+  _idbPut('kv', 'shop_cat_collapse', collapse);
   const el = document.getElementById('shopcat-' + key);
-  if (el) el.classList.toggle('collapsed');
+  if (el) el.classList.toggle('collapsed', !!collapse[key]);
 }
 
 // ─── PRELOAD KEEP LIST ──────────────────────────────────────────────────────
