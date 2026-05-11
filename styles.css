@@ -1314,6 +1314,9 @@ body::before {
   color: var(--gold);
   background: rgba(200,146,42,0.1);
 }
+/* Next Run view: filter-by and tags are hidden, leaving only the search
+   button as the sole flex child — push it to the right edge */
+.filter-bar .shop-tb-search:only-child { margin-left: auto; }
 
 /* ── SHOP SEARCH ── */
 .shop-search-wrap {
