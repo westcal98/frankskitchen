@@ -1173,11 +1173,25 @@ function _idbClearStore(store) {
 }
 
 async function initDB() {
-  console.log('[FK] INIT START — _db before open:', _db ? 'already set' : 'null');
-  console.log('[FK] localStorage fk_shoplist at init:', localStorage.getItem('fk_shoplist'));
+  // ── STEP 1: Read localStorage BEFORE opening IDB ───────────────────────────
+  // localStorage is written synchronously in _idbPut, so it always holds the
+  // most recent confirmed write — even if the IDB async transaction was killed
+  // mid-flight. We read it first so it can win over a stale IDB snapshot.
+  const _lsShopRaw = localStorage.getItem('fk_shoplist');
+  const _lsShop = (() => {
+    try { const d = JSON.parse(_lsShopRaw); return Array.isArray(d) ? d : null; } catch(e) { return null; }
+  })();
+  console.log(`[FK] INIT START — localStorage has ${_lsShop ? _lsShop.length : 0} item(s)`);
+
+  // Request persistent storage so iOS/browser won't evict our data
+  if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().then(granted => {
+      console.log('[FK] Persistent storage granted:', granted);
+    });
+  }
+
   try {
     _db = await _openDB();
-    console.log('[FK] IDB opened successfully — _db:', _db ? 'open' : 'null');
 
     // ── Load recipe states ──────────────────────────────────────────────────
     await _idbCursor('recipe_states', (key, val) => { DB_CACHE.recipe_states[key] = val; });
@@ -1186,9 +1200,27 @@ async function initDB() {
     const custom = await _idbGet('kv', 'custom_recipes');
     if (custom) DB_CACHE.custom_recipes = custom;
 
-    const shop = await _idbGet('kv', 'shoplist');
-    console.log('[FK] IDB fk_shoplist raw:', JSON.stringify(shop));
-    if (shop)   DB_CACHE.shoplist = shop;
+    // ── Shoplist: localStorage wins over IDB (it's the most recent write) ───
+    const idbShop = await _idbGet('kv', 'shoplist');
+    const idbLen  = idbShop ? idbShop.length : 0;
+    const lsLen   = _lsShop ? _lsShop.length : 0;
+    console.log(`[FK] Storage check: localStorage has ${lsLen} items, IDB has ${idbLen} items`);
+
+    if (_lsShop && lsLen > 0) {
+      // localStorage has data — always prefer it (most recent synchronous write)
+      DB_CACHE.shoplist = _lsShop;
+      if (idbLen !== lsLen) {
+        // IDB is stale (app was killed mid-transaction) — re-sync it now
+        try { _db.transaction('kv', 'readwrite').objectStore('kv').put(_lsShop, 'shoplist'); } catch(e) {}
+        console.log(`[FK] IDB re-synced from localStorage (IDB had ${idbLen}, LS had ${lsLen})`);
+      }
+    } else if (idbShop && idbLen > 0) {
+      // localStorage empty but IDB has data — use IDB and seed localStorage for next time
+      DB_CACHE.shoplist = idbShop;
+      try { localStorage.setItem('fk_shoplist', JSON.stringify(idbShop)); } catch(e) {}
+      console.log(`[FK] localStorage was empty — populated from IDB (${idbLen} items)`);
+    }
+    // else: both empty → first install (handled by seed check below)
 
     const mem = await _idbGet('kv', 'memory');
     if (mem) {
@@ -1215,37 +1247,25 @@ async function initDB() {
     migrateShoplistCategories();
     await runMigrations(sv);
 
-    // ── Recover from localStorage if IDB data is missing ────────────────────
-    // With dual-write, localStorage is always current. If the app was killed
-    // before an IDB transaction committed, this loop restores the lost data.
+    // ── Recovery loop: restore other data types from localStorage if IDB missed them
     const lsKeys = [];
     for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k) lsKeys.push(k); }
 
-    // All known kv-store keys — anything else is treated as a per-recipe state id.
     const KV_KEYS = new Set([
       'fk_shoplist', 'fk_custom_recipes', 'fk_memory', 'fk_timer_presets',
       'fk_favorites', 'fk_shop_categories', 'fk_preferences', 'fk_schema_version',
     ]);
 
-    console.log(`[FK] Recovery loop starting — DB_CACHE.shoplist.length=${DB_CACHE.shoplist.length} lsKeys:`, lsKeys.filter(k => k.startsWith('fk_')));
-
     for (const k of lsKeys) {
       if (!k.startsWith('fk_')) continue;
+      if (k === 'fk_shoplist') continue; // already handled above
 
       if (k === 'fk_custom_recipes' && !DB_CACHE.custom_recipes.length) {
         try { const d = JSON.parse(localStorage.getItem(k)); if (d && d.length) { DB_CACHE.custom_recipes = d; _idbPut('kv', 'custom_recipes', d); } } catch(e) {}
         continue;
       }
-      if (k === 'fk_shoplist' && !DB_CACHE.shoplist.length) {
-        console.log('[FK] Recovery: fk_shoplist found in localStorage, IDB was empty — restoring');
-        try { const d = JSON.parse(localStorage.getItem(k)); if (d && d.length) { DB_CACHE.shoplist = d; _idbPut('kv', 'shoplist', d); console.log(`[FK] Recovery: restored ${d.length} item(s) from localStorage`); } } catch(e) { console.error('[FK] Recovery parse error:', e); }
-        continue;
-      }
       if (k === 'fk_memory' && !DB_CACHE.memory.length) {
-        try {
-          const d = JSON.parse(localStorage.getItem(k));
-          if (d && d.length) { DB_CACHE.memory = d; MEMORY_BANK = [...new Set([...MEMORY_BANK, ...d])]; _idbPut('kv', 'memory', d); }
-        } catch(e) {}
+        try { const d = JSON.parse(localStorage.getItem(k)); if (d && d.length) { DB_CACHE.memory = d; MEMORY_BANK = [...new Set([...MEMORY_BANK, ...d])]; _idbPut('kv', 'memory', d); } } catch(e) {}
         continue;
       }
       if (k === 'fk_timer_presets' && !Object.keys(DB_CACHE.timer_presets).length) {
@@ -1264,15 +1284,15 @@ async function initDB() {
         try { const d = JSON.parse(localStorage.getItem(k)); if (d && typeof d === 'object' && !Array.isArray(d)) { DB_CACHE.preferences = d; _idbPut('kv', 'preferences', d); } } catch(e) {}
         continue;
       }
-      if (KV_KEYS.has(k)) continue; // known kv key with data already loaded — skip
+      if (KV_KEYS.has(k)) continue;
 
-      // Per-recipe state (anything with fk_ prefix that isn't a known kv key)
+      // Per-recipe state
       const rid = k.slice(3);
       if (DB_CACHE.recipe_states[rid]) continue;
       try {
         const d = JSON.parse(localStorage.getItem(k));
         if (d && typeof d === 'object' && !Array.isArray(d)) {
-          delete d.photo; // photos live in their own DB (initPhotos)
+          delete d.photo;
           DB_CACHE.recipe_states[rid] = d;
           _idbPut('recipe_states', rid, d);
         }
@@ -1284,9 +1304,14 @@ async function initDB() {
     _loadFromLocalStorage();
   }
 
-  // preloadKeepList runs here so it sees the real shoplist from DB_CACHE
-  preloadKeepList();
-  console.log(`[FK] INIT COMPLETE — final shoplist: ${DB_CACHE.shoplist.length} item(s):`, DB_CACHE.shoplist.map(i => i.name));
+  // ── STEP 4: Seed ONLY on genuine first install (both sources empty) ─────────
+  if (DB_CACHE.shoplist.length === 0) {
+    console.log('[FK] First install — seeding default items');
+    preloadKeepList();
+  } else {
+    console.log(`[FK] Seeding skipped — existing data found (${DB_CACHE.shoplist.length} items)`);
+  }
+  console.log(`[FK] Final load: ${DB_CACHE.shoplist.length} items restored from storage`);
 }
 
 function _loadFromLocalStorage() {
@@ -1300,7 +1325,8 @@ function _loadFromLocalStorage() {
         k === 'fk_custom_recipes' || k === 'fk_timer_presets' || k === 'fk_memory') continue;
     try { const d = JSON.parse(localStorage.getItem(k)); if (d && typeof d === 'object') { delete d.photo; DB_CACHE.recipe_states[k.slice(3)] = d; } } catch(e) {}
   }
-  preloadKeepList();
+  // NOTE: preloadKeepList is NOT called here — initDB() calls it after this
+  // returns, guarded by the "both sources empty" check.
 }
 
 // ─── FILTER & SEARCH ───────────────────────────────────────────────────────
@@ -2096,7 +2122,6 @@ function getShopItems() {
 }
 
 function saveShopItems(items) {
-  console.log(`[FK] saveShopItems called — ${items.length} item(s):`, items.map(i => i.name));
   DB_CACHE.shoplist = items;
   _idbPut('kv', 'shoplist', items);
 }
