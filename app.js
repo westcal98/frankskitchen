@@ -1764,9 +1764,10 @@ function renderShopFilterBar() {
   });
   if (shopFilterBought) tags.push({ label: '✓ Bought', key: '__bought' });
   const hasFilters = tags.length > 0;
+  const isNextRun = shopView === 'next';
   bar.innerHTML =
-    `<button class="filter-by-btn${hasFilters ? ' has-filters' : ''}" onclick="openFilterDropdown('shop')">Filter by ▾</button>` +
-    `<div class="filter-active-tags">${renderTagsHtml(tags, 'shop')}</div>` +
+    (isNextRun ? '' : `<button class="filter-by-btn${hasFilters ? ' has-filters' : ''}" onclick="openFilterDropdown('shop')">Filter by ▾</button>`) +
+    (isNextRun ? '' : `<div class="filter-active-tags">${renderTagsHtml(tags, 'shop')}</div>`) +
     `<button class="shop-tb-search${shopSearchTerm ? ' active' : ''}" id="shopSearchBtn" onclick="toggleShopSearch()" title="Search">🔍</button>`;
 }
 
