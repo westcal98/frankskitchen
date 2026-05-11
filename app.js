@@ -1996,12 +1996,12 @@ function updateShopStats() {
   const el = document.getElementById('shopStats');
   if (!el) return;
   if (shopView === 'next') {
+    el.classList.remove('hidden');
     const flagged = items.filter(i => i.nextRun).length;
     const bought = items.filter(i => i.nextRun && i.bought).length;
     el.textContent = `${bought}/${flagged} in cart`;
   } else {
-    const bought = items.filter(i => i.bought).length;
-    el.textContent = `${bought}/${items.length} bought`;
+    el.classList.add('hidden');
   }
 }
 
@@ -2120,8 +2120,10 @@ function renderShopFilterRow() {
   if (!row) return;
   const cats = getShopCategories();
   const allBtn = shopFilter === 'all' ? 'active' : '';
-  row.innerHTML = `<button class="filter-btn ${allBtn}" onclick="setShopFilter('all', this)">All</button>` +
-    cats.map(cat => `<button class="filter-btn ${shopFilter === cat.key ? 'active' : ''}" onclick="setShopFilter('${cat.key}', this)">${cat.label}</button>`).join('');
+  row.innerHTML =
+    `<button class="filter-btn ${allBtn}" onclick="setShopFilter('all', this)">All</button>` +
+    cats.map(cat => `<button class="filter-btn ${shopFilter === cat.key ? 'active' : ''}" onclick="setShopFilter('${cat.key}', this)">${cat.label}</button>`).join('') +
+    `<button class="filter-btn filter-btn--bought ${shopFilter === 'bought' ? 'active' : ''}" onclick="setShopFilter('bought', this)">✓ Bought</button>`;
 }
 
 function setShopFilter(key, btn) {
@@ -2136,8 +2138,15 @@ function renderShopList() {
   const container = document.getElementById('shopList');
   if (!container) return;
 
-  // Apply category filter then search filter
-  const catFiltered = shopFilter === 'all' ? allItems : allItems.filter(i => i.category === shopFilter);
+  // Apply category / bought filter then search filter
+  let catFiltered;
+  if (shopFilter === 'bought') {
+    catFiltered = allItems.filter(i => i.bought);
+  } else if (shopFilter === 'all') {
+    catFiltered = allItems;
+  } else {
+    catFiltered = allItems.filter(i => i.category === shopFilter);
+  }
   const items = shopSearchTerm
     ? catFiltered.filter(i => i.name.toLowerCase().includes(shopSearchTerm))
     : catFiltered;
@@ -2175,25 +2184,16 @@ function renderShopList() {
 
   // FULL VIEW
   if (items.length === 0) {
-    container.innerHTML = shopSearchTerm
-      ? `<div class="empty-state"><div class="emoji">🔍</div><p>No items match "${shopSearchTerm}".</p></div>`
-      : `<div class="empty-state"><div class="emoji">🛒</div><p>Your shopping list is empty.<br>Add items above.</p></div>`;
+    const emptyMsg = shopFilter === 'bought'
+      ? `<div class="empty-state"><div class="emoji">✓</div><p>No bought items yet.<br>Tap a checkbox to mark something as bought.</p></div>`
+      : shopSearchTerm
+        ? `<div class="empty-state"><div class="emoji">🔍</div><p>No items match "${shopSearchTerm}".</p></div>`
+        : `<div class="empty-state"><div class="emoji">🛒</div><p>Your shopping list is empty.<br>Add items above.</p></div>`;
+    container.innerHTML = emptyMsg;
     return;
   }
 
   const catKeys = new Set(cats.map(c => c.key));
-
-  // Group by category; items with unknown keys fall into 'other'
-  const grouped = {};
-  items.forEach(item => {
-    const key = catKeys.has(item.category) ? item.category : 'other';
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(item);
-  });
-
-  Object.keys(grouped).forEach(k => {
-    grouped[k].sort((a, b) => (a.bought ? 1 : 0) - (b.bought ? 1 : 0));
-  });
 
   const renderItemRows = (catItems) => catItems.map(item => `
     <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}">
@@ -2209,6 +2209,24 @@ function renderShopList() {
       <button class="shop-delete-btn" onclick="deleteShopItem(${item.id})">🗑</button>
     </div>
     ${catPickerHtml(item)}`).join('');
+
+  // Bought filter — flat list, no category headers
+  if (shopFilter === 'bought') {
+    container.innerHTML = `<div class="shop-nextrun-list">${renderItemRows(items)}</div>`;
+    return;
+  }
+
+  // Group by category; items with unknown keys fall into 'other'
+  const grouped = {};
+  items.forEach(item => {
+    const key = catKeys.has(item.category) ? item.category : 'other';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(item);
+  });
+
+  Object.keys(grouped).forEach(k => {
+    grouped[k].sort((a, b) => (a.bought ? 1 : 0) - (b.bought ? 1 : 0));
+  });
 
   const sectionHtml = (key, label, catItems) => {
     const boughtCount = catItems.filter(i => i.bought).length;

@@ -142,6 +142,10 @@ body::before {
 .filter-btn.active { background: var(--gold); border-color: var(--gold); color: #0d0b08; font-weight: 600; }
 .filter-btn:not(.active):hover { border-color: var(--gold); color: var(--gold); }
 
+.filter-btn--bought { border-color: #4a8c5c; color: #4a8c5c; }
+.filter-btn--bought.active { background: #4a8c5c; border-color: #4a8c5c; color: #fff; font-weight: 600; }
+.filter-btn--bought:not(.active):hover { border-color: #4a8c5c; color: #4a8c5c; }
+
 /* ── CATEGORY SECTIONS ── */
 .main-content { padding: 16px; }
 
