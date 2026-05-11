@@ -1347,45 +1347,56 @@ function renderRecipe(recipe) {
     const ts = ACTIVE_TIMERS[tk];
     const detectedSecs = parseStepTime(step);
     const presetSecs = timerPresets[tk] !== undefined ? timerPresets[tk] : detectedSecs;
+    const hasTimer = detectedSecs !== null || timerPresets[tk] !== undefined || !!ts;
 
-    let timerZone;
-    if (ts && ts.running) {
-      timerZone = `
-        <div class="step-timer-row" id="timer-row-${dk}">
-          <div class="step-timer-display" id="timer-disp-${dk}">${formatTimerDisplay(ts.remaining)}</div>
-          <button class="timer-btn stop-btn" onclick="event.stopPropagation();stopTimer('${recipe.id}',${i})">■ Stop</button>
-        </div>`;
-    } else if (ts && ts.finished) {
-      timerZone = `
-        <div class="step-timer-row" id="timer-row-${dk}">
-          <div class="step-timer-display done" id="timer-disp-${dk}">00:00</div>
-          <button class="timer-btn again-btn" onclick="event.stopPropagation();startTimer('${recipe.id}',${i},${ts.total},${ts.isCustom})">↺ Again</button>
-          <button class="timer-btn stop-btn" onclick="event.stopPropagation();clearTimer('${recipe.id}',${i})">✕</button>
-        </div>`;
-    } else {
-      const presetBtn = presetSecs
-        ? `<button class="timer-btn preset-btn" onclick="event.stopPropagation();startTimer('${recipe.id}',${i},${presetSecs},false)">▶ ${formatTimerLabel(presetSecs)}</button>`
-        : '';
-      timerZone = `
-        <div class="step-timer-row" id="timer-row-${dk}">
-          ${presetBtn}
-          <button class="timer-btn custom-btn" onclick="event.stopPropagation();showCustomTimerInput('${recipe.id}',${i})">⏱ Custom</button>
-        </div>
-        <div class="step-timer-custom-row hidden" id="timer-custom-${dk}">
-          <input class="timer-custom-input" type="number" min="1" max="999" step="0.5" placeholder="min"
-            id="timer-custom-val-${dk}"
-            onclick="event.stopPropagation()"
-            oninput="event.stopPropagation()"
-            onkeydown="event.stopPropagation();if(event.key==='Enter')startCustomTimer('${recipe.id}',${i})">
-          <button class="timer-btn preset-btn" onclick="event.stopPropagation();startCustomTimer('${recipe.id}',${i})">▶ Start</button>
-          <button class="timer-btn stop-btn" onclick="event.stopPropagation();hideCustomTimerInput('${recipe.id}',${i})">✕</button>
-        </div>`;
+    // Dynamic instruction: replace time value when a custom/preset time is active
+    let displayStep = step;
+    if (timerPresets[tk] !== undefined) {
+      displayStep = replaceStepTime(step, timerPresets[tk]);
+    } else if (ts && ts.isCustom) {
+      displayStep = replaceStepTime(step, ts.total);
+    }
+
+    let timerZone = '';
+    if (hasTimer) {
+      if (ts && ts.running) {
+        timerZone = `
+          <div class="step-timer-row" id="timer-row-${dk}">
+            <div class="step-timer-display" id="timer-disp-${dk}">${formatTimerDisplay(ts.remaining)}</div>
+            <button class="timer-btn stop-btn" onclick="event.stopPropagation();stopTimer('${recipe.id}',${i})">■ Stop</button>
+          </div>`;
+      } else if (ts && ts.finished) {
+        timerZone = `
+          <div class="step-timer-row" id="timer-row-${dk}">
+            <div class="step-timer-display done" id="timer-disp-${dk}">00:00</div>
+            <button class="timer-btn again-btn" onclick="event.stopPropagation();startTimer('${recipe.id}',${i},${ts.total},${ts.isCustom})">↺ Again</button>
+            <button class="timer-btn stop-btn" onclick="event.stopPropagation();clearTimer('${recipe.id}',${i})">✕</button>
+          </div>`;
+      } else {
+        const presetBtn = presetSecs
+          ? `<button class="timer-btn preset-btn" onclick="event.stopPropagation();startTimer('${recipe.id}',${i},${presetSecs},false)">▶ ${formatTimerLabel(presetSecs)}</button>`
+          : '';
+        timerZone = `
+          <div class="step-timer-row" id="timer-row-${dk}">
+            ${presetBtn}
+            <button class="timer-btn custom-btn" onclick="event.stopPropagation();showCustomTimerInput('${recipe.id}',${i})">⏱ Custom</button>
+          </div>
+          <div class="step-timer-custom-row hidden" id="timer-custom-${dk}">
+            <input class="timer-custom-input" type="number" min="1" max="999" step="0.5" placeholder="min"
+              id="timer-custom-val-${dk}"
+              onclick="event.stopPropagation()"
+              oninput="event.stopPropagation()"
+              onkeydown="event.stopPropagation();if(event.key==='Enter')startCustomTimer('${recipe.id}',${i})">
+            <button class="timer-btn preset-btn" onclick="event.stopPropagation();startCustomTimer('${recipe.id}',${i})">▶ Start</button>
+            <button class="timer-btn stop-btn" onclick="event.stopPropagation();hideCustomTimerInput('${recipe.id}',${i})">✕</button>
+          </div>`;
+      }
     }
 
     return `<div class="step-item ${checked}" onclick="toggleStep('${recipe.id}', ${i})">
       <div class="step-num"><span>${i + 1}</span></div>
       <div class="step-body">
-        <div class="step-text">${step}</div>
+        <div class="step-text">${displayStep}</div>
         ${timerZone}
       </div>
     </div>`;
@@ -2650,22 +2661,74 @@ function timerDomKey(recipeId, stepIndex) { return `${recipeId}__${stepIndex}`; 
 
 function parseStepTime(text) {
   const t = text.toLowerCase();
-  // "1 hour 30 min"
-  const hmMatch = t.match(/(\d+)\s*hours?\s*(?:and\s*)?(\d+)\s*min/);
+  // "1 hour 30 min" / "1hr 30min"
+  const hmMatch = t.match(/(\d+)\s*h(?:ours?|rs?)\s*(?:and\s*)?(\d+)\s*min/);
   if (hmMatch) return (+hmMatch[1] * 3600) + (+hmMatch[2] * 60);
-  // "2 hours"
-  const hMatch = t.match(/(\d+)\s*hours?(?!\s*\d)/);
-  if (hMatch) return +hMatch[1] * 3600;
-  // "8-10 minutes" → first number
-  const rangeMatch = t.match(/(\d+)[-–](\d+)\s*min/);
+  // "2 hours" / "1.5 hrs"
+  const hMatch = t.match(/(\d+(?:\.\d+)?)\s*h(?:ours?|rs?)(?!\s*\d)/);
+  if (hMatch) return Math.round(+hMatch[1] * 3600);
+  // "8-10 minutes" / "5 to 7 minutes" → use first number
+  const rangeMatch = t.match(/(\d+)(?:\s*[-–]\s*|\s+to\s+)(\d+)\s*min/);
   if (rangeMatch) return +rangeMatch[1] * 60;
-  // "12 minutes" / "1.5 min"
+  // "12 minutes" / "1.5 min" (also catches "about 10 min", "roughly 5 min", etc.)
   const minMatch = t.match(/(\d+(?:\.\d+)?)\s*min/);
   if (minMatch) return Math.round(+minMatch[1] * 60);
   // "30 seconds"
   const secMatch = t.match(/(\d+)\s*sec/);
   if (secMatch) return +secMatch[1];
   return null;
+}
+
+function replaceStepTime(text, newSeconds) {
+  const rawMins = newSeconds / 60;
+  const fmtM = rawMins % 1 === 0 ? String(rawMins) : rawMins.toFixed(1);
+  const floorH = Math.floor(newSeconds / 3600);
+  const remMin = Math.round((newSeconds % 3600) / 60);
+
+  // "1 hour 30 min" / "1hr 30min"
+  const hmRe = /(\d+)\s*(h(?:ours?|rs?))\s*(?:and\s*)?(\d+)\s*(min\w*)/i;
+  if (hmRe.test(text)) {
+    return text.replace(hmRe, (_, _h, hourWord, _m, minWord) => {
+      if (floorH > 0 && remMin > 0) return `${floorH} ${hourWord} ${remMin} ${minWord}`;
+      if (floorH > 0) return `${floorH} ${hourWord}`;
+      return `${Math.round(rawMins)} ${minWord}`;
+    });
+  }
+
+  // "2 hours" / "1.5 hrs"
+  const hRe = /(\d+(?:\.\d+)?)\s*(h(?:ours?|rs?))(?!\s*\d)/i;
+  if (hRe.test(text)) {
+    return text.replace(hRe, (_, _val, hourWord) => {
+      if (newSeconds >= 3600) {
+        const hVal = Math.round(newSeconds / 3600 * 10) / 10;
+        const fmtH = hVal % 1 === 0 ? String(hVal) : hVal.toFixed(1);
+        return `${fmtH} ${hourWord}`;
+      }
+      return `${Math.round(rawMins)} min`;
+    });
+  }
+
+  // "8-10 minutes" / "5 to 7 minutes" ranges
+  const rangeRe = /(\d+)(?:\s*[-–]\s*|\s+to\s+)(\d+)\s*(min\w*)/i;
+  if (rangeRe.test(text)) {
+    return text.replace(rangeRe, (_, _lo, _hi, minWord) => `${fmtM} ${minWord}`);
+  }
+
+  // "12 minutes" / "1.5 min"
+  const minRe = /(\d+(?:\.\d+)?)\s*(min\w*)/i;
+  if (minRe.test(text)) {
+    return text.replace(minRe, (_, _val, minWord) => `${fmtM} ${minWord}`);
+  }
+
+  // "30 seconds"
+  const secRe = /(\d+)\s*(sec\w*)/i;
+  if (secRe.test(text)) {
+    return text.replace(secRe, (_, _val, secWord) =>
+      newSeconds < 60 ? `${newSeconds} ${secWord}` : `${Math.round(rawMins)} min`
+    );
+  }
+
+  return text;
 }
 
 function formatTimerLabel(seconds) {
