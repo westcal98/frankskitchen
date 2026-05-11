@@ -1101,12 +1101,19 @@ function _openDB() {
 }
 
 function _idbPut(store, key, value) {
-  if (!_db) { try { localStorage.setItem('fk_' + key, JSON.stringify(value)); } catch(e) {} return; }
+  // Always write to localStorage synchronously first — this is the safety net
+  // for iOS PWAs where the process can be killed before an async IDB transaction
+  // commits to disk. On next launch, initDB() recovers from localStorage if IDB
+  // comes back empty. Both stores are always kept in sync.
+  try { localStorage.setItem('fk_' + key, JSON.stringify(value)); } catch(e) {}
+  if (!_db) return;
   try { _db.transaction(store, 'readwrite').objectStore(store).put(value, key); } catch(e) {}
 }
 
 function _idbDel(store, key) {
-  if (!_db) { try { localStorage.removeItem('fk_' + key); } catch(e) {} return; }
+  // Mirror deletions to localStorage so the two stores stay in sync.
+  try { localStorage.removeItem('fk_' + key); } catch(e) {}
+  if (!_db) return;
   try { _db.transaction(store, 'readwrite').objectStore(store).delete(key); } catch(e) {}
 }
 
@@ -1174,9 +1181,17 @@ async function initDB() {
     migrateShoplistCategories();
     await runMigrations(sv);
 
-    // ── One-time migration from localStorage ────────────────────────────────
+    // ── Recover from localStorage if IDB data is missing ────────────────────
+    // With dual-write, localStorage is always current. If the app was killed
+    // before an IDB transaction committed, this loop restores the lost data.
     const lsKeys = [];
     for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k) lsKeys.push(k); }
+
+    // All known kv-store keys — anything else is treated as a per-recipe state id.
+    const KV_KEYS = new Set([
+      'fk_shoplist', 'fk_custom_recipes', 'fk_memory', 'fk_timer_presets',
+      'fk_favorites', 'fk_shop_categories', 'fk_preferences', 'fk_schema_version',
+    ]);
 
     for (const k of lsKeys) {
       if (!k.startsWith('fk_')) continue;
@@ -1200,19 +1215,31 @@ async function initDB() {
         try { const d = JSON.parse(localStorage.getItem(k)); if (d && Object.keys(d).length) { DB_CACHE.timer_presets = d; _idbPut('kv', 'timer_presets', d); } } catch(e) {}
         continue;
       }
-      // Per-recipe state
-      if (!k.startsWith('fk_shop') && k !== 'fk_custom_recipes' && k !== 'fk_timer_presets' && k !== 'fk_memory') {
-        const rid = k.slice(3);
-        if (DB_CACHE.recipe_states[rid]) continue;
-        try {
-          const d = JSON.parse(localStorage.getItem(k));
-          if (d && typeof d === 'object') {
-            delete d.photo; // photos live in their own DB (initPhotos)
-            DB_CACHE.recipe_states[rid] = d;
-            _idbPut('recipe_states', rid, d);
-          }
-        } catch(e) {}
+      if (k === 'fk_favorites' && !DB_CACHE.favorites.length) {
+        try { const d = JSON.parse(localStorage.getItem(k)); if (Array.isArray(d) && d.length) { DB_CACHE.favorites = d; _idbPut('kv', 'favorites', d); } } catch(e) {}
+        continue;
       }
+      if (k === 'fk_shop_categories' && !DB_CACHE.shop_categories.length) {
+        try { const d = JSON.parse(localStorage.getItem(k)); if (d && d.length) { DB_CACHE.shop_categories = d; _idbPut('kv', 'shop_categories', d); } } catch(e) {}
+        continue;
+      }
+      if (k === 'fk_preferences' && !Object.keys(DB_CACHE.preferences).length) {
+        try { const d = JSON.parse(localStorage.getItem(k)); if (d && typeof d === 'object' && !Array.isArray(d)) { DB_CACHE.preferences = d; _idbPut('kv', 'preferences', d); } } catch(e) {}
+        continue;
+      }
+      if (KV_KEYS.has(k)) continue; // known kv key with data already loaded — skip
+
+      // Per-recipe state (anything with fk_ prefix that isn't a known kv key)
+      const rid = k.slice(3);
+      if (DB_CACHE.recipe_states[rid]) continue;
+      try {
+        const d = JSON.parse(localStorage.getItem(k));
+        if (d && typeof d === 'object' && !Array.isArray(d)) {
+          delete d.photo; // photos live in their own DB (initPhotos)
+          DB_CACHE.recipe_states[rid] = d;
+          _idbPut('recipe_states', rid, d);
+        }
+      } catch(e) {}
     }
 
   } catch(e) {
