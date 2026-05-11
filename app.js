@@ -988,11 +988,18 @@ const RECIPE_SERVINGS = {
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
 
-let activeFilter = 'all';
+let activeFilter = 'all';   // legacy — kept for safety
 let searchTerm = '';
 let shopView = 'full';
-let shopFilter = 'all';
+let shopFilter = 'all';     // legacy — kept for safety
 let shopSearchTerm = '';
+
+// ── Multi-select filter state ────────────────────────────────────────────────
+let recipeFilterCats = [];    // [] = show all; ['breakfast','dinner'] = multi-select
+let recipeFilterFavs = false; // favorites special filter
+let shopFilterCats   = [];    // [] = show all
+let shopFilterBought = false; // bought special filter
+let _filterDropdownTab = null; // 'recipe' | 'shop' — which tab opened the dropdown
 let expandedCard = null;
 let activeTab = {};
 
@@ -1067,7 +1074,7 @@ function toggleFavorite(id) {
     btn.title = nowFav ? 'Remove from favorites' : 'Add to favorites';
   }
   // If favorites filter is active, a full re-render is needed to show/hide the card
-  if (activeFilter === 'favorites') renderAll();
+  if (recipeFilterFavs) renderAll();
 }
 
 // ─── MAIN DATABASE (IndexedDB) ──────────────────────────────────────────────
@@ -1275,14 +1282,8 @@ function clearRecipeSearch() {
 }
 
 function matchesFilter(recipe) {
-  if (activeFilter === 'all') return true;
-  if (activeFilter === 'favorites') return isFavorited(recipe.id);
-  if (activeFilter === 'breakfast' || activeFilter === 'lunch' || activeFilter === 'dinner' || activeFilter === 'dessert') {
-    return recipe.category === activeFilter;
-  }
-  if (activeFilter === 'af') return recipe.appliance === 'af';
-  if (activeFilter === 'pc') return recipe.appliance === 'pc';
-  if (activeFilter === 'combo') return recipe.appliance === 'combo';
+  if (recipeFilterCats.length > 0 && !recipeFilterCats.includes(recipe.category)) return false;
+  if (recipeFilterFavs && !isFavorited(recipe.id)) return false;
   return true;
 }
 
@@ -1488,47 +1489,42 @@ function renderRecipe(recipe) {
 
 function renderAll() {
   const container = document.getElementById('mainContent');
-  let html = '';
-  let anyVisible = false;
+  renderRecipeFilterBar();
 
-  const showingCategory = ['breakfast', 'lunch', 'dinner', 'dessert'].includes(activeFilter);
-  const showingAppliance = ['af', 'pc', 'combo'].includes(activeFilter);
-
-  if (showingAppliance || activeFilter === 'favorites' || (activeFilter === 'all' && searchTerm)) {
-    // Flat list by appliance, favorites, or search — no category headers
+  // Flat mode: favorites filter or search term — no category headers
+  if (recipeFilterFavs || searchTerm) {
     const visible = getAllRecipes().filter(r => matchesFilter(r) && matchesSearch(r));
     if (visible.length === 0) {
-      const emptyMsg = activeFilter === 'favorites'
+      container.innerHTML = recipeFilterFavs && !searchTerm
         ? `<div class="empty-state"><div class="emoji">⭐</div><p>No favorites yet.<br>Tap ☆ on any recipe to add it here.</p></div>`
         : `<div class="empty-state"><div class="emoji">🔍</div><p>No recipes found.<br>Try a different search or filter.</p></div>`;
-      html = emptyMsg;
     } else {
-      html = `<div class="recipe-grid">${visible.map(renderRecipe).join('')}</div>`;
-      anyVisible = true;
+      container.innerHTML = `<div class="recipe-grid">${visible.map(renderRecipe).join('')}</div>`;
     }
-  } else {
-    // Categorized view
-    CATEGORIES.forEach(cat => {
-      if (activeFilter !== 'all' && activeFilter !== cat.key) return;
-      const visible = getAllRecipes().filter(r => r.category === cat.key && matchesSearch(r));
-      if (visible.length === 0) return;
-      anyVisible = true;
-      html += `
-        <div class="category-section">
-          <div class="category-header">
-            <span class="category-icon">${cat.icon}</span>
-            <span class="category-title">${cat.label}</span>
-            <span class="category-count">${visible.length} recipes</span>
-          </div>
-          <div class="recipe-grid">${visible.map(renderRecipe).join('')}</div>
-        </div>
-      `;
-    });
-    if (!anyVisible) {
-      html = `<div class="empty-state"><div class="emoji">🔍</div><p>No recipes found.</p></div>`;
-    }
+    return;
   }
 
+  // Category-grouped view
+  const catsToShow = recipeFilterCats.length > 0
+    ? CATEGORIES.filter(c => recipeFilterCats.includes(c.key))
+    : CATEGORIES;
+
+  let html = '';
+  let anyVisible = false;
+  catsToShow.forEach(cat => {
+    const visible = getAllRecipes().filter(r => r.category === cat.key && matchesSearch(r));
+    if (!visible.length) return;
+    anyVisible = true;
+    html += `<div class="category-section">
+      <div class="category-header">
+        <span class="category-icon">${cat.icon}</span>
+        <span class="category-title">${cat.label}</span>
+        <span class="category-count">${visible.length} recipes</span>
+      </div>
+      <div class="recipe-grid">${visible.map(renderRecipe).join('')}</div>
+    </div>`;
+  });
+  if (!anyVisible) html = `<div class="empty-state"><div class="emoji">🔍</div><p>No recipes found.</p></div>`;
   container.innerHTML = html;
 }
 
@@ -1707,10 +1703,9 @@ function switchMainTab(tab) {
   document.getElementById('addRecipeFab').classList.toggle('hidden', tab !== 'recipes');
   document.getElementById('addShopFab').classList.toggle('hidden', tab !== 'shop');
   if (tab === 'shop') {
-    // Collapse recipe search when leaving Recipes tab
     const rsp = document.getElementById('recipeSearchPanel');
     if (rsp && !rsp.classList.contains('hidden')) clearRecipeSearch();
-    renderShopFilterRow();
+    renderShopFilterBar();
     renderShopList();
     showRecoveryBanner();
   }
@@ -1725,8 +1720,9 @@ function showRecoveryBanner() {
 }
 
 function reviewOtherItems() {
-  shopFilter = 'other';
-  renderShopFilterRow();
+  const otherCat = getShopCategories().find(c => c.key === 'other');
+  if (otherCat) shopFilterCats = ['other'];
+  renderShopFilterBar();
   renderShopList();
   dismissRecovery();
 }
@@ -1738,6 +1734,172 @@ function dismissRecovery() {
   const prefs = Object.assign({}, DB_CACHE.preferences, { recoveryShown: true });
   DB_CACHE.preferences = prefs;
   _idbPut('kv', 'preferences', prefs);
+}
+
+// ─── FILTER BAR + DROPDOWN ─────────────────────────────────────────────────
+
+function renderRecipeFilterBar() {
+  const bar = document.getElementById('recipeFilterBar');
+  if (!bar) return;
+  const tags = [];
+  recipeFilterCats.forEach(cat => {
+    const c = CATEGORIES.find(x => x.key === cat);
+    if (c) tags.push({ label: `${c.icon} ${c.label}`, key: cat });
+  });
+  if (recipeFilterFavs) tags.push({ label: '⭐ Favorites', key: '__favs' });
+  const hasFilters = tags.length > 0;
+  bar.innerHTML =
+    `<button class="filter-by-btn${hasFilters ? ' has-filters' : ''}" onclick="openFilterDropdown('recipe')">Filter by ▾</button>` +
+    `<div class="filter-active-tags">${renderTagsHtml(tags, 'recipe')}</div>` +
+    `<button class="shop-tb-search${searchTerm ? ' active' : ''}" id="recipeSearchBtn" onclick="toggleRecipeSearch()" title="Search recipes">🔍</button>`;
+}
+
+function renderShopFilterBar() {
+  const bar = document.getElementById('shopFilterBar');
+  if (!bar) return;
+  const tags = [];
+  shopFilterCats.forEach(cat => {
+    const c = getShopCategories().find(x => x.key === cat);
+    if (c) tags.push({ label: c.label, key: cat });
+  });
+  if (shopFilterBought) tags.push({ label: '✓ Bought', key: '__bought' });
+  const hasFilters = tags.length > 0;
+  bar.innerHTML =
+    `<button class="filter-by-btn${hasFilters ? ' has-filters' : ''}" onclick="openFilterDropdown('shop')">Filter by ▾</button>` +
+    `<div class="filter-active-tags">${renderTagsHtml(tags, 'shop')}</div>` +
+    `<button class="shop-tb-search${shopSearchTerm ? ' active' : ''}" id="shopSearchBtn" onclick="toggleShopSearch()" title="Search">🔍</button>`;
+}
+
+function renderTagsHtml(tags, tab) {
+  if (!tags.length) return '';
+  const MAX = 2;
+  const visible = tags.slice(0, MAX);
+  const extra = tags.length - MAX;
+  return visible.map(t =>
+    `<span class="filter-tag">${t.label}<button class="filter-tag-remove" onclick="event.stopPropagation();removeFilterTag('${tab}','${t.key}')">✕</button></span>`
+  ).join('') + (extra > 0 ? `<span class="filter-tag-more">+${extra} more</span>` : '');
+}
+
+function removeFilterTag(tab, key) {
+  if (tab === 'recipe') {
+    if (key === '__favs') recipeFilterFavs = false;
+    else recipeFilterCats = recipeFilterCats.filter(k => k !== key);
+    renderAll();
+  } else {
+    if (key === '__bought') shopFilterBought = false;
+    else shopFilterCats = shopFilterCats.filter(k => k !== key);
+    renderShopFilterBar();
+    renderShopList();
+  }
+}
+
+function openFilterDropdown(tab) {
+  _filterDropdownTab = tab;
+  const body = document.getElementById('filterDropdownBody');
+  if (!body) return;
+  if (tab === 'recipe') renderRecipeDropdownBody(body);
+  else renderShopDropdownBody(body);
+  const overlay = document.getElementById('filterDropdownOverlay');
+  overlay.classList.remove('hidden');
+  requestAnimationFrame(() => document.getElementById('filterDropdownSheet').classList.add('open'));
+}
+
+function closeFilterDropdown() {
+  const sheet = document.getElementById('filterDropdownSheet');
+  if (sheet) sheet.classList.remove('open');
+  setTimeout(() => {
+    const overlay = document.getElementById('filterDropdownOverlay');
+    if (overlay) overlay.classList.add('hidden');
+  }, 260);
+  _filterDropdownTab = null;
+}
+
+function clearFilterDropdown() {
+  const body = document.getElementById('filterDropdownBody');
+  if (_filterDropdownTab === 'recipe') {
+    recipeFilterCats = []; recipeFilterFavs = false;
+    renderAll();
+    if (body) renderRecipeDropdownBody(body);
+  } else {
+    shopFilterCats = []; shopFilterBought = false;
+    renderShopFilterBar(); renderShopList();
+    if (body) renderShopDropdownBody(body);
+  }
+}
+
+function renderRecipeDropdownBody(body) {
+  const allActive = recipeFilterCats.length === 0;
+  let html = `<div class="filter-group"><div class="filter-group-label">Categories</div>
+    <button class="filter-option${allActive ? ' selected' : ''}" onclick="toggleRecipeFilterCat('__all')">
+      <span class="filter-option-check">${allActive ? '✓' : ''}</span>All
+    </button>`;
+  CATEGORIES.forEach(c => {
+    const on = recipeFilterCats.includes(c.key);
+    html += `<button class="filter-option${on ? ' selected' : ''}" onclick="toggleRecipeFilterCat('${c.key}')">
+      <span class="filter-option-check">${on ? '✓' : ''}</span>${c.icon} ${c.label}
+    </button>`;
+  });
+  html += `</div><div class="filter-group"><div class="filter-group-label">Special Filters</div>
+    <button class="filter-option${recipeFilterFavs ? ' selected' : ''}" onclick="toggleRecipeFilterFavs()">
+      <span class="filter-option-check">${recipeFilterFavs ? '✓' : ''}</span>⭐ Favorites
+    </button>
+  </div>`;
+  body.innerHTML = html;
+}
+
+function renderShopDropdownBody(body) {
+  const cats = getShopCategories();
+  const allActive = shopFilterCats.length === 0;
+  let html = `<div class="filter-group"><div class="filter-group-label">Categories</div>
+    <button class="filter-option${allActive ? ' selected' : ''}" onclick="toggleShopFilterCat('__all')">
+      <span class="filter-option-check">${allActive ? '✓' : ''}</span>All
+    </button>`;
+  cats.forEach(c => {
+    const on = shopFilterCats.includes(c.key);
+    html += `<button class="filter-option${on ? ' selected' : ''}" onclick="toggleShopFilterCat('${c.key}')">
+      <span class="filter-option-check">${on ? '✓' : ''}</span>${c.label}
+    </button>`;
+  });
+  html += `</div><div class="filter-group"><div class="filter-group-label">Special Filters</div>
+    <button class="filter-option${shopFilterBought ? ' selected' : ''}" onclick="toggleShopFilterBought()">
+      <span class="filter-option-check">${shopFilterBought ? '✓' : ''}</span>✓ Bought
+    </button>
+  </div>`;
+  body.innerHTML = html;
+}
+
+function toggleRecipeFilterCat(key) {
+  if (key === '__all') { recipeFilterCats = []; }
+  else if (recipeFilterCats.includes(key)) { recipeFilterCats = recipeFilterCats.filter(k => k !== key); }
+  else { recipeFilterCats.push(key); }
+  const body = document.getElementById('filterDropdownBody');
+  if (body) renderRecipeDropdownBody(body);
+  renderAll();
+}
+
+function toggleRecipeFilterFavs() {
+  recipeFilterFavs = !recipeFilterFavs;
+  const body = document.getElementById('filterDropdownBody');
+  if (body) renderRecipeDropdownBody(body);
+  renderAll();
+}
+
+function toggleShopFilterCat(key) {
+  if (key === '__all') { shopFilterCats = []; }
+  else if (shopFilterCats.includes(key)) { shopFilterCats = shopFilterCats.filter(k => k !== key); }
+  else { shopFilterCats.push(key); }
+  const body = document.getElementById('filterDropdownBody');
+  if (body) renderShopDropdownBody(body);
+  renderShopFilterBar();
+  renderShopList();
+}
+
+function toggleShopFilterBought() {
+  shopFilterBought = !shopFilterBought;
+  const body = document.getElementById('filterDropdownBody');
+  if (body) renderShopDropdownBody(body);
+  renderShopFilterBar();
+  renderShopList();
 }
 
 // ─── SHOPPING LIST ─────────────────────────────────────────────────────────
@@ -1766,7 +1928,7 @@ function getShopCategories() {
 function saveShopCategories(cats) {
   DB_CACHE.shop_categories = cats;
   _idbPut('kv', 'shop_categories', cats);
-  renderShopFilterRow();
+  renderShopFilterBar();
   renderShopList();
 }
 
@@ -1946,8 +2108,8 @@ function deleteShopItem(id) {
 }
 
 function viewBought() {
-  shopFilter = 'bought';
-  renderShopFilterRow();
+  shopFilterBought = true;
+  renderShopFilterBar();
   renderShopList();
 }
 
@@ -2130,20 +2292,12 @@ function changeItemCategory(id, newCat) {
   renderShopList();
 }
 
-function renderShopFilterRow() {
-  const row = document.getElementById('shopFilterRow');
-  if (!row) return;
-  const cats = getShopCategories();
-  const allBtn = shopFilter === 'all' ? 'active' : '';
-  row.innerHTML =
-    `<button class="filter-btn ${allBtn}" onclick="setShopFilter('all', this)">All</button>` +
-    cats.map(cat => `<button class="filter-btn ${shopFilter === cat.key ? 'active' : ''}" onclick="setShopFilter('${cat.key}', this)">${cat.label}</button>`).join('');
-}
-
-function setShopFilter(key, btn) {
-  shopFilter = key;
-  document.querySelectorAll('#shopFilterRow .filter-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
+function renderShopFilterRow() { renderShopFilterBar(); } // legacy alias
+function setShopFilter(key) {  // legacy alias
+  if (key === 'all') shopFilterCats = [];
+  else if (key === 'bought') shopFilterBought = true;
+  else shopFilterCats = [key];
+  renderShopFilterBar();
   renderShopList();
 }
 
@@ -2152,19 +2306,16 @@ function renderShopList() {
   const container = document.getElementById('shopList');
   if (!container) return;
 
-  // Apply category / bought filter then search filter
-  let catFiltered;
-  if (shopFilter === 'bought') {
-    catFiltered = allItems.filter(i => i.bought);
-  } else if (shopFilter === 'all') {
-    catFiltered = allItems;
-  } else {
-    catFiltered = allItems.filter(i => i.category === shopFilter);
-  }
+  // Apply multi-select category + bought filters then search
+  let catFiltered = shopFilterCats.length === 0
+    ? allItems
+    : allItems.filter(i => shopFilterCats.includes(i.category));
+  if (shopFilterBought) catFiltered = catFiltered.filter(i => i.bought);
   const items = shopSearchTerm
     ? catFiltered.filter(i => i.name.toLowerCase().includes(shopSearchTerm))
     : catFiltered;
 
+  renderShopFilterBar();
   updateShopStats();
 
   const cats = getShopCategories();
@@ -2198,7 +2349,7 @@ function renderShopList() {
 
   // FULL VIEW
   if (items.length === 0) {
-    const emptyMsg = shopFilter === 'bought'
+    const emptyMsg = shopFilterBought
       ? `<div class="empty-state"><div class="emoji">✓</div><p>No bought items yet.<br>Tap a checkbox to mark something as bought.</p></div>`
       : shopSearchTerm
         ? `<div class="empty-state"><div class="emoji">🔍</div><p>No items match "${shopSearchTerm}".</p></div>`
@@ -2225,7 +2376,7 @@ function renderShopList() {
     ${catPickerHtml(item)}`).join('');
 
   // Bought filter — flat list, no category headers
-  if (shopFilter === 'bought') {
+  if (shopFilterBought) {
     container.innerHTML = `<div class="shop-nextrun-list">${renderItemRows(items)}</div>`;
     return;
   }

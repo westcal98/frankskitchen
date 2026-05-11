@@ -29,19 +29,8 @@
 </div>
 
 <div id="view-recipes">
-<div class="recipe-filter-header">
-  <div class="filter-row" id="filterRow">
-    <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
-    <button class="filter-btn" onclick="setFilter('favorites', this)">⭐ Favorites</button>
-    <button class="filter-btn" onclick="setFilter('breakfast', this)">🍳 Breakfast</button>
-    <button class="filter-btn" onclick="setFilter('lunch', this)">🥪 Lunch</button>
-    <button class="filter-btn" onclick="setFilter('dinner', this)">🍽️ Dinner</button>
-    <button class="filter-btn" onclick="setFilter('dessert', this)">🍫 Dessert</button>
-    <button class="filter-btn" onclick="setFilter('af', this)">Air Fryer</button>
-    <button class="filter-btn" onclick="setFilter('pc', this)">Pressure Cooker</button>
-    <button class="filter-btn" onclick="setFilter('combo', this)">Both</button>
-  </div>
-  <button class="shop-tb-search" id="recipeSearchBtn" onclick="toggleRecipeSearch()" title="Search recipes">🔍</button>
+<div class="filter-bar" id="recipeFilterBar">
+  <!-- populated by renderRecipeFilterBar() -->
 </div>
 <div class="shop-search-panel recipe-search-panel hidden" id="recipeSearchPanel">
   <div class="shop-search-wrap">
@@ -146,19 +135,17 @@
       <button class="shop-view-btn active" id="shopViewFull" onclick="setShopView('full')">Full List</button>
       <button class="shop-view-btn" id="shopViewNext" onclick="setShopView('next')">🛒 Next Run</button>
     </div>
-    <div class="shop-filter-row" id="shopFilterRow"></div>
-    <div class="shop-toolbar">
-      <div class="shop-stats" id="shopStats">0 items</div>
-      <div class="shop-actions-inline" id="shopActionsFull">
-        <button class="shop-action-btn" onclick="viewBought()">View Bought</button>
-        <button class="shop-action-btn" onclick="removeBought()">Remove Bought</button>
-        <button class="shop-action-btn" onclick="clearFull()">Clear Full</button>
-      </div>
-      <div class="shop-actions-inline hidden" id="shopActionsNext">
-        <button class="shop-action-btn danger" onclick="removeNext()">Remove Next</button>
-        <button class="shop-action-btn" onclick="clearNext()">Clear Next</button>
-      </div>
-      <button class="shop-tb-search" id="shopSearchBtn" onclick="toggleShopSearch()" title="Search">🔍</button>
+    <div class="filter-bar" id="shopFilterBar">
+      <!-- populated by renderShopFilterBar() -->
+    </div>
+    <div class="shop-action-row" id="shopActionsFull">
+      <button class="shop-action-btn" onclick="viewBought()">View Bought</button>
+      <button class="shop-action-btn" onclick="removeBought()">Remove Bought</button>
+      <button class="shop-action-btn" onclick="clearFull()">Clear Full</button>
+    </div>
+    <div class="shop-action-row hidden" id="shopActionsNext">
+      <button class="shop-action-btn danger" onclick="removeNext()">Remove Next</button>
+      <button class="shop-action-btn" onclick="clearNext()">Clear Next</button>
     </div>
     <div class="shop-add-panel hidden" id="shopAddPanel">
       <div class="shop-add-row">
@@ -183,6 +170,21 @@
   </div>
   <button class="add-shop-fab hidden" id="addShopFab" onclick="toggleShopAdd()">+ Add Item</button>
 </div>
+<!-- ── FILTER DROPDOWN ── -->
+<div id="filterDropdownOverlay" class="filter-dropdown-overlay hidden" onclick="closeFilterDropdown()">
+  <div class="filter-dropdown-sheet" id="filterDropdownSheet" onclick="event.stopPropagation()">
+    <div class="filter-dropdown-header">
+      <span class="filter-dropdown-title">Filter by</span>
+      <button class="filter-dropdown-close" onclick="closeFilterDropdown()">✕</button>
+    </div>
+    <div class="filter-dropdown-body" id="filterDropdownBody"></div>
+    <div class="filter-dropdown-footer">
+      <button class="filter-clear-btn" onclick="clearFilterDropdown()">Clear All</button>
+      <button class="filter-done-btn" onclick="closeFilterDropdown()">Done</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── SETTINGS PANEL ── -->
 <div id="settingsPanel" class="settings-overlay hidden" onclick="if(event.target===this)closeSettings()">
   <div class="settings-sheet">
