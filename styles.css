@@ -2193,6 +2193,54 @@ body::before {
   margin-bottom: 8px;
 }
 
+.acc-list-ol {
+  list-style: none;
+  counter-reset: acc-ol;
+  padding: 0;
+  margin: 0 0 6px;
+}
+.acc-list-ol li {
+  counter-increment: acc-ol;
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.55;
+  padding: 3px 0 3px 22px;
+  position: relative;
+}
+.acc-list-ol li::before {
+  content: counter(acc-ol) '.';
+  position: absolute;
+  left: 0;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+}
+.acc-list-ol li em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.acc-mono {
+  font-family: 'DM Mono', 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--gold2);
+  background: rgba(200,146,42,0.1);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+.acc-install-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(200,146,42,0.08);
+  border: 1px solid rgba(200,146,42,0.22);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.55;
+}
+
 /* ── PWA INSTALL BANNER ── */
 .install-banner {
   position: fixed;

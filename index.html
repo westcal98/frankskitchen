@@ -302,6 +302,47 @@
 
       <div class="settings-divider"></div>
       <div class="settings-accordion">
+        <button class="settings-accordion-hdr" onclick="toggleAccordion('howToInstall')">
+          <span class="settings-section-label">How to Install 📲</span>
+          <span class="settings-acc-chevron" id="acc-chev-howToInstall">▾</span>
+        </button>
+        <div class="settings-accordion-body" id="acc-body-howToInstall">
+          <p class="acc-text">For the best experience install Frank's Kitchen as a standalone app on your device. The installed app has its own storage that won't be affected by browser privacy settings like Clear Data on Exit.</p>
+
+          <div class="acc-section-title">Android (Chrome)</div>
+          <ol class="acc-list acc-list-ol">
+            <li>Open <span class="acc-mono">frankskitchen.westcal98.workers.dev</span> in Chrome</li>
+            <li>Tap the three dot menu (⋮) in the top right</li>
+            <li>Tap "Add to Home Screen" or "Install App"</li>
+            <li>Tap Install on the prompt</li>
+            <li>Frank's Kitchen will appear on your home screen and in your app drawer like a native app</li>
+          </ol>
+
+          <div class="acc-section-title">iOS (Safari)</div>
+          <ol class="acc-list acc-list-ol">
+            <li>Open <span class="acc-mono">frankskitchen.westcal98.workers.dev</span> in Safari <em>(must use Safari — Chrome on iOS cannot install PWAs)</em></li>
+            <li>Tap the Share button (box with upward arrow)</li>
+            <li>Scroll down and tap "Add to Home Screen"</li>
+            <li>Tap Add in the top right corner</li>
+            <li>Frank's Kitchen will appear on your home screen</li>
+          </ol>
+
+          <div class="acc-section-title">Already Installed?</div>
+          <p class="acc-text">If the install option doesn't appear after uninstalling:</p>
+          <ul class="acc-list">
+            <li>Android: Check Chrome menu (⋮) → Add to Home Screen</li>
+            <li>Android: Go to Chrome Settings → Site Settings → find the app URL → Clear &amp; Reset, then revisit</li>
+            <li>iOS: Must use Safari browser to install</li>
+          </ul>
+
+          <div class="acc-install-note">
+            Always open the app via the home screen shortcut, not a browser bookmark, for the best experience and reliable data persistence.
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
+      <div class="settings-accordion">
         <button class="settings-accordion-hdr" onclick="toggleAccordion('howToUse')">
           <span class="settings-section-label">How to Use</span>
           <span class="settings-acc-chevron" id="acc-chev-howToUse">▾</span>
