@@ -1936,6 +1936,12 @@ function deleteShopItem(id) {
   updateShopStats();
 }
 
+function viewBought() {
+  shopFilter = 'bought';
+  renderShopFilterRow();
+  renderShopList();
+}
+
 function removeBought() {
   let items = getShopItems();
   items = items.filter(i => !i.bought);
@@ -2122,8 +2128,7 @@ function renderShopFilterRow() {
   const allBtn = shopFilter === 'all' ? 'active' : '';
   row.innerHTML =
     `<button class="filter-btn ${allBtn}" onclick="setShopFilter('all', this)">All</button>` +
-    cats.map(cat => `<button class="filter-btn ${shopFilter === cat.key ? 'active' : ''}" onclick="setShopFilter('${cat.key}', this)">${cat.label}</button>`).join('') +
-    `<button class="filter-btn filter-btn--bought ${shopFilter === 'bought' ? 'active' : ''}" onclick="setShopFilter('bought', this)">✓ Bought</button>`;
+    cats.map(cat => `<button class="filter-btn ${shopFilter === cat.key ? 'active' : ''}" onclick="setShopFilter('${cat.key}', this)">${cat.label}</button>`).join('');
 }
 
 function setShopFilter(key, btn) {
