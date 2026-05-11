@@ -1056,10 +1056,22 @@ body::before {
 .shop-delete-btn:hover { border-color: var(--red2); color: var(--red2); background: rgba(185,50,50,0.1); }
 
 /* ── RECIPE SEARCH TOOLBAR ── */
-.recipe-toolbar {
+.recipe-filter-header {
+  position: sticky;
+  top: 87px;
+  z-index: 99;
+  background: var(--bg);
   display: flex;
-  justify-content: flex-end;
-  padding: 4px 16px 2px;
+  align-items: center;
+  padding-right: 16px;
+}
+.recipe-filter-header .filter-row {
+  position: static;
+  top: auto;
+  z-index: auto;
+  background: transparent;
+  flex: 1;
+  min-width: 0;
 }
 .recipe-search-panel {
   padding: 0 16px 10px;

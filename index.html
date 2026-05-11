@@ -29,18 +29,18 @@
 </div>
 
 <div id="view-recipes">
-<div class="filter-row" id="filterRow">
-  <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
-  <button class="filter-btn" onclick="setFilter('favorites', this)">⭐ Favorites</button>
-  <button class="filter-btn" onclick="setFilter('breakfast', this)">🍳 Breakfast</button>
-  <button class="filter-btn" onclick="setFilter('lunch', this)">🥪 Lunch</button>
-  <button class="filter-btn" onclick="setFilter('dinner', this)">🍽️ Dinner</button>
-  <button class="filter-btn" onclick="setFilter('dessert', this)">🍫 Dessert</button>
-  <button class="filter-btn" onclick="setFilter('af', this)">Air Fryer</button>
-  <button class="filter-btn" onclick="setFilter('pc', this)">Pressure Cooker</button>
-  <button class="filter-btn" onclick="setFilter('combo', this)">Both</button>
-</div>
-<div class="recipe-toolbar">
+<div class="recipe-filter-header">
+  <div class="filter-row" id="filterRow">
+    <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+    <button class="filter-btn" onclick="setFilter('favorites', this)">⭐ Favorites</button>
+    <button class="filter-btn" onclick="setFilter('breakfast', this)">🍳 Breakfast</button>
+    <button class="filter-btn" onclick="setFilter('lunch', this)">🥪 Lunch</button>
+    <button class="filter-btn" onclick="setFilter('dinner', this)">🍽️ Dinner</button>
+    <button class="filter-btn" onclick="setFilter('dessert', this)">🍫 Dessert</button>
+    <button class="filter-btn" onclick="setFilter('af', this)">Air Fryer</button>
+    <button class="filter-btn" onclick="setFilter('pc', this)">Pressure Cooker</button>
+    <button class="filter-btn" onclick="setFilter('combo', this)">Both</button>
+  </div>
   <button class="shop-tb-search" id="recipeSearchBtn" onclick="toggleRecipeSearch()" title="Search recipes">🔍</button>
 </div>
 <div class="shop-search-panel recipe-search-panel hidden" id="recipeSearchPanel">

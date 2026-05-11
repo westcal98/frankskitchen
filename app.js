@@ -1349,12 +1349,10 @@ function renderRecipe(recipe) {
     const presetSecs = timerPresets[tk] !== undefined ? timerPresets[tk] : detectedSecs;
     const hasTimer = detectedSecs !== null || timerPresets[tk] !== undefined || !!ts;
 
-    // Dynamic instruction: replace time value when a custom/preset time is active
+    // Dynamic instruction: only update text once the user has saved a preset
     let displayStep = step;
     if (timerPresets[tk] !== undefined) {
       displayStep = replaceStepTime(step, timerPresets[tk]);
-    } else if (ts && ts.isCustom) {
-      displayStep = replaceStepTime(step, ts.total);
     }
 
     let timerZone = '';
@@ -2899,12 +2897,9 @@ function stopTimer(recipeId, stepIndex) {
   const t = ACTIVE_TIMERS[key];
   if (!t) return;
   clearInterval(t.interval);
-  const { isCustom, savedPreset, total } = t;
   delete ACTIVE_TIMERS[key];
   renderAll();
-  if (isCustom && !savedPreset) {
-    setTimeout(() => promptSavePreset(recipeId, stepIndex, total), 100);
-  }
+  // Cancelled before completion — no save prompt
 }
 
 function clearTimer(recipeId, stepIndex) {
@@ -2947,6 +2942,7 @@ function promptSavePreset(recipeId, stepIndex, totalSeconds) {
     saveTimerPresets(presets);
     const t = ACTIVE_TIMERS[timerKey(recipeId, stepIndex)];
     if (t) t.savedPreset = true;
+    renderAll(); // update step instruction text immediately
   }
 }
 
