@@ -1017,6 +1017,7 @@ const DB_CACHE = {
   rec_cat_collapse:   {},  // { [categoryKey]: true } — persisted collapsed state for recipe categories
   memory:             [],  // user-added autocomplete strings
   timer_presets:      {},  // { "recipeId:stepIndex": seconds }
+  category_memory:    {},  // { normalizedName: categoryKey } — user-assigned categories
 };
 
 function getState(recipeId) {
@@ -1251,6 +1252,9 @@ async function initDB() {
     const prefs = await _idbGet('kv', 'preferences');
     if (prefs && typeof prefs === 'object') DB_CACHE.preferences = prefs;
 
+    const catMem = await _idbGet('kv', 'category_memory');
+    if (catMem && typeof catMem === 'object' && !Array.isArray(catMem)) DB_CACHE.category_memory = catMem;
+
     const sv = await _idbGet('kv', 'schema_version');
     migrateShoplistCategories();
     await runMigrations(sv);
@@ -1262,6 +1266,7 @@ async function initDB() {
     const KV_KEYS = new Set([
       'fk_shoplist', 'fk_custom_recipes', 'fk_memory', 'fk_timer_presets',
       'fk_favorites', 'fk_shop_categories', 'fk_shop_cat_collapse', 'fk_rec_cat_collapse', 'fk_preferences', 'fk_schema_version',
+      'fk_category_memory',
     ]);
 
     for (const k of lsKeys) {
@@ -1290,6 +1295,10 @@ async function initDB() {
       }
       if (k === 'fk_preferences' && !Object.keys(DB_CACHE.preferences).length) {
         try { const d = JSON.parse(localStorage.getItem(k)); if (d && typeof d === 'object' && !Array.isArray(d)) { DB_CACHE.preferences = d; _idbPut('kv', 'preferences', d); } } catch(e) {}
+        continue;
+      }
+      if (k === 'fk_category_memory' && !Object.keys(DB_CACHE.category_memory).length) {
+        try { const d = JSON.parse(localStorage.getItem(k)); if (d && typeof d === 'object' && !Array.isArray(d)) { DB_CACHE.category_memory = d; _idbPut('kv', 'category_memory', d); } } catch(e) {}
         continue;
       }
       if (KV_KEYS.has(k)) continue;
@@ -1327,6 +1336,7 @@ function _loadFromLocalStorage() {
   try { const d = JSON.parse(localStorage.getItem('fk_shoplist'));       if (d) DB_CACHE.shoplist = d;       } catch(e) {}
   try { const d = JSON.parse(localStorage.getItem('fk_memory')); if (d) { DB_CACHE.memory = d; MEMORY_BANK = [...new Set([...MEMORY_BANK, ...d])]; } } catch(e) {}
   try { const d = JSON.parse(localStorage.getItem('fk_timer_presets'));  if (d) DB_CACHE.timer_presets = d;  } catch(e) {}
+  try { const d = JSON.parse(localStorage.getItem('fk_category_memory')); if (d && typeof d === 'object' && !Array.isArray(d)) DB_CACHE.category_memory = d; } catch(e) {}
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
     if (!k || !k.startsWith('fk_') || k.startsWith('fk_shop') ||
@@ -1434,7 +1444,12 @@ function renderRecipe(recipe) {
   const shopItems = getShopItems();
   const ingredientsList = recipe.ingredients.map((ing, i) => {
     const checked = state.ingredients[i] ? 'checked' : '';
-    const shopMatch = shopItems.find(item => item.name.toLowerCase() === ing.toLowerCase());
+    const cleanIngName = stripIngredientToName(ing).toLowerCase();
+    const rawIngName = ing.toLowerCase();
+    const shopMatch = shopItems.find(item => {
+      const n = item.name.toLowerCase();
+      return n === cleanIngName || n === rawIngName;
+    });
     const inNextRun = !!(shopMatch && shopMatch.nextRun);
     return `<div class="ingredient-item ${checked}" onclick="toggleIngredient('${recipe.id}', ${i})">
       <div class="ingredient-cb"></div>
@@ -2140,16 +2155,69 @@ function saveShopItems(items) {
   _idbPut('kv', 'shoplist', items);
 }
 
+function stripIngredientToName(ing) {
+  let s = ing.trim();
+  // Strip leading quantity: mixed (1 1/2), fraction (1/2), decimal (1.5), whole (2)
+  s = s.replace(/^\d+\s+\d+\/\d+/, '').replace(/^\d+\/\d+/, '').replace(/^\d+\.?\d*/, '').trim();
+  // Strip unit word at start
+  const unitRe = /^(cups?|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|lbs?|pounds?|grams?|kg|ml|liters?|litres?|cloves?|cans?|slices?|pieces?|pinch(?:es)?|dash(?:es)?|handfuls?|strips?|stalks?|heads?|bunch(?:es)?|sprigs?|sheets?|sticks?|packages?|pkgs?)\b\s*/i;
+  s = s.replace(unitRe, '').trim();
+  // Strip measurement-modifying descriptors immediately after unit
+  s = s.replace(/^(packed|loosely|firmly|heaping|level|scant)\b\s*/i, '').trim();
+  // Strip trailing "to taste", "(optional)", parentheticals
+  s = s.replace(/\bto\s+taste\b.*/i, '').trim();
+  s = s.replace(/\(optional\)/gi, '').trim();
+  s = s.replace(/,?\s*\(.*\)\s*$/, '').trim();
+  // Capitalize first letter
+  if (s) s = s.charAt(0).toUpperCase() + s.slice(1);
+  return s || ing;
+}
+
+function getCategoryMemory() {
+  return DB_CACHE.category_memory;
+}
+
+function saveCategoryMemory(mem) {
+  DB_CACHE.category_memory = mem;
+  _idbPut('kv', 'category_memory', mem);
+}
+
+function lookupCategoryMemory(name) {
+  const mem = getCategoryMemory();
+  const key = name.toLowerCase().trim();
+  if (mem[key]) return mem[key];
+  // Try singular (strip trailing s)
+  if (key.endsWith('s') && key.length > 3 && mem[key.slice(0, -1)]) return mem[key.slice(0, -1)];
+  // Try plural (add s)
+  if (mem[key + 's']) return mem[key + 's'];
+  return null;
+}
+
+function recordCategoryMemory(name, cat) {
+  const mem = getCategoryMemory();
+  mem[name.toLowerCase().trim()] = cat;
+  saveCategoryMemory(mem);
+}
+
 function guessCategory(name) {
   const n = name.toLowerCase();
-  if (/yogurt|milk|egg|butter|cheese|cream|sour cream/.test(n)) return 'dairy';
-  if (/chicken|beef|pork|fish|tilapia|salmon|tuna|shrimp|hot.?dog|patty|patties|sausage|turkey|ground meat|steak|brisket/.test(n)) return 'protein';
   if (/\bfrozen\b|ice cream/.test(n)) return 'frozen';
-  if (/carrot|avocado|banana|lemon|lime|berry|berries|onion|potato|snap pea|raspberry|tomato|lettuce|spinach|garlic|broccoli|celery|pepper|jalapeno|mango|apple|orange/.test(n)) return 'produce';
-  if (/celsius|soda|dr pepper|water|juice|coffee|tea|lemonade|gatorade|energy drink/.test(n)) return 'beverages';
-  if (/chip|cracker|pop.tart|poptart|snicker|candy|granola bar|pretzel|popcorn|nuts|trail mix|oreo|cookie|biscoff|graham/.test(n)) return 'snacks';
+  if (/\b(chicken|beef|pork|turkey|fish|shrimp|salmon|tuna|tilapia|bacon|sausage|ham|steak|ground beef|ground turkey|lamb|crab|lobster|hot.?dog|patty|patties|brisket)\b/.test(n)) return 'protein';
+  if (/\b(milk|cheese|butter|cream|yogurt|eggs?|sour cream|cream cheese|mozzarella|cheddar|parmesan|half.?and.?half|whipping cream)\b/.test(n)) return 'dairy';
+  if (/\b(onion|garlic|tomato|lettuce|spinach|pepper|carrot|celery|potato|broccoli|cucumber|mushroom|zucchini|asparagus|lemon|lime|apple|banana|avocado|cilantro|parsley|basil|ginger|jalape[nñ]o|kale|arugula|berr(y|ies)|snap pea|raspberry|mango|orange)\b/.test(n)) return 'produce';
+  if (/\b(juice|soda|water|broth|stock|wine|beer|coffee|tea|lemonade|gatorade|energy drink|dr pepper)\b/.test(n)) return 'beverages';
+  if (/\b(chip|cracker|nut|popcorn|pretzel|candy|granola bar|trail mix|oreo|biscoff|graham|pop.?tart|snicker)\b/.test(n)) return 'snacks';
+  if (/\b(cumin|paprika|oregano|thyme|rosemary|cinnamon|turmeric|chili powder|garlic powder|onion powder|cayenne|bay leaf|seasoning|spice)\b/.test(n)) return 'pantry';
+  if (/\b(chocolate|cocoa|vanilla|sprinkle|frosting|powdered sugar|brown sugar|pancake mix|baking soda|baking powder|cornstarch)\b/.test(n)) return 'pantry';
+  if (/\b(flour|sugar|salt|oil|vinegar|pasta|rice|beans|lentils|oats|bread.?crumb|honey|maple syrup|soy sauce|hot sauce|ketchup|mustard|mayo|worcestershire)\b/.test(n)) return 'pantry';
   if (/bag|liner|parchment|thermometer|scale|board|pan|skillet|detergent|soap|towel|shaker|mold|brush|mop|sponge/.test(n)) return 'other';
-  return 'pantry';
+  return 'other';
+}
+
+function resolveCategory(name) {
+  const remembered = lookupCategoryMemory(name);
+  if (remembered) return remembered;
+  return guessCategory(name);
 }
 
 function addShopItem(nameOverride) {
@@ -2174,7 +2242,7 @@ function addShopItem(nameOverride) {
     name,
     qty: 1,
     bought: false,
-    category: guessCategory(name),
+    category: resolveCategory(name),
     addedAt: Date.now()
   });
   saveShopItems(items);
@@ -2339,18 +2407,25 @@ function toggleIngredientNextRun(recipeId, index) {
   const ing = recipe.ingredients[index];
   if (ing == null) return;
 
+  const cleanName = stripIngredientToName(ing);
   const items = getShopItems();
-  const existing = items.find(item => item.name.toLowerCase() === ing.toLowerCase());
+  const cleanLower = cleanName.toLowerCase();
+  const rawLower = ing.toLowerCase();
+  // Match against clean name first, then raw (backward compat with items added before this fix)
+  const existing = items.find(item => {
+    const n = item.name.toLowerCase();
+    return n === cleanLower || n === rawLower;
+  });
 
   if (existing) {
     existing.nextRun = !existing.nextRun;
     saveShopItems(items);
-    showToast(existing.nextRun ? `Flagged "${ing}" for Next Run` : `Removed "${ing}" from Next Run`);
+    showToast(existing.nextRun ? `Flagged "${existing.name}" for Next Run` : `Removed "${existing.name}" from Next Run`);
   } else {
-    items.push({ id: Date.now(), name: ing, qty: 1, bought: false, category: 'other', nextRun: true, addedAt: Date.now() });
+    items.push({ id: Date.now(), name: cleanName, qty: 1, bought: false, category: resolveCategory(cleanName), nextRun: true, addedAt: Date.now() });
     saveShopItems(items);
-    saveToMemory(ing);
-    showToast(`Added "${ing}" to Next Run`);
+    saveToMemory(cleanName);
+    showToast(`Added "${cleanName}" to Next Run`);
   }
   renderAll();
 }
@@ -2431,7 +2506,11 @@ function toggleCatPicker(id) {
 function changeItemCategory(id, newCat) {
   const items = getShopItems();
   const item = items.find(i => i.id === id);
-  if (item) { item.category = newCat; saveShopItems(items); }
+  if (item) {
+    item.category = newCat;
+    saveShopItems(items);
+    recordCategoryMemory(item.name, newCat);
+  }
   renderShopList();
 }
 
