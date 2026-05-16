@@ -2383,5 +2383,96 @@ body::before {
   transform: translateX(-50%) translateY(0);
 }
 
+/* ── INGREDIENT PICKER SHEET ── */
+.ing-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 500;
+  display: flex;
+  align-items: flex-end;
+}
+
+.ing-picker-sheet {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 12px);
+  transform: translateY(100%);
+  transition: transform 0.25s cubic-bezier(0.32,0,0,1);
+}
+.ing-picker-sheet.open { transform: translateY(0); }
+
+.ing-picker-header {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+.ing-picker-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ing-picker-body {
+  padding: 12px 16px 4px;
+}
+
+.ing-picker-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.ing-picker-option:active,
+.ing-picker-option:hover { background: var(--card2); border-color: var(--gold); }
+
+.ing-picker-add-all {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: var(--gold);
+  border: none;
+  border-radius: 10px;
+  color: #0d0b08;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 14px 16px;
+  margin-top: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ing-picker-add-all:hover { background: var(--gold2); }
+
+.ing-picker-cancel {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 16px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.ing-picker-cancel:hover { color: var(--text2); }
+
 .hidden { display: none !important; }
 

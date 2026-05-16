@@ -1444,11 +1444,11 @@ function renderRecipe(recipe) {
   const shopItems = getShopItems();
   const ingredientsList = recipe.ingredients.map((ing, i) => {
     const checked = state.ingredients[i] ? 'checked' : '';
-    const cleanIngName = stripIngredientToName(ing).toLowerCase();
-    const rawIngName = ing.toLowerCase();
+    const altLowers = parseIngredientAlternatives(ing).map(a => a.toLowerCase());
+    const rawIngLower = ing.toLowerCase();
     const shopMatch = shopItems.find(item => {
       const n = item.name.toLowerCase();
-      return n === cleanIngName || n === rawIngName;
+      return altLowers.includes(n) || n === rawIngLower;
     });
     const inNextRun = !!(shopMatch && shopMatch.nextRun);
     return `<div class="ingredient-item ${checked}" onclick="toggleIngredient('${recipe.id}', ${i})">
@@ -2178,6 +2178,25 @@ function stripIngredientToName(ing) {
   return s || ing;
 }
 
+// Returns array of clean alternative names from an ingredient string.
+// Splits on " or " after stripping quantity/unit/parentheticals.
+// Each part gets trailing instructions stripped individually.
+// Returns 1-element array when no alternatives exist.
+function parseIngredientAlternatives(ing) {
+  let s = ing.trim();
+  s = s.replace(/^\d+\s+\d+\/\d+/, '').replace(/^\d+\/\d+/, '').replace(/^\d+\.?\d*/, '').trim();
+  const unitRe = /^(cups?|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|lbs?|pounds?|grams?|kg|ml|liters?|litres?|cloves?|cans?|slices?|pieces?|pinch(?:es)?|dash(?:es)?|handfuls?|strips?|stalks?|heads?|bunch(?:es)?|sprigs?|sheets?|sticks?|packages?|pkgs?)\b\s*/i;
+  s = s.replace(unitRe, '').trim();
+  s = s.replace(/^(packed|loosely|firmly|heaping|level|scant)\b\s*/i, '').trim();
+  s = s.replace(/\s*\([^)]*\)/g, '').trim();
+  const trailingRe = /[\s,–-]*(to\s+(serve|taste|garnish|coat)|for\s+(serving|topping|dipping|garnish|frying|greasing|coating)|as\s+needed|if\s+(needed|desired)|optional)\s*$/i;
+  const parts = s.split(/\s+or\s+/i);
+  return parts.map(p => {
+    p = p.replace(trailingRe, '').replace(/[,\s–-]+$/, '').trim();
+    return p ? p.charAt(0).toUpperCase() + p.slice(1) : '';
+  }).filter(p => p.length > 0);
+}
+
 function getCategoryMemory() {
   return DB_CACHE.category_memory;
 }
@@ -2412,20 +2431,45 @@ function toggleIngredientNextRun(recipeId, index) {
   const ing = recipe.ingredients[index];
   if (ing == null) return;
 
-  const cleanName = stripIngredientToName(ing);
+  const alternatives = parseIngredientAlternatives(ing);
   const items = getShopItems();
-  const cleanLower = cleanName.toLowerCase();
+  const altLowers = alternatives.map(a => a.toLowerCase());
   const rawLower = ing.toLowerCase();
-  // Match against clean name first, then raw (backward compat with items added before this fix)
+
+  // Find any existing item matching any alternative (or raw ingredient for backward compat)
   const existing = items.find(item => {
     const n = item.name.toLowerCase();
-    return n === cleanLower || n === rawLower;
+    return altLowers.includes(n) || n === rawLower;
   });
 
-  if (existing) {
-    existing.nextRun = !existing.nextRun;
+  if (existing && existing.nextRun) {
+    // Already in Next Run — toggle off
+    existing.nextRun = false;
     saveShopItems(items);
-    showToast(existing.nextRun ? `Flagged "${existing.name}" for Next Run` : `Removed "${existing.name}" from Next Run`);
+    showToast(`Removed "${existing.name}" from Next Run`);
+    renderAll();
+    return;
+  }
+
+  if (alternatives.length > 1) {
+    // Multiple alternatives — show picker
+    showIngredientPicker(alternatives);
+    return;
+  }
+
+  // Single ingredient — add directly
+  const cleanName = alternatives[0] || stripIngredientToName(ing);
+  addIngredientToNextRun(cleanName, items);
+}
+
+function addIngredientToNextRun(cleanName, itemsRef) {
+  const items = itemsRef || getShopItems();
+  const cleanLower = cleanName.toLowerCase();
+  const existing = items.find(item => item.name.toLowerCase() === cleanLower);
+  if (existing) {
+    existing.nextRun = true;
+    saveShopItems(items);
+    showToast(`Flagged "${existing.name}" for Next Run`);
   } else {
     items.push({ id: Date.now(), name: cleanName, qty: 1, bought: false, category: resolveCategory(cleanName), nextRun: true, addedAt: Date.now() });
     saveShopItems(items);
@@ -2433,6 +2477,87 @@ function toggleIngredientNextRun(recipeId, index) {
     showToast(`Added "${cleanName}" to Next Run`);
   }
   renderAll();
+}
+
+function showIngredientPicker(alternatives) {
+  const existing = document.getElementById('ing-picker-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'ing-picker-overlay';
+  overlay.className = 'ing-picker-overlay';
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeIngredientPicker(); });
+
+  const sheet = document.createElement('div');
+  sheet.className = 'ing-picker-sheet';
+
+  const header = document.createElement('div');
+  header.className = 'ing-picker-header';
+  const title = document.createElement('div');
+  title.className = 'ing-picker-title';
+  title.textContent = 'Which would you like to add?';
+  header.appendChild(title);
+
+  const body = document.createElement('div');
+  body.className = 'ing-picker-body';
+
+  alternatives.forEach(alt => {
+    const btn = document.createElement('button');
+    btn.className = 'ing-picker-option';
+    btn.textContent = alt;
+    btn.addEventListener('click', () => {
+      closeIngredientPicker();
+      addIngredientToNextRun(alt);
+    });
+    body.appendChild(btn);
+  });
+
+  const addAllBtn = document.createElement('button');
+  addAllBtn.className = 'ing-picker-add-all';
+  addAllBtn.textContent = '+ Add All';
+  addAllBtn.addEventListener('click', () => {
+    closeIngredientPicker();
+    const items = getShopItems();
+    const now = Date.now();
+    alternatives.forEach((cleanName, i) => {
+      const ex = items.find(item => item.name.toLowerCase() === cleanName.toLowerCase());
+      if (ex) {
+        ex.nextRun = true;
+      } else {
+        items.push({ id: now + i, name: cleanName, qty: 1, bought: false, category: resolveCategory(cleanName), nextRun: true, addedAt: now });
+        saveToMemory(cleanName);
+      }
+    });
+    saveShopItems(items);
+    showToast(`Added ${alternatives.length} item${alternatives.length !== 1 ? 's' : ''} to Next Run`);
+    renderAll();
+  });
+  body.appendChild(addAllBtn);
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'ing-picker-cancel';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', closeIngredientPicker);
+
+  sheet.appendChild(header);
+  sheet.appendChild(body);
+  sheet.appendChild(cancelBtn);
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+
+  requestAnimationFrame(() => sheet.classList.add('open'));
+}
+
+function closeIngredientPicker() {
+  const overlay = document.getElementById('ing-picker-overlay');
+  if (!overlay) return;
+  const sheet = overlay.querySelector('.ing-picker-sheet');
+  if (sheet) {
+    sheet.classList.remove('open');
+    setTimeout(() => overlay.remove(), 260);
+  } else {
+    overlay.remove();
+  }
 }
 
 function showToast(msg) {
