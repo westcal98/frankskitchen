@@ -1431,11 +1431,15 @@ function renderRecipe(recipe) {
   const checkedSteps = Object.values(state.steps).filter(Boolean).length;
   const overallProgress = Math.round(((checkedIngredients + checkedSteps) / (totalIngredients + totalSteps)) * 100) || 0;
 
+  const shopItems = getShopItems();
   const ingredientsList = recipe.ingredients.map((ing, i) => {
     const checked = state.ingredients[i] ? 'checked' : '';
+    const shopMatch = shopItems.find(item => item.name.toLowerCase() === ing.toLowerCase());
+    const inNextRun = !!(shopMatch && shopMatch.nextRun);
     return `<div class="ingredient-item ${checked}" onclick="toggleIngredient('${recipe.id}', ${i})">
       <div class="ingredient-cb"></div>
       <div class="ingredient-text">${scaleIngredient(ing, ratio)}</div>
+      <button class="ingredient-cart-btn${inNextRun ? ' active' : ''}" onclick="event.stopPropagation();toggleIngredientNextRun('${recipe.id}',${i})" title="${inNextRun ? 'Remove from Next Run' : 'Add to Next Run'}">🛒</button>
     </div>`;
   }).join('');
 
@@ -2327,6 +2331,43 @@ function toggleNextRun(id) {
   const items = getShopItems();
   const item = items.find(i => i.id === id);
   if (item) { item.nextRun = !item.nextRun; saveShopItems(items); renderShopList(); }
+}
+
+function toggleIngredientNextRun(recipeId, index) {
+  const recipe = getAllRecipes().find(r => r.id === recipeId);
+  if (!recipe) return;
+  const ing = recipe.ingredients[index];
+  if (ing == null) return;
+
+  const items = getShopItems();
+  const existing = items.find(item => item.name.toLowerCase() === ing.toLowerCase());
+
+  if (existing) {
+    existing.nextRun = !existing.nextRun;
+    saveShopItems(items);
+    showToast(existing.nextRun ? `Flagged "${ing}" for Next Run` : `Removed "${ing}" from Next Run`);
+  } else {
+    items.push({ id: Date.now(), name: ing, qty: 1, bought: false, category: 'other', nextRun: true, addedAt: Date.now() });
+    saveShopItems(items);
+    saveToMemory(ing);
+    showToast(`Added "${ing}" to Next Run`);
+  }
+  renderAll();
+}
+
+function showToast(msg) {
+  const existing = document.getElementById('fk-toast');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.id = 'fk-toast';
+  el.className = 'fk-toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('fk-toast-visible'));
+  setTimeout(() => {
+    el.classList.remove('fk-toast-visible');
+    setTimeout(() => el.remove(), 300);
+  }, 2200);
 }
 
 function handleShopSearch() {
