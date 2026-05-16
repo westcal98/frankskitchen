@@ -2164,10 +2164,15 @@ function stripIngredientToName(ing) {
   s = s.replace(unitRe, '').trim();
   // Strip measurement-modifying descriptors immediately after unit
   s = s.replace(/^(packed|loosely|firmly|heaping|level|scant)\b\s*/i, '').trim();
-  // Strip trailing "to taste", "(optional)", parentheticals
-  s = s.replace(/\bto\s+taste\b.*/i, '').trim();
-  s = s.replace(/\(optional\)/gi, '').trim();
-  s = s.replace(/,?\s*\(.*\)\s*$/, '').trim();
+  // Strip all parenthetical notes
+  s = s.replace(/\s*\([^)]*\)/g, '').trim();
+  // Truncate at "or" alternative — keep only the first option
+  s = s.replace(/\s+or\s+.*/i, '').trim();
+  // Strip trailing instruction phrases
+  const trailingRe = /[\s,–-]*(to\s+(serve|taste|garnish|coat)|for\s+(serving|topping|dipping|garnish|frying|greasing|coating)|as\s+needed|if\s+(needed|desired)|optional)\s*$/i;
+  s = s.replace(trailingRe, '').trim();
+  // Clean up any trailing punctuation left behind
+  s = s.replace(/[,\s–-]+$/, '').trim();
   // Capitalize first letter
   if (s) s = s.charAt(0).toUpperCase() + s.slice(1);
   return s || ing;
