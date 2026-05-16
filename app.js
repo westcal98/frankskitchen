@@ -1444,11 +1444,11 @@ function renderRecipe(recipe) {
   const shopItems = getShopItems();
   const ingredientsList = recipe.ingredients.map((ing, i) => {
     const checked = state.ingredients[i] ? 'checked' : '';
-    const altLowers = parseIngredientAlternatives(ing).map(a => a.toLowerCase());
+    const allIngNames = parseIngredientParts(ing).flat().map(n => n.toLowerCase());
     const rawIngLower = ing.toLowerCase();
     const shopMatch = shopItems.find(item => {
       const n = item.name.toLowerCase();
-      return altLowers.includes(n) || n === rawIngLower;
+      return allIngNames.includes(n) || n === rawIngLower;
     });
     const inNextRun = !!(shopMatch && shopMatch.nextRun);
     return `<div class="ingredient-item ${checked}" onclick="toggleIngredient('${recipe.id}', ${i})">
@@ -2197,6 +2197,38 @@ function parseIngredientAlternatives(ing) {
   }).filter(p => p.length > 0);
 }
 
+// Returns Array<string[]>. Each inner array is one required ingredient slot:
+//   length 1 → single item, auto-add
+//   length > 1 → "or" alternatives, show picker
+// Multiple inner arrays mean multiple required items joined by & / "and".
+function parseIngredientParts(ing) {
+  const trailingRe = /[\s,–-]*(to\s+(serve|taste|garnish|coat)|for\s+(serving|topping|dipping|garnish|frying|greasing|coating)|as\s+needed|if\s+(needed|desired)|optional)\s*$/i;
+  let s = ing.trim();
+  s = s.replace(/^\d+\s+\d+\/\d+/, '').replace(/^\d+\/\d+/, '').replace(/^\d+\.?\d*/, '').trim();
+  const unitRe = /^(cups?|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|lbs?|pounds?|grams?|kg|ml|liters?|litres?|cloves?|cans?|slices?|pieces?|pinch(?:es)?|dash(?:es)?|handfuls?|strips?|stalks?|heads?|bunch(?:es)?|sprigs?|sheets?|sticks?|packages?|pkgs?)\b\s*/i;
+  s = s.replace(unitRe, '').trim();
+  s = s.replace(/^(packed|loosely|firmly|heaping|level|scant)\b\s*/i, '').trim();
+  s = s.replace(/\s*\([^)]*\)/g, '').trim();
+  // Split on required-ingredient separators (& and "and")
+  // Serial comma list (e.g. "Salt, pepper, and garlic") gets all separators collapsed first
+  let andParts;
+  if (/,\s*and\b/i.test(s)) {
+    andParts = s.replace(/,\s*and\s+/gi, ',').replace(/\s+and\s+/gi, ',').split(/\s*,\s*/);
+  } else {
+    andParts = s.split(/\s+&\s+|\s+and\s+/i);
+  }
+  return andParts.map(part => {
+    part = part.replace(trailingRe, '').replace(/[,\s–-]+$/, '').trim();
+    if (!part) return null;
+    const orParts = part.split(/\s+or\s+/i);
+    const cleaned = orParts.map(p => {
+      p = p.replace(trailingRe, '').replace(/[,\s–-]+$/, '').trim();
+      return p ? p.charAt(0).toUpperCase() + p.slice(1) : '';
+    }).filter(p => p.length > 0);
+    return cleaned.length > 0 ? cleaned : null;
+  }).filter(x => x !== null);
+}
+
 function getCategoryMemory() {
   return DB_CACHE.category_memory;
 }
@@ -2431,52 +2463,77 @@ function toggleIngredientNextRun(recipeId, index) {
   const ing = recipe.ingredients[index];
   if (ing == null) return;
 
-  const alternatives = parseIngredientAlternatives(ing);
+  const parts = parseIngredientParts(ing);
+  const allNames = parts.flat();
   const items = getShopItems();
-  const altLowers = alternatives.map(a => a.toLowerCase());
   const rawLower = ing.toLowerCase();
 
-  // Find any existing item matching any alternative (or raw ingredient for backward compat)
-  const existing = items.find(item => {
+  // If any matching item is already in Next Run → toggle it off
+  const inNextRun = items.find(item => {
     const n = item.name.toLowerCase();
-    return altLowers.includes(n) || n === rawLower;
+    return allNames.some(name => name.toLowerCase() === n) || n === rawLower;
   });
-
-  if (existing && existing.nextRun) {
-    // Already in Next Run — toggle off
-    existing.nextRun = false;
+  if (inNextRun && inNextRun.nextRun) {
+    inNextRun.nextRun = false;
     saveShopItems(items);
-    showToast(`Removed "${existing.name}" from Next Run`);
+    showToast(`Removed "${inNextRun.name}" from Next Run`);
     renderAll();
     return;
   }
 
-  if (alternatives.length > 1) {
-    // Multiple alternatives — show picker
-    showIngredientPicker(alternatives);
+  const singleParts = parts.filter(p => p.length === 1).map(p => p[0]);
+  const choiceParts = parts.filter(p => p.length > 1);
+
+  if (choiceParts.length === 0) {
+    // No choices — batch add all required items
+    _bulkAddToNextRun(singleParts, items);
     return;
   }
 
-  // Single ingredient — add directly
-  const cleanName = alternatives[0] || stripIngredientToName(ing);
-  addIngredientToNextRun(cleanName, items);
+  // Has a choice (or) — auto-add singles silently first, then show picker
+  if (singleParts.length > 0) {
+    const now = Date.now();
+    singleParts.forEach((name, i) => {
+      const ex = items.find(item => item.name.toLowerCase() === name.toLowerCase());
+      if (ex) { ex.nextRun = true; }
+      else { items.push({ id: now + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: now }); saveToMemory(name); }
+    });
+    saveShopItems(items);
+    renderAll();
+  }
+  // Any extra choice parts beyond the first: auto-add their first alternative
+  choiceParts.slice(1).forEach((alts, i) => {
+    const name = alts[0];
+    const ex = items.find(item => item.name.toLowerCase() === name.toLowerCase());
+    if (ex) { ex.nextRun = true; }
+    else { items.push({ id: Date.now() + 200 + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: Date.now() }); saveToMemory(name); }
+  });
+  if (choiceParts.slice(1).length > 0) { saveShopItems(items); renderAll(); }
+
+  showIngredientPicker(choiceParts[0]);
+}
+
+function _bulkAddToNextRun(names, itemsRef) {
+  if (names.length === 0) return;
+  const items = itemsRef || getShopItems();
+  const now = Date.now();
+  names.forEach((name, i) => {
+    const ex = items.find(item => item.name.toLowerCase() === name.toLowerCase());
+    if (ex) { ex.nextRun = true; }
+    else { items.push({ id: now + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: now }); saveToMemory(name); }
+  });
+  saveShopItems(items);
+  const msg = names.length === 1
+    ? `Added "${names[0]}" to Next Run`
+    : names.length === 2
+      ? `Added ${names[0]} and ${names[1]} to Next Run`
+      : `Added ${names.length} items to Next Run`;
+  showToast(msg);
+  renderAll();
 }
 
 function addIngredientToNextRun(cleanName, itemsRef) {
-  const items = itemsRef || getShopItems();
-  const cleanLower = cleanName.toLowerCase();
-  const existing = items.find(item => item.name.toLowerCase() === cleanLower);
-  if (existing) {
-    existing.nextRun = true;
-    saveShopItems(items);
-    showToast(`Flagged "${existing.name}" for Next Run`);
-  } else {
-    items.push({ id: Date.now(), name: cleanName, qty: 1, bought: false, category: resolveCategory(cleanName), nextRun: true, addedAt: Date.now() });
-    saveShopItems(items);
-    saveToMemory(cleanName);
-    showToast(`Added "${cleanName}" to Next Run`);
-  }
-  renderAll();
+  _bulkAddToNextRun([cleanName], itemsRef);
 }
 
 function showIngredientPicker(alternatives) {
