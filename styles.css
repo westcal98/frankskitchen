@@ -154,6 +154,7 @@ body::before {
   margin-bottom: 14px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border);
+  cursor: pointer;
 }
 
 .category-icon { font-size: 20px; }
@@ -174,6 +175,16 @@ body::before {
   border-radius: 10px;
   margin-left: auto;
 }
+
+.category-chevron {
+  font-size: 12px;
+  color: var(--muted);
+  transition: transform 0.2s;
+}
+
+.category-section.collapsed .category-chevron { transform: rotate(-90deg); }
+.category-section.collapsed .recipe-grid { display: none; }
+.category-section.collapsed .category-header { margin-bottom: 0; }
 
 /* ── RECIPE CARDS ── */
 .recipe-grid {

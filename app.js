@@ -1014,6 +1014,7 @@ const DB_CACHE = {
   shoplist:           [],  // array of shopping list item objects
   shop_categories:    [],  // ordered category list (falls back to DEFAULT_SHOP_CATEGORIES)
   shop_cat_collapse:  {},  // { [categoryKey]: true } — persisted collapsed state
+  rec_cat_collapse:   {},  // { [categoryKey]: true } — persisted collapsed state for recipe categories
   memory:             [],  // user-added autocomplete strings
   timer_presets:      {},  // { "recipeId:stepIndex": seconds }
 };
@@ -1244,6 +1245,9 @@ async function initDB() {
     const scc = await _idbGet('kv', 'shop_cat_collapse');
     if (scc && typeof scc === 'object' && !Array.isArray(scc)) DB_CACHE.shop_cat_collapse = scc;
 
+    const rcc = await _idbGet('kv', 'rec_cat_collapse');
+    if (rcc && typeof rcc === 'object' && !Array.isArray(rcc)) DB_CACHE.rec_cat_collapse = rcc;
+
     const prefs = await _idbGet('kv', 'preferences');
     if (prefs && typeof prefs === 'object') DB_CACHE.preferences = prefs;
 
@@ -1257,7 +1261,7 @@ async function initDB() {
 
     const KV_KEYS = new Set([
       'fk_shoplist', 'fk_custom_recipes', 'fk_memory', 'fk_timer_presets',
-      'fk_favorites', 'fk_shop_categories', 'fk_shop_cat_collapse', 'fk_preferences', 'fk_schema_version',
+      'fk_favorites', 'fk_shop_categories', 'fk_shop_cat_collapse', 'fk_rec_cat_collapse', 'fk_preferences', 'fk_schema_version',
     ]);
 
     for (const k of lsKeys) {
@@ -1610,11 +1614,13 @@ function renderAll() {
     const visible = getAllRecipes().filter(r => r.category === cat.key && matchesSearch(r));
     if (!visible.length) return;
     anyVisible = true;
-    html += `<div class="category-section">
-      <div class="category-header">
+    const isCollapsed = !!DB_CACHE.rec_cat_collapse[cat.key];
+    html += `<div class="category-section${isCollapsed ? ' collapsed' : ''}" id="reccat-${cat.key}">
+      <div class="category-header" onclick="toggleRecipeSection('${cat.key}')">
         <span class="category-icon">${cat.icon}</span>
         <span class="category-title">${cat.label}</span>
         <span class="category-count">${visible.length} recipes</span>
+        <span class="category-chevron">▾</span>
       </div>
       <div class="recipe-grid">${visible.map(renderRecipe).join('')}</div>
     </div>`;
@@ -2522,6 +2528,14 @@ function toggleShopSection(key) {
   collapse[key] = !collapse[key];
   _idbPut('kv', 'shop_cat_collapse', collapse);
   const el = document.getElementById('shopcat-' + key);
+  if (el) el.classList.toggle('collapsed', !!collapse[key]);
+}
+
+function toggleRecipeSection(key) {
+  const collapse = DB_CACHE.rec_cat_collapse;
+  collapse[key] = !collapse[key];
+  _idbPut('kv', 'rec_cat_collapse', collapse);
+  const el = document.getElementById('reccat-' + key);
   if (el) el.classList.toggle('collapsed', !!collapse[key]);
 }
 
