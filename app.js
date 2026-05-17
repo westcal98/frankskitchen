@@ -3726,9 +3726,9 @@ async function parseRecipeText() {
 Return ONLY valid JSON. No explanation, no markdown, no code blocks. Just the raw JSON object.`;
 
   try {
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
       body: JSON.stringify({
         contents: [{ parts: [{ text: SYSTEM_PROMPT + '\n\n' + text }] }],
       }),
@@ -4387,9 +4387,9 @@ async function submitNutritionQuickLog() {
   const NUTRITION_SYSTEM_PROMPT = `You are a nutrition logger. Parse the provided text into a JSON array of food/drink entries. Each entry: { name: string (clean food/drink name), qty: number (serving quantity), unit: string (serving unit e.g. 'cup', 'oz', 'piece'), calories: number (estimated calories for this serving), protein: number (grams), carbs: number (grams), fat: number (grams), meal: one of [Breakfast, Lunch, Dinner, Snack, Drink], time: string (HH:MM in 24hr format, use current time if not specified, extract from text if mentioned e.g. '2:30pm' → '14:30'), isEstimate: boolean (true if calories are estimated rather than known) } Return ONLY a valid JSON array. No explanation, no markdown, no code blocks.`;
 
   try {
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
       body: JSON.stringify({
         contents: [{ parts: [{ text: NUTRITION_SYSTEM_PROMPT + `\n\nCurrent time: ${currentTime}\n${text}` }] }],
       }),
