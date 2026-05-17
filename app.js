@@ -2707,6 +2707,10 @@ function changeIngQty(recipeId, ingIndex, delta) {
 
 function parseQtyInput(str) {
   const s = (str || '').trim();
+  const FRACS = {'⅛':0.125,'¼':0.25,'⅜':0.375,'½':0.5,'⅝':0.625,'¾':0.75,'⅞':0.875,'⅓':1/3,'⅔':2/3};
+  if (FRACS[s] != null) return FRACS[s];
+  const mf = s.match(/^(\d+)\s+([^\d\s/]+)$/);
+  if (mf && FRACS[mf[2]] != null) return parseInt(mf[1]) + FRACS[mf[2]];
   let m = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
   if (m) { const d = parseInt(m[3]); return d ? parseInt(m[1]) + parseInt(m[2]) / d : null; }
   m = s.match(/^(\d+)\/(\d+)$/);
@@ -3891,20 +3895,17 @@ function _buildPreviewIngRow(data, UNITS) {
   const qty  = data.qty != null ? data.qty : '';
   const unit = data.unit || '';
   const isCustom = unit && !UNITS.includes(unit);
+  const qtyDisplay = (qty !== '' && !isNaN(Number(qty))) ? formatQty(Number(qty)) : (qty !== '' ? String(qty) : '');
   row.innerHTML = `
-    <input class="form-input dyn-qty" type="number" min="0" step="0.25" placeholder="Qty" value="${_escHtml(qty)}" autocomplete="off">
+    <input class="form-input dyn-qty" type="text" inputmode="decimal" placeholder="Qty" value="${_escHtml(qtyDisplay)}" autocomplete="off">
     <select class="form-input dyn-unit">
       <option value="">—</option>
       ${UNITS.map(u => `<option value="${u}"${u===unit?' selected':''}>${u}</option>`).join('')}
-      <option value="__custom"${isCustom?' selected':''}>Custom…</option>
+      ${isCustom ? `<option value="${_escHtml(unit)}" selected>${_escHtml(unit)}</option>` : ''}
     </select>
-    <input class="form-input dyn-unit-custom${isCustom?'':' hidden'}" type="text" placeholder="Unit" value="${isCustom?_escHtml(unit):''}">
     <input class="form-input dyn-item" type="text" placeholder="Ingredient name" value="${_escHtml(data.name||'')}" autocomplete="off">
     <button type="button" class="dyn-remove" onclick="removeRow(this,false)">✕</button>
   `;
-  row.querySelector('.dyn-unit').addEventListener('change', function() {
-    row.querySelector('.dyn-unit-custom').classList.toggle('hidden', this.value !== '__custom');
-  });
   return row;
 }
 
@@ -3941,12 +3942,9 @@ function saveImportedRecipe() {
   ingRows.forEach(row => {
     const ingName = (row.querySelector('.dyn-item').value || '').trim();
     if (!ingName) return;
-    const qtyRaw = parseFloat(row.querySelector('.dyn-qty').value);
-    const unitSel = row.querySelector('.dyn-unit');
-    const unit = unitSel.value === '__custom'
-      ? (row.querySelector('.dyn-unit-custom').value || '').trim()
-      : unitSel.value;
-    ingredients.push({ name: ingName, qty: isNaN(qtyRaw) ? null : qtyRaw, unit });
+    const qtyRaw = parseQtyInput(row.querySelector('.dyn-qty').value);
+    const unit = row.querySelector('.dyn-unit').value;
+    ingredients.push({ name: ingName, qty: qtyRaw, unit });
   });
 
   const stepRows = document.querySelectorAll('#pv-steps .dyn-row');
