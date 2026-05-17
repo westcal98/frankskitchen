@@ -1247,6 +1247,7 @@ async function initDB() {
     const sv = await _idbGet('kv', 'schema_version');
     migrateShoplistCategories();
     await runMigrations(sv);
+    fixDuplicateCategoryEmojis();
 
     // ── Load seed state ────────────────────────────────────────────────────
     const _sc = await _idbGet('kv', 'fk_initial_seed_complete');
@@ -1468,33 +1469,37 @@ function renderRecipe(recipe) {
   const shopItems = getShopItems();
   const ingredientsList = recipe.ingredients.map((ing, i) => {
     const checked = state.ingredients[i] ? 'checked' : '';
-    let ingName, qtyControls, unitHtml;
+    let ingName, qtyControls, unitHtml, textContent, nameClickAttr = '';
     if (typeof ing === 'object') {
       ingName = ing.name;
-      const effQty = (state.ingQtyOverrides && state.ingQtyOverrides[i] != null) ? state.ingQtyOverrides[i] : ing.qty;
+      const effQty  = (state.ingQtyOverrides  && state.ingQtyOverrides[i]  != null) ? state.ingQtyOverrides[i]  : ing.qty;
+      const effUnit = (state.ingUnitOverrides  && state.ingUnitOverrides[i] != null) ? state.ingUnitOverrides[i] : ing.unit;
+      const effName = (state.ingNameOverrides  && state.ingNameOverrides[i])         ? state.ingNameOverrides[i] : ing.name;
+      textContent = effName;
+      nameClickAttr = `onclick="event.stopPropagation();openIngNameEdit('${recipe.id}',${i})"`;
       if (effQty != null) {
         const scaled = formatQty(effQty * ratio);
         qtyControls = `<div class="ingredient-qty-controls">
           <button class="ing-qty-btn" onclick="event.stopPropagation();changeIngQty('${recipe.id}',${i},-1)">−</button>
-          <span class="ing-qty-num">${scaled}</span>
+          <span class="ing-qty-num" onclick="event.stopPropagation();openIngQtyEdit('${recipe.id}',${i})">${scaled}</span>
           <button class="ing-qty-btn" onclick="event.stopPropagation();changeIngQty('${recipe.id}',${i},1)">+</button>
         </div>`;
       } else {
         qtyControls = `<div class="ingredient-qty-controls ingredient-qty-empty"></div>`;
       }
-      unitHtml = ing.unit ? `<span class="ing-unit">${ing.unit}</span>` : `<span class="ing-unit-empty"></span>`;
+      unitHtml = `<span class="${effUnit ? 'ing-unit' : 'ing-unit-empty'}" onclick="event.stopPropagation();openIngUnitEdit('${recipe.id}',${i})">${effUnit || ''}</span>`;
     } else {
       ingName = stripIngredientToName(ing);
       qtyControls = '';
       unitHtml = '';
+      textContent = scaleIngredient(ing, ratio);
     }
     const shopMatch = shopItems.find(item => item.name.toLowerCase() === ingName.toLowerCase());
     const inNextRun = !!(shopMatch && shopMatch.nextRun);
-    const textContent = typeof ing === 'object' ? ingName : scaleIngredient(ing, ratio);
-    return `<div class="ingredient-item ${checked}" onclick="toggleIngredient('${recipe.id}', ${i})">
+    return `<div class="ingredient-item ${checked}" data-ing-index="${i}" onclick="toggleIngredient('${recipe.id}', ${i})">
       <div class="ingredient-cb"></div>
       ${qtyControls}${unitHtml}
-      <div class="ingredient-text">${textContent}</div>
+      <div class="ingredient-text" ${nameClickAttr}>${textContent}</div>
       <button class="ingredient-cart-btn${inNextRun ? ' active' : ''}" onclick="event.stopPropagation();toggleIngredientNextRun('${recipe.id}',${i})" title="${inNextRun ? 'Remove from Next Run' : 'Add to Next Run'}">🛒</button>
     </div>`;
   }).join('');
@@ -2098,6 +2103,8 @@ const CATEGORY_EMOJI_MAP = [
   { keywords: ['other'], emoji: '📦' },
 ];
 
+const ING_UNITS = ['cups','tbsp','tsp','oz','lbs','g','kg','ml','l','cloves','cans','slices','pieces','pinch','dash','handful','strips','stalks','sprigs'];
+
 function emojiForCategoryName(name) {
   const lower = (name || '').toLowerCase();
   for (const { keywords, emoji } of CATEGORY_EMOJI_MAP) {
@@ -2114,6 +2121,23 @@ function extractEmojiFromLabel(label) {
 function labelWithoutEmoji(label) {
   const emoji = extractEmojiFromLabel(label);
   return emoji ? (label || '').slice(emoji.length).trim() : (label || '').trim();
+}
+
+function fixDuplicateCategoryEmojis() {
+  const cats = getShopCategories();
+  if (!cats || !cats.length) return;
+  let changed = false;
+  cats.forEach(cat => {
+    const label = (cat.label || '').trim();
+    const firstEmoji = extractEmojiFromLabel(label);
+    if (!firstEmoji) return;
+    let rest = labelWithoutEmoji(label);
+    let n = 0;
+    while (extractEmojiFromLabel(rest) && n++ < 8) rest = labelWithoutEmoji(rest);
+    const fixed = firstEmoji + ' ' + rest;
+    if (fixed !== label) { cat.label = fixed; changed = true; }
+  });
+  if (changed) _idbPut('kv', 'shop_categories', cats);
 }
 
 // Old key → new key map used during migration
@@ -2644,6 +2668,174 @@ function changeIngQty(recipeId, ingIndex, delta) {
   if (!state.ingQtyOverrides) state.ingQtyOverrides = {};
   const current = state.ingQtyOverrides[ingIndex] != null ? state.ingQtyOverrides[ingIndex] : ing.qty;
   state.ingQtyOverrides[ingIndex] = Math.max(0.25, +(current + delta).toFixed(4));
+  saveState(recipeId, state);
+  renderAll();
+}
+
+// ─── INGREDIENT INLINE EDITING ─────────────────────────────────────────────
+
+function parseQtyInput(str) {
+  const s = (str || '').trim();
+  let m = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (m) { const d = parseInt(m[3]); return d ? parseInt(m[1]) + parseInt(m[2]) / d : null; }
+  m = s.match(/^(\d+)\/(\d+)$/);
+  if (m) { const d = parseInt(m[2]); return d ? parseInt(m[1]) / d : null; }
+  const num = parseFloat(s);
+  return isNaN(num) ? null : num;
+}
+
+function openIngQtyEdit(recipeId, ingIndex) {
+  const card = document.getElementById(`card-${recipeId}`);
+  if (!card) return;
+  const item = card.querySelector(`.ingredient-item[data-ing-index="${ingIndex}"]`);
+  if (!item) return;
+  const numSpan = item.querySelector('.ing-qty-num');
+  if (!numSpan || numSpan.querySelector('input')) return;
+  const curText = numSpan.textContent.trim();
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.className = 'ing-qty-edit';
+  inp.value = curText;
+  inp.setAttribute('inputmode', 'decimal');
+  inp.addEventListener('click', e => e.stopPropagation());
+  inp.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter') inp.blur();
+    if (e.key === 'Escape') { inp.value = curText; inp.blur(); }
+  });
+  inp.addEventListener('blur', () => saveIngQtyEdit(recipeId, ingIndex, inp.value));
+  numSpan.textContent = '';
+  numSpan.appendChild(inp);
+  inp.focus();
+  inp.select();
+}
+
+function saveIngQtyEdit(recipeId, ingIndex, value) {
+  const parsed = parseQtyInput(value);
+  if (parsed === null || parsed <= 0) { renderAll(); return; }
+  const recipe = getAllRecipes().find(r => r.id === recipeId);
+  if (!recipe) return;
+  const ing = recipe.ingredients[ingIndex];
+  if (!ing || typeof ing !== 'object') return;
+  const state = getState(recipeId);
+  if (!state.ingQtyOverrides) state.ingQtyOverrides = {};
+  state.ingQtyOverrides[ingIndex] = Math.max(0.01, +parsed.toFixed(4));
+  saveState(recipeId, state);
+  renderAll();
+}
+
+function openIngUnitEdit(recipeId, ingIndex) {
+  const recipe = getAllRecipes().find(r => r.id === recipeId);
+  if (!recipe) return;
+  const ing = recipe.ingredients[ingIndex];
+  if (!ing || typeof ing !== 'object') return;
+  const state = getState(recipeId);
+  const effUnit = (state.ingUnitOverrides && state.ingUnitOverrides[ingIndex] != null) ? state.ingUnitOverrides[ingIndex] : (ing.unit || '');
+
+  const existing = document.getElementById('ing-unit-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'ing-unit-overlay';
+  overlay.className = 'ing-unit-overlay';
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  const sheet = document.createElement('div');
+  sheet.className = 'ing-unit-sheet';
+
+  const title = document.createElement('div');
+  title.className = 'ing-unit-sheet-title';
+  title.textContent = 'Change unit';
+  sheet.appendChild(title);
+
+  const grid = document.createElement('div');
+  grid.className = 'ing-unit-grid';
+
+  const noneBtn = document.createElement('button');
+  noneBtn.className = 'ing-unit-chip' + (effUnit === '' ? ' active' : '');
+  noneBtn.textContent = 'none';
+  noneBtn.addEventListener('click', () => { overlay.remove(); saveIngUnitEdit(recipeId, ingIndex, ''); });
+  grid.appendChild(noneBtn);
+
+  ING_UNITS.forEach(unit => {
+    const btn = document.createElement('button');
+    btn.className = 'ing-unit-chip' + (effUnit === unit ? ' active' : '');
+    btn.textContent = unit;
+    btn.addEventListener('click', () => { overlay.remove(); saveIngUnitEdit(recipeId, ingIndex, unit); });
+    grid.appendChild(btn);
+  });
+  sheet.appendChild(grid);
+
+  const customRow = document.createElement('div');
+  customRow.className = 'ing-unit-custom-row';
+  const customInp = document.createElement('input');
+  customInp.type = 'text';
+  customInp.className = 'ing-unit-custom-inp';
+  customInp.placeholder = 'Custom unit...';
+  customInp.value = (effUnit && !ING_UNITS.includes(effUnit)) ? effUnit : '';
+  customInp.addEventListener('click', e => e.stopPropagation());
+  customInp.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { overlay.remove(); saveIngUnitEdit(recipeId, ingIndex, customInp.value.trim()); }
+  });
+  const customSet = document.createElement('button');
+  customSet.className = 'ing-unit-custom-set';
+  customSet.textContent = 'Set';
+  customSet.addEventListener('click', () => { overlay.remove(); saveIngUnitEdit(recipeId, ingIndex, customInp.value.trim()); });
+  customRow.appendChild(customInp);
+  customRow.appendChild(customSet);
+  sheet.appendChild(customRow);
+
+  const cancel = document.createElement('button');
+  cancel.className = 'ing-picker-cancel';
+  cancel.textContent = 'Cancel';
+  cancel.addEventListener('click', () => overlay.remove());
+  sheet.appendChild(cancel);
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => sheet.classList.add('open'));
+}
+
+function saveIngUnitEdit(recipeId, ingIndex, unit) {
+  const state = getState(recipeId);
+  if (!state.ingUnitOverrides) state.ingUnitOverrides = {};
+  state.ingUnitOverrides[ingIndex] = unit;
+  saveState(recipeId, state);
+  renderAll();
+}
+
+function openIngNameEdit(recipeId, ingIndex) {
+  const card = document.getElementById(`card-${recipeId}`);
+  if (!card) return;
+  const item = card.querySelector(`.ingredient-item[data-ing-index="${ingIndex}"]`);
+  if (!item) return;
+  const textDiv = item.querySelector('.ingredient-text');
+  if (!textDiv || textDiv.querySelector('input')) return;
+  const curName = textDiv.textContent.trim();
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.className = 'ing-name-edit';
+  inp.value = curName;
+  inp.addEventListener('click', e => e.stopPropagation());
+  inp.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter') inp.blur();
+    if (e.key === 'Escape') { inp.value = curName; inp.blur(); }
+  });
+  inp.addEventListener('blur', () => saveIngNameEdit(recipeId, ingIndex, inp.value));
+  textDiv.textContent = '';
+  textDiv.appendChild(inp);
+  inp.focus();
+  inp.select();
+}
+
+function saveIngNameEdit(recipeId, ingIndex, value) {
+  const name = (value || '').trim();
+  if (!name) { renderAll(); return; }
+  const state = getState(recipeId);
+  if (!state.ingNameOverrides) state.ingNameOverrides = {};
+  state.ingNameOverrides[ingIndex] = name;
   saveState(recipeId, state);
   renderAll();
 }
@@ -3774,7 +3966,8 @@ function startRenameCategory(key) {
   const cur = span.textContent;
   const curEmoji = extractEmojiFromLabel(cur) || emojiForCategoryName(cur);
   const curText = labelWithoutEmoji(cur) || cur;
-  span.innerHTML = `<button class="cat-emoji-badge" onclick="event.stopPropagation();openCatEmojiPicker('${key}')" title="Change emoji" data-suggested="${curEmoji}">${curEmoji}</button><input class="settings-cat-input" value="${curText.replace(/"/g, '&quot;')}"
+  span.classList.add('editing');
+  span.innerHTML = `<button class="cat-emoji-badge" onclick="event.stopPropagation();openCatEmojiPicker('${key}')" title="Change emoji" data-suggested="${curEmoji}">${curEmoji}</button><input class="settings-cat-input" placeholder="Category name..." value="${curText.replace(/"/g, '&quot;')}"
     onblur="saveRenameCategory('${key}', this.value)"
     onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${curText.replace(/'/g, "\\'")}';this.blur()}"
     oninput="updateCatEmojiSuggest('${key}', this.value)"
@@ -3784,7 +3977,7 @@ function startRenameCategory(key) {
 }
 
 function saveRenameCategory(key, newText) {
-  const text = newText.trim();
+  const text = labelWithoutEmoji(newText.trim());
   if (text) {
     const span = document.getElementById('catlabel-' + key);
     const emojiBtn = span ? span.querySelector('.cat-emoji-badge') : null;
@@ -3838,7 +4031,7 @@ function closeCatEmojiPicker() {
 function confirmCatEmoji(key, emoji) {
   const cats = getShopCategories().slice();
   const cat = cats.find(c => c.key === key);
-  if (cat) { cat.label = emoji + ' ' + cat.label.trim(); saveShopCategories(cats); }
+  if (cat) { cat.label = emoji + ' ' + labelWithoutEmoji(cat.label); saveShopCategories(cats); }
   renderSettingsCategories();
 }
 
