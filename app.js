@@ -2083,24 +2083,31 @@ const DEFAULT_SHOP_CATEGORIES = [
 ];
 
 const CATEGORY_EMOJI_MAP = [
-  { keywords: ['produce', 'vegetable', 'fruit', 'fresh'], emoji: '🥦' },
-  { keywords: ['protein', 'meat', 'poultry', 'fish', 'seafood'], emoji: '🥩' },
-  { keywords: ['dairy', 'milk', 'cheese'], emoji: '🧀' },
+  { keywords: ['fruit'], emoji: '🍎' },
+  { keywords: ['produce', 'vegetable', 'veggie', 'fresh'], emoji: '🥦' },
+  { keywords: ['fish', 'seafood'], emoji: '🐟' },
+  { keywords: ['protein', 'meat', 'poultry'], emoji: '🥩' },
+  { keywords: ['dairy', 'milk', 'cheese', 'egg'], emoji: '🧀' },
   { keywords: ['frozen'], emoji: '🧊' },
-  { keywords: ['pantry', 'dry good', 'staple'], emoji: '🥫' },
-  { keywords: ['beverage', 'drink'], emoji: '🥤' },
-  { keywords: ['snack'], emoji: '🍿' },
+  { keywords: ['pantry', 'dry good', 'staple', 'canned', 'can'], emoji: '🥫' },
+  { keywords: ['beverage', 'drink', 'soda', 'water'], emoji: '🥤' },
+  { keywords: ['snack', 'chip', 'cracker'], emoji: '🍿' },
   { keywords: ['baking', 'bake'], emoji: '🧁' },
-  { keywords: ['spice', 'seasoning'], emoji: '🌶️' },
+  { keywords: ['bakery', 'bread'], emoji: '🍞' },
+  { keywords: ['spice', 'seasoning', 'herb'], emoji: '🌶️' },
+  { keywords: ['breakfast', 'cereal'], emoji: '🍳' },
+  { keywords: ['condiment', 'sauce'], emoji: '🫙' },
+  { keywords: ['candy', 'sweet', 'chocolate'], emoji: '🍬' },
+  { keywords: ['nut', 'seed'], emoji: '🥜' },
+  { keywords: ['grain', 'pasta', 'rice'], emoji: '🌾' },
   { keywords: ['household', 'cleaning', 'supply'], emoji: '🏠' },
   { keywords: ['personal care', 'beauty', 'health'], emoji: '🧴' },
-  { keywords: ['bakery', 'bread'], emoji: '🍞' },
   { keywords: ['deli'], emoji: '🥪' },
-  { keywords: ['international'], emoji: '🌍' },
+  { keywords: ['international', 'ethnic'], emoji: '🌍' },
   { keywords: ['baby'], emoji: '👶' },
-  { keywords: ['pet'], emoji: '🐾' },
-  { keywords: ['paper', 'disposable'], emoji: '🧻' },
-  { keywords: ['other'], emoji: '📦' },
+  { keywords: ['pet', 'animal'], emoji: '🐾' },
+  { keywords: ['paper', 'disposable', 'napkin'], emoji: '🧻' },
+  { keywords: ['other', 'misc', 'general'], emoji: '📦' },
 ];
 
 const ING_UNITS = ['cups','tbsp','tsp','oz','lbs','g','kg','ml','l','cloves','cans','slices','pieces','pinch','dash','handful','strips','stalks','sprigs'];
@@ -4005,12 +4012,18 @@ function updateCatEmojiSuggest(key, text) {
 
 let _emojiPickerKey = null;
 
+const CATEGORY_EMOJI_PICKER_SET = [
+  '🍎','🥦','🥩','🐟','🧀','🧊','🥫','🥤','🍿','🧁','🍞','🌶️','🏠','🧴',
+  '🥪','🌍','👶','🐾','🧻','🍳','🫙','🍬','🥜','🌾','🥣','📦','🛒','❄️',
+  '🥗','🍖','🧆','🫐','🍇','🍓','🥕','🧅','🧄','🫒','🍋','🥚',
+];
+
 function openCatEmojiPicker(key) {
   _emojiPickerKey = key;
   const overlay = document.getElementById('catEmojiPickerOverlay');
   if (!overlay) return;
   overlay.querySelector('.emoji-picker-grid').innerHTML =
-    CATEGORY_EMOJI_MAP.map(e => `<button class="emoji-pick-btn" onclick="selectCatEmoji('${e.emoji}')">${e.emoji}</button>`).join('');
+    CATEGORY_EMOJI_PICKER_SET.map(e => `<button class="emoji-pick-btn" onclick="selectCatEmoji('${e}')">${e}</button>`).join('');
   overlay.classList.remove('hidden');
 }
 
