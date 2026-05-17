@@ -3688,7 +3688,7 @@ async function parseRecipeText() {
   }
   const apiKey = DB_CACHE.preferences && DB_CACHE.preferences.anthropicApiKey;
   if (!apiKey) {
-    _showImportError('No Anthropic API key set. Add your key in Settings under "AI Parser".');
+    _showImportError('No Gemini API key set. Add your key in Settings under AI Parser. Get a free key at aistudio.google.com');
     return;
   }
   stopVoiceInput();
@@ -3726,27 +3726,20 @@ async function parseRecipeText() {
 Return ONLY valid JSON. No explanation, no markdown, no code blocks. Just the raw JSON object.`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: text }],
+        contents: [{ parts: [{ text: SYSTEM_PROMPT + '\n\n' + text }] }],
       }),
     });
     if (!resp.ok) {
       const errData = await resp.json().catch(() => ({}));
-      throw new Error(errData.error && errData.error.message ? errData.error.message : `API error ${resp.status}`);
+      const msg = errData.error && errData.error.message ? errData.error.message : `API error ${resp.status}`;
+      throw new Error('Gemini API error. Check your key in Settings. ' + msg);
     }
     const data = await resp.json();
-    const raw = (data.content && data.content[0] && data.content[0].text) ? data.content[0].text.trim() : '';
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
     let parsed;
     try {
       parsed = JSON.parse(raw);
@@ -4028,7 +4021,7 @@ function closeRecipeEmojiPicker() {
   document.getElementById('recipeEmojiPickerOverlay')?.classList.add('hidden');
 }
 
-// ── Settings: Anthropic API Key ───────────────────────────────────────────────
+// ── Settings: Gemini API Key ──────────────────────────────────────────────────
 
 function saveAnthropicApiKey() {
   const val = (document.getElementById('anthropicKeyInput').value || '').trim();
@@ -4381,7 +4374,7 @@ async function submitNutritionQuickLog() {
   stopNutritionVoice();
   const apiKey = DB_CACHE.preferences && DB_CACHE.preferences.anthropicApiKey;
   if (!apiKey) {
-    showToast('Add your Anthropic API key in Settings → AI Parser.');
+    showToast('No Gemini API key set. Add your key in Settings → AI Parser.');
     return;
   }
   const submitBtn = document.getElementById('nutSubmitBtn');
@@ -4394,27 +4387,20 @@ async function submitNutritionQuickLog() {
   const NUTRITION_SYSTEM_PROMPT = `You are a nutrition logger. Parse the provided text into a JSON array of food/drink entries. Each entry: { name: string (clean food/drink name), qty: number (serving quantity), unit: string (serving unit e.g. 'cup', 'oz', 'piece'), calories: number (estimated calories for this serving), protein: number (grams), carbs: number (grams), fat: number (grams), meal: one of [Breakfast, Lunch, Dinner, Snack, Drink], time: string (HH:MM in 24hr format, use current time if not specified, extract from text if mentioned e.g. '2:30pm' → '14:30'), isEstimate: boolean (true if calories are estimated rather than known) } Return ONLY a valid JSON array. No explanation, no markdown, no code blocks.`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 800,
-        system: NUTRITION_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `Current time: ${currentTime}\n${text}` }],
+        contents: [{ parts: [{ text: NUTRITION_SYSTEM_PROMPT + `\n\nCurrent time: ${currentTime}\n${text}` }] }],
       }),
     });
     if (!resp.ok) {
       const errData = await resp.json().catch(() => ({}));
-      throw new Error(errData.error?.message || `API error ${resp.status}`);
+      const msg = errData.error?.message || `API error ${resp.status}`;
+      throw new Error('Gemini API error. Check your key in Settings. ' + msg);
     }
     const data = await resp.json();
-    const raw = data.content?.[0]?.text?.trim() || '';
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
     let entries;
     try {
       entries = JSON.parse(raw);
