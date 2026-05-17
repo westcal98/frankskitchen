@@ -2768,3 +2768,158 @@ body::before {
 
 .hidden { display: none !important; }
 
+/* ── ADD METHOD CHOOSER ── */
+.add-method-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.add-method-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 22px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border2);
+  background: var(--card);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'DM Sans', sans-serif;
+  text-align: center;
+}
+.add-method-btn:hover { border-color: var(--gold); background: var(--card2); }
+
+.add-method-icon { font-size: 30px; }
+.add-method-label { font-size: 14px; font-weight: 700; color: var(--text); }
+.add-method-sub { font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+/* ── IMPORT RECIPE SCREEN ── */
+.import-textarea {
+  min-height: 160px;
+  resize: vertical;
+}
+
+.import-voice-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.import-mic-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  background: var(--card);
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  padding: 0;
+}
+.import-mic-btn:hover { border-color: var(--gold); }
+.import-mic-btn.recording {
+  border-color: var(--red2);
+  background: rgba(185,50,50,0.12);
+  animation: micPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes micPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(185,50,50,0.4); }
+  60% { box-shadow: 0 0 0 10px rgba(185,50,50,0); }
+}
+
+.import-mic-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.import-unsupported {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+.import-error {
+  font-size: 13px;
+  color: var(--red2);
+  background: rgba(185,50,50,0.08);
+  border: 1px solid rgba(185,50,50,0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+.import-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 36px 0;
+}
+
+.import-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border2);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: importSpin 0.75s linear infinite;
+}
+
+@keyframes importSpin { to { transform: rotate(360deg); } }
+
+.import-loading-text {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* ── IMPORT PREVIEW MODAL ── */
+.preview-emoji-btn {
+  font-size: 34px;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  width: 58px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  flex-shrink: 0;
+  padding: 0;
+}
+.preview-emoji-btn:hover { border-color: var(--gold); }
+
+.preview-header-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.preview-header-fields { flex: 1; min-width: 0; }
+
+/* ── RECIPE EMOJI PICKER GRID ── */
+.recipe-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+

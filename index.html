@@ -432,6 +432,18 @@
       </div>
 
       <div class="settings-divider"></div>
+      <div class="settings-section-label">AI Parser</div>
+      <div class="settings-row-static" style="flex-direction:column;align-items:flex-start;gap:6px">
+        <div class="settings-row-text">
+          <div class="settings-row-title" style="font-size:13px">Anthropic API Key</div>
+          <div class="settings-row-sub">Used for the Import Recipe feature. Your key is stored locally on this device only.</div>
+        </div>
+        <div style="display:flex;gap:8px;width:100%;margin-top:4px">
+          <input class="form-input" id="anthropicKeyInput" type="password" placeholder="sk-ant-…" autocomplete="off" style="flex:1;font-size:13px;padding:8px 10px">
+          <button class="modal-save-btn" onclick="saveAnthropicApiKey()" style="flex:0 0 auto;padding:8px 14px;font-size:13px">Save</button>
+        </div>
+      </div>
+      <div class="settings-divider"></div>
       <div class="settings-section-label">Danger Zone</div>
       <button class="settings-row danger" onclick="removeAllItems()">
         <span class="settings-row-icon">🗑</span>
@@ -485,6 +497,87 @@
       <button class="modal-close" onclick="closeCatEmojiPicker()">✕</button>
     </div>
     <div class="emoji-picker-grid"></div>
+  </div>
+</div>
+
+<!-- ── ADD METHOD CHOOSER ── -->
+<div id="addMethodModal" class="modal-overlay hidden" onclick="if(event.target===this)closeAddMethodModal()">
+  <div class="modal-container" style="max-width:360px">
+    <div class="modal-header">
+      <div class="modal-title">Add Recipe</div>
+      <button class="modal-close" onclick="closeAddMethodModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="add-method-grid">
+        <button class="add-method-btn" onclick="openManualEntryForm()">
+          <div class="add-method-icon">✏️</div>
+          <div class="add-method-label">Manual Entry</div>
+          <div class="add-method-sub">Fill in the recipe form</div>
+        </button>
+        <button class="add-method-btn" onclick="openImportRecipeScreen()">
+          <div class="add-method-icon">✨</div>
+          <div class="add-method-label">Import Recipe</div>
+          <div class="add-method-sub">Paste text or speak it</div>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── IMPORT RECIPE SCREEN ── -->
+<div id="importRecipeModal" class="modal-overlay hidden" onclick="if(event.target===this)closeImportRecipeScreen()">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div class="modal-title">Import Recipe</div>
+      <button class="modal-close" onclick="closeImportRecipeScreen()">✕</button>
+    </div>
+    <div class="modal-body" id="importRecipeBody">
+      <div class="form-group">
+        <label class="form-label">Paste or speak your recipe</label>
+        <textarea class="form-textarea import-textarea" id="import-text" placeholder="Paste the recipe text here, or tap the microphone to speak it…" rows="10"></textarea>
+      </div>
+      <div class="import-voice-row" id="importVoiceRow">
+        <button class="import-mic-btn" id="importMicBtn" onclick="toggleVoiceInput()">🎙</button>
+        <span class="import-mic-label" id="importMicLabel">Tap to speak</span>
+      </div>
+      <div id="importVoiceUnsupported" class="import-unsupported hidden">
+        Voice input not supported on this browser. Please paste the recipe text instead.
+      </div>
+      <div id="importError" class="import-error hidden"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-cancel-btn" onclick="closeImportRecipeScreen()">Cancel</button>
+      <button class="modal-save-btn" id="importParseBtn" onclick="parseRecipeText()">Parse Recipe</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── IMPORT PREVIEW / EDIT ── -->
+<div id="importPreviewModal" class="modal-overlay hidden">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div class="modal-title">Review Recipe</div>
+      <button class="modal-close" onclick="closeImportPreview()">✕</button>
+    </div>
+    <div class="modal-body" id="importPreviewBody">
+      <!-- populated by renderImportPreview() -->
+    </div>
+    <div class="modal-footer" style="gap:8px">
+      <button class="modal-cancel-btn" style="flex:1" onclick="closeImportPreview()">Cancel</button>
+      <button class="modal-cancel-btn" style="flex:1;border-color:var(--border2)" onclick="focusPreviewName()">Edit More</button>
+      <button class="modal-save-btn" style="flex:2" onclick="saveImportedRecipe()">Save Recipe</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── RECIPE EMOJI PICKER ── -->
+<div id="recipeEmojiPickerOverlay" class="cat-emoji-overlay hidden" onclick="if(event.target===this)closeRecipeEmojiPicker()">
+  <div class="cat-emoji-sheet">
+    <div class="cat-emoji-sheet-header">
+      <span>Choose Emoji</span>
+      <button class="modal-close" onclick="closeRecipeEmojiPicker()">✕</button>
+    </div>
+    <div class="recipe-emoji-grid"></div>
   </div>
 </div>
 

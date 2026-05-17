@@ -3372,6 +3372,17 @@ function compressPhoto(file, maxPx, quality) {
 // ─── ADD RECIPE ─────────────────────────────────────────────────────────────
 
 function openAddRecipeForm() {
+  document.getElementById('addMethodModal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeAddMethodModal() {
+  document.getElementById('addMethodModal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function openManualEntryForm() {
+  closeAddMethodModal();
   const modal = document.getElementById('addRecipeModal');
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
@@ -3554,13 +3565,454 @@ function executeDeleteRecipe() {
   renderAll();
 }
 
-// ESC closes the add-recipe modal
+// ESC closes add-recipe modals
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    const addMethod = document.getElementById('addMethodModal');
+    if (addMethod && !addMethod.classList.contains('hidden')) { closeAddMethodModal(); return; }
     const modal = document.getElementById('addRecipeModal');
-    if (modal && !modal.classList.contains('hidden')) closeAddRecipeForm();
+    if (modal && !modal.classList.contains('hidden')) { closeAddRecipeForm(); return; }
+    const importModal = document.getElementById('importRecipeModal');
+    if (importModal && !importModal.classList.contains('hidden')) { closeImportRecipeScreen(); return; }
+    const previewModal = document.getElementById('importPreviewModal');
+    if (previewModal && !previewModal.classList.contains('hidden')) { closeImportPreview(); return; }
   }
 });
+
+// ─── IMPORT RECIPE ───────────────────────────────────────────────────────────
+
+let _importRecognition = null;
+let _isRecording = false;
+let _parsedRecipe = null;
+
+function openImportRecipeScreen() {
+  closeAddMethodModal();
+  document.getElementById('import-text').value = '';
+  document.getElementById('importError').classList.add('hidden');
+  document.getElementById('importError').textContent = '';
+  const parseBtn = document.getElementById('importParseBtn');
+  parseBtn.disabled = false;
+  parseBtn.textContent = 'Parse Recipe';
+  stopVoiceInput();
+  document.getElementById('importRecipeModal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  // Check voice support
+  const hasVoice = ('SpeechRecognition' in window) || ('webkitSpeechRecognition' in window);
+  document.getElementById('importVoiceRow').classList.toggle('hidden', !hasVoice);
+  document.getElementById('importVoiceUnsupported').classList.toggle('hidden', hasVoice);
+  document.getElementById('import-text').focus();
+}
+
+function closeImportRecipeScreen() {
+  stopVoiceInput();
+  document.getElementById('importRecipeModal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function toggleVoiceInput() {
+  if (_isRecording) stopVoiceInput();
+  else startVoiceInput();
+}
+
+function startVoiceInput() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) return;
+  _importRecognition = new SpeechRec();
+  _importRecognition.continuous = true;
+  _importRecognition.interimResults = true;
+  _importRecognition.lang = 'en-US';
+  let finalText = document.getElementById('import-text').value;
+  _importRecognition.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    document.getElementById('import-text').value = finalText + interim;
+  };
+  _importRecognition.onend = () => {
+    if (_isRecording) { try { _importRecognition.start(); } catch(e) {} }
+  };
+  _importRecognition.onerror = (e) => {
+    if (e.error !== 'aborted') stopVoiceInput();
+  };
+  try {
+    _importRecognition.start();
+    _isRecording = true;
+    document.getElementById('importMicBtn').classList.add('recording');
+    document.getElementById('importMicLabel').textContent = 'Recording… tap to stop';
+  } catch(e) { _isRecording = false; }
+}
+
+function stopVoiceInput() {
+  _isRecording = false;
+  if (_importRecognition) {
+    try { _importRecognition.stop(); } catch(e) {}
+    _importRecognition = null;
+  }
+  const micBtn = document.getElementById('importMicBtn');
+  const micLabel = document.getElementById('importMicLabel');
+  if (micBtn) micBtn.classList.remove('recording');
+  if (micLabel) micLabel.textContent = 'Tap to speak';
+}
+
+async function parseRecipeText() {
+  const text = (document.getElementById('import-text').value || '').trim();
+  if (!text) {
+    _showImportError('Please paste or speak a recipe before parsing.');
+    return;
+  }
+  const apiKey = DB_CACHE.preferences && DB_CACHE.preferences.anthropicApiKey;
+  if (!apiKey) {
+    _showImportError('No Anthropic API key set. Add your key in Settings under "AI Parser".');
+    return;
+  }
+  stopVoiceInput();
+  // Show loading
+  const parseBtn = document.getElementById('importParseBtn');
+  parseBtn.disabled = true;
+  parseBtn.textContent = 'Parsing…';
+  document.getElementById('importError').classList.add('hidden');
+  const importBody = document.getElementById('importRecipeBody');
+  const origBodyHTML = importBody.innerHTML;
+  importBody.innerHTML = `<div class="import-loading"><div class="import-spinner"></div><div class="import-loading-text">Parsing your recipe…</div></div>`;
+
+  const SYSTEM_PROMPT = `You are a recipe parser. Parse the provided recipe text into a structured JSON object with exactly these fields:
+{
+  "name": string,
+  "category": one of ["Breakfast","Lunch","Dinner","Dessert"],
+  "appliance": one of ["Air Fryer","Pressure Cooker","Both","No Cook"],
+  "time": string (e.g. "25 MIN", "1 HR"),
+  "difficulty": one of ["Easy","Medium","Hard"],
+  "description": string (1-2 sentences),
+  "ingredients": array of objects { "name": string, "qty": number, "unit": string }
+    Rules for ingredients:
+    - name: ingredient name only, no quantities or instructions
+    - qty: numeric quantity (use 1 if not specified)
+    - unit: measurement unit or empty string for whole items
+    - Split combined ingredients (& or and) into separate entries
+    - For or alternatives keep primary option only
+    - Remove all instructions (to taste, to serve, optional etc)
+    - Remove parenthetical notes
+    - Each ingredient must be a clean grocery list item,
+  "steps": array of strings (clean numbered steps),
+  "notes": string (any tips or notes, empty string if none),
+  "emoji": single most relevant emoji for the dish
+}
+Return ONLY valid JSON. No explanation, no markdown, no code blocks. Just the raw JSON object.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: text }],
+      }),
+    });
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      throw new Error(errData.error && errData.error.message ? errData.error.message : `API error ${resp.status}`);
+    }
+    const data = await resp.json();
+    const raw = (data.content && data.content[0] && data.content[0].text) ? data.content[0].text.trim() : '';
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch(e) {
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (m) { try { parsed = JSON.parse(m[0]); } catch(e2) { parsed = null; } }
+    }
+    if (!parsed || typeof parsed !== 'object') throw new Error('Could not parse recipe. Please check the text and try again.');
+    _parsedRecipe = _normalizeImportedRecipe(parsed);
+    closeImportRecipeScreen();
+    _showImportPreview(_parsedRecipe);
+  } catch(e) {
+    importBody.innerHTML = origBodyHTML;
+    parseBtn.disabled = false;
+    parseBtn.textContent = 'Parse Recipe';
+    _showImportError(e.message || 'Could not parse recipe. Please check the text and try again.');
+  }
+}
+
+function _showImportError(msg) {
+  const el = document.getElementById('importError');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function _normalizeImportedRecipe(p) {
+  const catMap = { Breakfast:'breakfast', breakfast:'breakfast', Lunch:'lunch', lunch:'lunch', Dinner:'dinner', dinner:'dinner', Dessert:'dessert', dessert:'dessert' };
+  const appMap = { 'Air Fryer':'af', 'air fryer':'af', 'Pressure Cooker':'pc', 'pressure cooker':'pc', Both:'combo', both:'combo', 'No Cook':'none', 'no cook':'none' };
+  return {
+    name:        String(p.name || '').trim() || 'Imported Recipe',
+    category:    catMap[p.category] || 'dinner',
+    appliance:   appMap[p.appliance] || 'none',
+    time:        String(p.time || '').trim(),
+    difficulty:  ['Easy','Medium','Hard'].includes(p.difficulty) ? p.difficulty : 'Easy',
+    description: String(p.description || '').trim(),
+    ingredients: Array.isArray(p.ingredients)
+      ? p.ingredients.map(i => ({ name: String(i.name || '').trim(), qty: typeof i.qty === 'number' ? i.qty : (parseFloat(i.qty) || null), unit: String(i.unit || '').trim() })).filter(i => i.name)
+      : [],
+    steps:  Array.isArray(p.steps) ? p.steps.map(s => String(s).trim()).filter(Boolean) : [],
+    notes:  String(p.notes || '').trim(),
+    emoji:  (p.emoji && typeof p.emoji === 'string') ? p.emoji.trim() : '🍽️',
+  };
+}
+
+function _showImportPreview(recipe) {
+  renderImportPreview(recipe);
+  document.getElementById('importPreviewModal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeImportPreview() {
+  document.getElementById('importPreviewModal').classList.add('hidden');
+  document.body.style.overflow = '';
+  _parsedRecipe = null;
+}
+
+function focusPreviewName() {
+  const el = document.getElementById('pv-name');
+  if (el) { el.focus(); el.select(); el.closest('.modal-overlay').scrollTop = 0; }
+}
+
+function _escHtml(str) {
+  return String(str == null ? '' : str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderImportPreview(recipe) {
+  const UNITS = ['cups','tbsp','tsp','oz','lbs','g','kg','ml','l','cloves','cans','slices','pieces','pinch','dash','handful','strips','stalks','sprigs','sheets'];
+  const catOpts = [
+    { v:'breakfast', l:'Breakfast' }, { v:'lunch', l:'Lunch' },
+    { v:'dinner', l:'Dinner' },       { v:'dessert', l:'Dessert' },
+  ];
+  const appOpts = [
+    { v:'af', l:'Air Fryer' },   { v:'pc', l:'Pressure Cooker' },
+    { v:'combo', l:'Both' },     { v:'none', l:'No Cook' },
+  ];
+  const diffOpts = ['Easy','Medium','Hard'];
+
+  const body = document.getElementById('importPreviewBody');
+  body.innerHTML = `
+    <div class="preview-header-row">
+      <button class="preview-emoji-btn" id="previewEmojiBtn" onclick="openRecipeEmojiPicker()" title="Change emoji">${_escHtml(recipe.emoji || '🍽️')}</button>
+      <div class="preview-header-fields">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Recipe Name *</label>
+          <input class="form-input" id="pv-name" type="text" value="${_escHtml(recipe.name)}" maxlength="80" autocomplete="off">
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Category *</label>
+        <select class="form-select" id="pv-category">
+          ${catOpts.map(o => `<option value="${o.v}"${recipe.category===o.v?' selected':''}>${o.l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Appliance</label>
+        <select class="form-select" id="pv-appliance">
+          ${appOpts.map(o => `<option value="${o.v}"${recipe.appliance===o.v?' selected':''}>${o.l}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Cook Time</label>
+        <input class="form-input" id="pv-time" type="text" value="${_escHtml(recipe.time)}" placeholder="e.g. 30 min" maxlength="30" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Difficulty</label>
+        <select class="form-select" id="pv-difficulty">
+          ${diffOpts.map(d => `<option value="${d}"${recipe.difficulty===d?' selected':''}>${d}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea class="form-textarea" id="pv-description" rows="2">${_escHtml(recipe.description)}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Ingredients</label>
+      <div id="pv-ingredients"></div>
+      <button type="button" class="dyn-add-btn" onclick="addPreviewIngRow()">+ Add Ingredient</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Steps</label>
+      <div id="pv-steps"></div>
+      <button type="button" class="dyn-add-btn" onclick="addPreviewStepRow()">+ Add Step</button>
+    </div>
+    <div class="form-group" style="margin-bottom:0">
+      <label class="form-label">Chef's Notes</label>
+      <textarea class="form-textarea" id="pv-notes" rows="3">${_escHtml(recipe.notes)}</textarea>
+    </div>
+  `;
+
+  const ingContainer = document.getElementById('pv-ingredients');
+  const ings = recipe.ingredients.length ? recipe.ingredients : [{}];
+  ings.forEach(ing => ingContainer.appendChild(_buildPreviewIngRow(ing, UNITS)));
+
+  const stepContainer = document.getElementById('pv-steps');
+  const steps = recipe.steps.length ? recipe.steps : [''];
+  steps.forEach((step, i) => stepContainer.appendChild(_buildPreviewStepRow(step, i + 1)));
+}
+
+function _buildPreviewIngRow(data, UNITS) {
+  if (!UNITS) UNITS = ['cups','tbsp','tsp','oz','lbs','g','kg','ml','l','cloves','cans','slices','pieces','pinch','dash','handful','strips','stalks','sprigs','sheets'];
+  const row = document.createElement('div');
+  row.className = 'dyn-row ing-row';
+  const qty  = data.qty != null ? data.qty : '';
+  const unit = data.unit || '';
+  const isCustom = unit && !UNITS.includes(unit);
+  row.innerHTML = `
+    <input class="form-input dyn-qty" type="number" min="0" step="0.25" placeholder="Qty" value="${_escHtml(qty)}" autocomplete="off">
+    <select class="form-input dyn-unit">
+      <option value="">—</option>
+      ${UNITS.map(u => `<option value="${u}"${u===unit?' selected':''}>${u}</option>`).join('')}
+      <option value="__custom"${isCustom?' selected':''}>Custom…</option>
+    </select>
+    <input class="form-input dyn-unit-custom${isCustom?'':' hidden'}" type="text" placeholder="Unit" value="${isCustom?_escHtml(unit):''}">
+    <input class="form-input dyn-item" type="text" placeholder="Ingredient name" value="${_escHtml(data.name||'')}" autocomplete="off">
+    <button type="button" class="dyn-remove" onclick="removeRow(this,false)">✕</button>
+  `;
+  row.querySelector('.dyn-unit').addEventListener('change', function() {
+    row.querySelector('.dyn-unit-custom').classList.toggle('hidden', this.value !== '__custom');
+  });
+  return row;
+}
+
+function _buildPreviewStepRow(text, num) {
+  const row = document.createElement('div');
+  row.className = 'dyn-row step-row';
+  row.innerHTML = `
+    <span class="step-num-label">${num}</span>
+    <textarea class="form-textarea dyn-step" rows="2" placeholder="Describe this step...">${_escHtml(text||'')}</textarea>
+    <button type="button" class="dyn-remove" onclick="removeRow(this,true)">✕</button>
+  `;
+  return row;
+}
+
+function addPreviewIngRow() {
+  document.getElementById('pv-ingredients').appendChild(_buildPreviewIngRow({}));
+}
+
+function addPreviewStepRow() {
+  const container = document.getElementById('pv-steps');
+  container.appendChild(_buildPreviewStepRow('', container.children.length + 1));
+}
+
+function saveImportedRecipe() {
+  const name = (document.getElementById('pv-name').value || '').trim();
+  const category = document.getElementById('pv-category').value;
+  if (!name) { alert('Please enter a recipe name.'); document.getElementById('pv-name').focus(); return; }
+  if (!category) { alert('Please select a category.'); return; }
+
+  const emoji = (document.getElementById('previewEmojiBtn').textContent || '').trim() || '🍽️';
+
+  const ingRows = document.querySelectorAll('#pv-ingredients .dyn-row');
+  const ingredients = [];
+  ingRows.forEach(row => {
+    const ingName = (row.querySelector('.dyn-item').value || '').trim();
+    if (!ingName) return;
+    const qtyRaw = parseFloat(row.querySelector('.dyn-qty').value);
+    const unitSel = row.querySelector('.dyn-unit');
+    const unit = unitSel.value === '__custom'
+      ? (row.querySelector('.dyn-unit-custom').value || '').trim()
+      : unitSel.value;
+    ingredients.push({ name: ingName, qty: isNaN(qtyRaw) ? null : qtyRaw, unit });
+  });
+
+  const stepRows = document.querySelectorAll('#pv-steps .dyn-row');
+  const steps = [];
+  stepRows.forEach(row => {
+    const txt = (row.querySelector('.dyn-step').value || '').trim();
+    if (txt) steps.push(txt);
+  });
+
+  const recipe = {
+    id:          'custom-' + Date.now(),
+    name,
+    emoji,
+    category,
+    appliance:   document.getElementById('pv-appliance').value || 'none',
+    time:        (document.getElementById('pv-time').value || '').trim() || null,
+    difficulty:  document.getElementById('pv-difficulty').value || 'Easy',
+    description: (document.getElementById('pv-description').value || '').trim(),
+    ingredients,
+    steps,
+    notes:       (document.getElementById('pv-notes').value || '').trim(),
+    custom:      true,
+  };
+
+  const customs = getCustomRecipes();
+  customs.push(recipe);
+  saveCustomRecipes(customs);
+
+  closeImportPreview();
+  activeFilter = category;
+  renderAll();
+
+  setTimeout(() => {
+    expandedCard = recipe.id;
+    renderAll();
+    setTimeout(() => {
+      const el = document.getElementById('card-' + recipe.id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  }, 80);
+}
+
+// ── Recipe Emoji Picker ───────────────────────────────────────────────────────
+
+const RECIPE_EMOJI_SET = [
+  '🍳','🍲','🥘','🫕','🍜','🍝','🍛','🍣','🍱','🥗',
+  '🍔','🌮','🌯','🥙','🥪','🍕','🍖','🍗','🥩','🥚',
+  '🥞','🧇','🥓','🌭','🥨','🫔','🥟','🍤','🦐','🦀',
+  '🍰','🎂','🧁','🍩','🍪','🍫','🍦','🍨','🍧','🍡',
+  '🍚','🍙','🍘','🥣','🧆','🫙','🥫','🍞','🥐','🥖',
+  '🫓','🧀','🥑','🫐','🍓','🍇','🍉','🍌','🍋','🍊',
+  '🍑','🍒','🥭','🍍','🍅','🥦','🥕','🧅','🌽','🥔',
+  '🍠','🧄','🫚','🌶️','🧂','🫒','🥜','🍵','☕','🧋',
+  '🍽️','🥄','🍴','🔪','🌿','🏺',
+];
+
+function openRecipeEmojiPicker() {
+  const overlay = document.getElementById('recipeEmojiPickerOverlay');
+  if (!overlay) return;
+  overlay.querySelector('.recipe-emoji-grid').innerHTML =
+    RECIPE_EMOJI_SET.map(e => `<button class="emoji-pick-btn" onclick="selectRecipeEmoji('${e}')">${e}</button>`).join('');
+  overlay.classList.remove('hidden');
+}
+
+function selectRecipeEmoji(emoji) {
+  const btn = document.getElementById('previewEmojiBtn');
+  if (btn) btn.textContent = emoji;
+  closeRecipeEmojiPicker();
+}
+
+function closeRecipeEmojiPicker() {
+  document.getElementById('recipeEmojiPickerOverlay')?.classList.add('hidden');
+}
+
+// ── Settings: Anthropic API Key ───────────────────────────────────────────────
+
+function saveAnthropicApiKey() {
+  const val = (document.getElementById('anthropicKeyInput').value || '').trim();
+  if (!DB_CACHE.preferences) DB_CACHE.preferences = {};
+  DB_CACHE.preferences.anthropicApiKey = val;
+  _idbPut('kv', 'preferences', DB_CACHE.preferences);
+  showToast(val ? 'API key saved.' : 'API key cleared.');
+}
 
 // ─── STEP TIMERS ────────────────────────────────────────────────────────────
 
@@ -3918,6 +4370,9 @@ function openSettings() {
   renderPreferences();
   renderDingSettings();
   renderSettingsCategories();
+  // Populate API key field
+  const keyInp = document.getElementById('anthropicKeyInput');
+  if (keyInp) keyInp.value = (DB_CACHE.preferences && DB_CACHE.preferences.anthropicApiKey) || '';
 }
 
 function closeSettings() {
