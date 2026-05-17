@@ -995,6 +995,7 @@ let nutritionHistoryDayDetail = null; // date string when viewing a specific day
 let _nutRecognition = null;
 let _nutRecording = false;
 let _pendingNutritionEntries = [];
+let _carouselIdx = 0;
 let _usdaSelectedFood = null; // { fdcId, name, nutrients, servings }
 
 // In-memory cache for all persisted data — loaded from IndexedDB at startup.
@@ -1013,9 +1014,10 @@ const DB_CACHE = {
   memory:             [],  // user-added autocomplete strings
   timer_presets:      {},  // { "recipeId:stepIndex": seconds }
   category_memory:    {},  // { normalizedName: categoryKey } — user-assigned categories
-  nutrition_log:      [],  // array of { id, date, name, qty, unit, calories, protein, carbs, fat, meal, time, isEstimate, addedAt }
-  nutrition_goals:    {},  // { calories, protein, carbs, fat, age, height, heightIn, weight, activityLevel, goalType, goalRate, targetWeight, customCalories, useCustom, unitSystem }
-  weight_log:         [],  // array of { id, date, weight, unit, note }
+  nutrition_log:          [],  // array of { id, date, name, qty, unit, calories, protein, carbs, fat, fiber, meal, time, isEstimate, isWater, addedAt }
+  nutrition_goals:        {},  // { calories, protein, carbs, fat, fiberGoal, waterGoal, age, height, heightIn, weight, activityLevel, goalType, goalRate, targetWeight, customCalories, useCustom, unitSystem }
+  nutrition_card_settings: {}, // { showWater, showProtein, showFiber }
+  weight_log:             [],  // array of { id, date, weight, unit, note }
 };
 
 function getState(recipeId) {
@@ -1261,6 +1263,8 @@ async function initDB() {
     if (Array.isArray(nl)) DB_CACHE.nutrition_log = nl;
     const ng = await _idbGet('kv', 'nutrition_goals');
     if (ng && typeof ng === 'object') DB_CACHE.nutrition_goals = ng;
+    const ncs = await _idbGet('kv', 'nutrition_card_settings');
+    if (ncs && typeof ncs === 'object') DB_CACHE.nutrition_card_settings = ncs;
     const wl = await _idbGet('kv', 'weight_log');
     if (Array.isArray(wl)) DB_CACHE.weight_log = wl;
 
@@ -4076,7 +4080,9 @@ function getNutritionSummary(date) {
     protein:  s.protein  + (e.protein  || 0),
     carbs:    s.carbs    + (e.carbs    || 0),
     fat:      s.fat      + (e.fat      || 0),
-  }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+    fiber:    s.fiber    + (e.fiber    || 0),
+    water:    s.water    + (e.isWater  ? (e.qty || 0) : 0),
+  }), { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, water: 0 });
 }
 
 function saveNutritionEntry(entry) {
@@ -4099,6 +4105,77 @@ function deleteNutritionEntry(id) {
 function saveNutritionGoals(goals) {
   DB_CACHE.nutrition_goals = Object.assign({}, DB_CACHE.nutrition_goals, goals);
   _idbPut('kv', 'nutrition_goals', DB_CACHE.nutrition_goals);
+}
+
+function getNutCardSettings() {
+  const s = DB_CACHE.nutrition_card_settings || {};
+  return { showWater: s.showWater !== false, showProtein: s.showProtein !== false, showFiber: s.showFiber !== false };
+}
+
+function saveNutCardSettings(patch) {
+  DB_CACHE.nutrition_card_settings = Object.assign({}, DB_CACHE.nutrition_card_settings, patch);
+  _idbPut('kv', 'nutrition_card_settings', DB_CACHE.nutrition_card_settings);
+}
+
+function toggleNutCard(card) {
+  const cs = getNutCardSettings();
+  const key = 'show' + card.charAt(0).toUpperCase() + card.slice(1);
+  cs[key] = !cs[key];
+  saveNutCardSettings(cs);
+  const btn = document.getElementById('card' + card.charAt(0).toUpperCase() + card.slice(1) + 'Toggle');
+  if (btn) btn.classList.toggle('on', cs[key]);
+  if (nutritionView === 'today') renderNutritionToday(nutritionDate);
+}
+
+function addWaterEntry(oz) {
+  const now = new Date();
+  saveNutritionEntry({
+    id: genNutritionId(), date: nutritionDate,
+    name: 'Water', qty: oz, unit: 'oz',
+    calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0,
+    meal: 'Drink', time: now.toTimeString().slice(0, 5),
+    isEstimate: false, isWater: true, addedAt: now.toISOString(),
+  });
+  renderNutritionToday(nutritionDate);
+  showToast(`+${oz}oz water logged.`);
+}
+
+function goToCard(idx) {
+  _carouselIdx = idx;
+  const track = document.getElementById('metricCardsTrack');
+  if (!track) return;
+  track.style.transition = 'transform 0.3s ease';
+  track.style.transform = `translateX(-${idx * 100}%)`;
+  document.querySelectorAll('.metric-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+}
+
+function initCarousel(total) {
+  if (total <= 1) return;
+  _carouselIdx = Math.max(0, Math.min(_carouselIdx, total - 1));
+  const track = document.getElementById('metricCardsTrack');
+  if (!track) return;
+  track.style.transition = 'none';
+  track.style.transform = `translateX(-${_carouselIdx * 100}%)`;
+  document.querySelectorAll('.metric-dot').forEach((d, i) => d.classList.toggle('active', i === _carouselIdx));
+  let startX = 0, dragging = false;
+  track.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX; dragging = true; track.style.transition = 'none';
+  }, { passive: true });
+  track.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const dx = e.touches[0].clientX - startX;
+    const offset = _carouselIdx * 100 - (dx / track.offsetWidth * 100);
+    track.style.transform = `translateX(-${Math.max(0, Math.min(offset, (total - 1) * 100))}%)`;
+  }, { passive: true });
+  track.addEventListener('touchend', e => {
+    if (!dragging) return; dragging = false;
+    const dx = e.changedTouches[0].clientX - startX;
+    track.style.transition = 'transform 0.3s ease';
+    if (dx < -50 && _carouselIdx < total - 1) _carouselIdx++;
+    else if (dx > 50 && _carouselIdx > 0) _carouselIdx--;
+    track.style.transform = `translateX(-${_carouselIdx * 100}%)`;
+    document.querySelectorAll('.metric-dot').forEach((d, i) => d.classList.toggle('active', i === _carouselIdx));
+  });
 }
 
 function addWeightEntry(entry) {
@@ -4138,6 +4215,107 @@ function switchNutritionView(view) {
 
 // ─── Date helpers ──────────────────────────────────────────────────
 
+function buildCalorieCard(consumed, calGoal, pct, ringColor) {
+  const R = 45, CIRC = 2 * Math.PI * R;
+  const offset = CIRC * (1 - pct);
+  const remaining = calGoal - consumed;
+  return `<div class="metric-card">
+    <div class="calorie-ring-wrap">
+      <svg viewBox="0 0 110 110" width="110" height="110">
+        <circle class="calorie-ring-bg" cx="55" cy="55" r="${R}"/>
+        <circle class="calorie-ring-fill" cx="55" cy="55" r="${R}"
+          stroke="${ringColor}" stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"/>
+      </svg>
+      <div class="calorie-ring-text">
+        <div class="calorie-ring-num">${consumed.toLocaleString()}</div>
+        <div class="calorie-ring-label">cal</div>
+      </div>
+    </div>
+    <div class="calorie-card-info">
+      <div class="calorie-total-line">${consumed.toLocaleString()} / ${calGoal.toLocaleString()}</div>
+      <div class="calorie-goal-line">Daily goal</div>
+      <div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}">
+        ${remaining < 0 ? `${Math.abs(remaining).toLocaleString()} cal over goal` : `${remaining.toLocaleString()} cal remaining`}
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildWaterCard(waterOz, waterGoal) {
+  const pct = waterGoal > 0 ? Math.min(waterOz / waterGoal, 1) : 0;
+  const remaining = Math.round(waterGoal - waterOz);
+  const fillH = Math.round(pct * 100);
+  return `<div class="metric-card water-metric-card">
+    <div class="water-gauge-wrap">
+      <div class="water-gauge-bg">
+        <div class="water-gauge-fill" style="height:${fillH}%"></div>
+      </div>
+      <div class="water-gauge-icon">💧</div>
+    </div>
+    <div class="calorie-card-info">
+      <div class="calorie-total-line" style="color:#3b82f6">${Math.round(waterOz)} / ${waterGoal} oz</div>
+      <div class="calorie-goal-line">Hydration goal</div>
+      <div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}" style="${remaining >= 0 ? 'color:#3b82f6' : ''}">
+        ${remaining < 0 ? `${Math.abs(remaining)} oz over goal` : `${remaining} oz remaining`}
+      </div>
+      <div class="water-quick-btns">
+        <button class="water-add-btn" onclick="event.stopPropagation();addWaterEntry(8)">+8oz</button>
+        <button class="water-add-btn" onclick="event.stopPropagation();addWaterEntry(16)">+16oz</button>
+        <button class="water-add-btn" onclick="event.stopPropagation();addWaterEntry(24)">+24oz</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildProteinCard(proteinG, protGoal) {
+  const pct = protGoal > 0 ? Math.min(proteinG / protGoal, 1) : 0;
+  const R = 45, CIRC = 2 * Math.PI * R;
+  const offset = CIRC * (1 - pct);
+  const remaining = Math.round(protGoal - proteinG);
+  return `<div class="metric-card protein-metric-card">
+    <div class="calorie-ring-wrap">
+      <svg viewBox="0 0 110 110" width="110" height="110">
+        <circle class="calorie-ring-bg" cx="55" cy="55" r="${R}"/>
+        <circle class="calorie-ring-fill" cx="55" cy="55" r="${R}"
+          stroke="#14b8a6" stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"/>
+      </svg>
+      <div class="calorie-ring-text">
+        <div class="calorie-ring-num" style="font-size:18px">${Math.round(proteinG)}g</div>
+        <div class="calorie-ring-label">protein</div>
+      </div>
+    </div>
+    <div class="calorie-card-info">
+      <div class="calorie-total-line" style="color:#14b8a6;font-size:18px">${Math.round(proteinG)}g${protGoal > 0 ? ` / ${protGoal}g` : ''}</div>
+      <div class="calorie-goal-line">Protein${protGoal > 0 ? ` · ${Math.round(pct * 100)}% of goal` : ' today'}</div>
+      ${protGoal > 0 ? `<div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}" style="${remaining >= 0 ? 'color:#14b8a6' : ''}">
+        ${remaining < 0 ? `${Math.abs(remaining)}g over goal` : `${remaining}g remaining`}
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+function buildFiberCard(fiberG, fiberGoal) {
+  const pct = fiberGoal > 0 ? Math.min(fiberG / fiberGoal, 1) : 0;
+  const pctInt = Math.round(pct * 100);
+  const remaining = Math.round((fiberGoal - fiberG) * 10) / 10;
+  return `<div class="metric-card fiber-metric-card">
+    <div class="fiber-card-inner">
+      <div class="fiber-card-header">
+        <span class="fiber-card-icon">🌿</span>
+        <span class="fiber-card-title">Fiber</span>
+      </div>
+      <div class="fiber-val-line">${Math.round(fiberG * 10) / 10}g <span class="fiber-goal-of">/ ${fiberGoal}g daily goal</span></div>
+      <div class="fiber-progress-bar">
+        <div class="fiber-progress-fill" style="width:${pctInt}%"></div>
+      </div>
+      <div class="fiber-pct-label">${pctInt}% of daily goal</div>
+      ${fiberGoal > 0 ? `<div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}" style="${remaining >= 0 ? 'color:#22c55e' : ''}">
+        ${remaining < 0 ? `${Math.abs(remaining)}g over goal` : `${remaining}g remaining`}
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
 function formatNutritionDate(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
@@ -4169,17 +4347,22 @@ function renderNutritionToday(date) {
   const entries = getEntriesForDate(date);
 
   const consumed  = Math.round(summary.calories);
-  const remaining = calGoal - consumed;
   const pct       = Math.min(consumed / calGoal, 1);
-
-  // SVG ring
-  const R = 45, CIRC = 2 * Math.PI * R;
-  const offset = CIRC * (1 - pct);
   const ringColor = consumed > calGoal ? 'var(--red2)' : 'var(--gold)';
 
   const prGoal = goals.protein || 0;
   const crGoal = goals.carbs   || 0;
   const ftGoal = goals.fat     || 0;
+
+  const cs = getNutCardSettings();
+  const cards = [buildCalorieCard(consumed, calGoal, pct, ringColor)];
+  if (cs.showWater)   cards.push(buildWaterCard(summary.water, goals.waterGoal || 64));
+  if (cs.showProtein) cards.push(buildProteinCard(Math.round(summary.protein), prGoal));
+  if (cs.showFiber)   cards.push(buildFiberCard(summary.fiber, goals.fiberGoal || 30));
+
+  const dotsHtml = cards.length > 1
+    ? `<div class="metric-dots">${cards.map((_, i) => `<span class="metric-dot${i === 0 ? ' active' : ''}" onclick="goToCard(${i})"></span>`).join('')}</div>`
+    : '';
 
   const macroHtml = buildMacroRow(summary, prGoal, crGoal, ftGoal);
   const mealHtml  = buildMealSections(entries);
@@ -4191,29 +4374,9 @@ function renderNutritionToday(date) {
       <button class="nut-date-arrow" onclick="changeNutritionDate(1)">›</button>
       <input type="date" id="nutDatePickerInput" class="nut-date-input-hidden" value="${date}" onchange="pickNutritionDate(this.value)">
     </div>
-    <div class="calorie-card">
-      <div class="calorie-ring-wrap">
-        <svg viewBox="0 0 110 110" width="110" height="110">
-          <circle class="calorie-ring-bg" cx="55" cy="55" r="${R}"/>
-          <circle class="calorie-ring-fill" cx="55" cy="55" r="${R}"
-            stroke="${ringColor}"
-            stroke-dasharray="${CIRC.toFixed(1)}"
-            stroke-dashoffset="${offset.toFixed(1)}"/>
-        </svg>
-        <div class="calorie-ring-text">
-          <div class="calorie-ring-num">${consumed.toLocaleString()}</div>
-          <div class="calorie-ring-label">cal</div>
-        </div>
-      </div>
-      <div class="calorie-card-info">
-        <div class="calorie-total-line">${consumed.toLocaleString()} / ${calGoal.toLocaleString()}</div>
-        <div class="calorie-goal-line">Daily goal</div>
-        <div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}">
-          ${remaining < 0
-            ? `${Math.abs(remaining).toLocaleString()} cal over goal`
-            : `${remaining.toLocaleString()} cal remaining`}
-        </div>
-      </div>
+    <div class="metric-carousel">
+      <div class="metric-cards-track" id="metricCardsTrack">${cards.join('')}</div>
+      ${dotsHtml}
     </div>
     ${macroHtml}
     <div class="nutrition-quick-log">
@@ -4231,6 +4394,7 @@ function renderNutritionToday(date) {
     </div>
     ${mealHtml}
   `;
+  initCarousel(cards.length);
 }
 
 function openNutritionDatePicker() {
@@ -4292,7 +4456,7 @@ function buildMealSections(entries) {
 }
 
 function buildFoodEntryCard(e) {
-  const hasMacros = (e.protein || e.carbs || e.fat);
+  const hasMacros = (e.protein || e.carbs || e.fat || e.fiber);
   return `<div class="food-entry-card">
     <div class="food-entry-info">
       <div class="food-entry-name">${escHtml(e.name)}</div>
@@ -4301,6 +4465,7 @@ function buildFoodEntryCard(e) {
         ${e.protein ? `<span class="food-macro-tag protein">P ${Math.round(e.protein)}g</span>` : ''}
         ${e.carbs   ? `<span class="food-macro-tag carbs">C ${Math.round(e.carbs)}g</span>` : ''}
         ${e.fat     ? `<span class="food-macro-tag fat">F ${Math.round(e.fat)}g</span>` : ''}
+        ${e.fiber   ? `<span class="food-macro-tag fiber">Fi ${Math.round(e.fiber * 10) / 10}g</span>` : ''}
       </div>` : ''}
       ${e.isEstimate ? '<div class="food-entry-estimate">~ estimated</div>' : ''}
     </div>
@@ -4382,7 +4547,7 @@ async function submitNutritionQuickLog() {
 
   const now = new Date();
   const currentTime = now.toTimeString().slice(0, 5);
-  const NUTRITION_SYSTEM_PROMPT = `You are a nutrition logger. Parse the provided text into a JSON array of food/drink entries. Each entry: { name: string (clean food/drink name), qty: number (serving quantity), unit: string (serving unit e.g. 'cup', 'oz', 'piece'), calories: number (estimated calories for this serving), protein: number (grams), carbs: number (grams), fat: number (grams), meal: one of [Breakfast, Lunch, Dinner, Snack, Drink], time: string (HH:MM in 24hr format, use current time if not specified, extract from text if mentioned e.g. '2:30pm' → '14:30'), isEstimate: boolean (true if calories are estimated rather than known) } Return ONLY a valid JSON array. No explanation, no markdown, no code blocks.`;
+  const NUTRITION_SYSTEM_PROMPT = `You are a nutrition logger. Parse the provided text into a JSON array of food/drink entries. Each entry: { name: string (clean food/drink name), qty: number (serving quantity), unit: string (serving unit e.g. 'cup', 'oz', 'piece'), calories: number (estimated calories for this serving), protein: number (grams), carbs: number (grams), fat: number (grams), fiber: number (grams of dietary fiber, 0 if unknown), meal: one of [Breakfast, Lunch, Dinner, Snack, Drink], time: string (HH:MM in 24hr format, use current time if not specified, extract from text if mentioned e.g. '2:30pm' → '14:30'), isEstimate: boolean (true if calories are estimated rather than known) } For water entries (glasses of water, oz of water, etc): name "Water", calories 0, protein 0, carbs 0, fat 0, fiber 0, unit "oz", meal "Drink" — convert glasses to oz (1 glass = 8oz). Return ONLY a valid JSON array. No explanation, no markdown, no code blocks.`;
 
   try {
     const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
@@ -4406,21 +4571,27 @@ async function submitNutritionQuickLog() {
     } catch(e) {
       throw new Error('Could not parse AI response. Try again.');
     }
-    entries = entries.map(e => ({
-      id: genNutritionId(),
-      date: nutritionDate,
-      name: String(e.name || 'Food'),
-      qty: Number(e.qty) || 1,
-      unit: String(e.unit || 'serving'),
-      calories: Math.round(Number(e.calories) || 0),
-      protein: Math.round((Number(e.protein) || 0) * 10) / 10,
-      carbs: Math.round((Number(e.carbs)   || 0) * 10) / 10,
-      fat: Math.round((Number(e.fat)     || 0) * 10) / 10,
-      meal: ['Breakfast','Lunch','Dinner','Snack','Drink'].includes(e.meal) ? e.meal : 'Snack',
-      time: String(e.time || currentTime),
-      isEstimate: !!e.isEstimate,
-      addedAt: new Date().toISOString(),
-    }));
+    entries = entries.map(e => {
+      const name = String(e.name || 'Food');
+      const calories = Math.round(Number(e.calories) || 0);
+      return {
+        id: genNutritionId(),
+        date: nutritionDate,
+        name,
+        qty: Number(e.qty) || 1,
+        unit: String(e.unit || 'serving'),
+        calories,
+        protein: Math.round((Number(e.protein) || 0) * 10) / 10,
+        carbs:   Math.round((Number(e.carbs)   || 0) * 10) / 10,
+        fat:     Math.round((Number(e.fat)     || 0) * 10) / 10,
+        fiber:   Math.round((Number(e.fiber)   || 0) * 10) / 10,
+        meal: ['Breakfast','Lunch','Dinner','Snack','Drink'].includes(e.meal) ? e.meal : 'Snack',
+        time: String(e.time || currentTime),
+        isEstimate: !!e.isEstimate,
+        isWater: name === 'Water' && calories === 0,
+        addedAt: new Date().toISOString(),
+      };
+    });
     _pendingNutritionEntries = entries;
     showNutritionConfirm(entries);
     if (inp) inp.value = '';
@@ -4498,6 +4669,7 @@ function openNutritionEntryEdit(id) {
   document.getElementById('nutEditProtein').value = entry.protein || 0;
   document.getElementById('nutEditCarbs').value = entry.carbs || 0;
   document.getElementById('nutEditFat').value = entry.fat || 0;
+  document.getElementById('nutEditFiber').value = entry.fiber || 0;
   document.getElementById('nutEditTime').value = entry.time || '';
   document.getElementById('nutritionEntryEditModal').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
@@ -4519,6 +4691,7 @@ function saveNutritionEntryEdit() {
     protein:  parseFloat(document.getElementById('nutEditProtein').value) || 0,
     carbs:    parseFloat(document.getElementById('nutEditCarbs').value) || 0,
     fat:      parseFloat(document.getElementById('nutEditFat').value) || 0,
+    fiber:    parseFloat(document.getElementById('nutEditFiber').value) || 0,
     time:     document.getElementById('nutEditTime').value || '',
   });
   closeNutritionEntryEdit();
@@ -4704,6 +4877,7 @@ function saveFoodLogEntry() {
       protein: parseFloat(document.getElementById('manualProtein')?.value) || 0,
       carbs:   parseFloat(document.getElementById('manualCarbs')?.value) || 0,
       fat:     parseFloat(document.getElementById('manualFat')?.value) || 0,
+      fiber:   parseFloat(document.getElementById('manualFiber')?.value) || 0,
       meal, time,
       isEstimate: false,
       addedAt: new Date().toISOString(),
@@ -4990,6 +5164,18 @@ function renderNutritionGoals() {
           <input class="form-input" id="goalFat" type="number" min="0" value="${g.fat||''}" placeholder="0" oninput="onGoalInput()">
           <div class="nut-macro-helper" id="fatHelper"></div>
         </div>
+        <div class="form-group">
+          <label class="form-label">Fiber (g)</label>
+          <input class="form-input" id="goalFiber" type="number" min="0" value="${g.fiberGoal||''}" placeholder="30" oninput="onGoalInput()">
+        </div>
+      </div>
+    </div>
+
+    <div class="nut-goals-section">
+      <div class="nut-goals-section-title">Hydration</div>
+      <div class="form-group">
+        <label class="form-label">Daily Water Goal (oz)</label>
+        <input class="form-input" id="goalWater" type="number" min="0" value="${g.waterGoal||64}" placeholder="64" oninput="onGoalInput()">
       </div>
     </div>
 
@@ -5031,6 +5217,8 @@ function buildGoalsFromForm() {
   g.protein        = parseInt(document.getElementById('goalProtein')?.value) || 0;
   g.carbs          = parseInt(document.getElementById('goalCarbs')?.value) || 0;
   g.fat            = parseInt(document.getElementById('goalFat')?.value) || 0;
+  g.fiberGoal      = parseInt(document.getElementById('goalFiber')?.value) || 30;
+  g.waterGoal      = parseInt(document.getElementById('goalWater')?.value) || 64;
   g.targetWeight   = parseFloat(document.getElementById('goalTargetWeight')?.value) || 0;
   if (isMetric) {
     g.height   = parseInt(document.getElementById('goalHeightCm')?.value) || 0;
@@ -5744,6 +5932,10 @@ function openSettings() {
   const units = (DB_CACHE.preferences && DB_CACHE.preferences.nutritionUnits) || 'imperial';
   document.getElementById('nutUnitImperial')?.classList.toggle('active', units === 'imperial');
   document.getElementById('nutUnitMetric')?.classList.toggle('active', units === 'metric');
+  const cs = getNutCardSettings();
+  document.getElementById('cardWaterToggle')?.classList.toggle('on', cs.showWater);
+  document.getElementById('cardProteinToggle')?.classList.toggle('on', cs.showProtein);
+  document.getElementById('cardFiberToggle')?.classList.toggle('on', cs.showFiber);
 }
 
 function closeSettings() {
