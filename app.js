@@ -3974,7 +3974,7 @@ function startRenameCategory(key) {
   const curEmoji = extractEmojiFromLabel(cur) || emojiForCategoryName(cur);
   const curText = labelWithoutEmoji(cur) || cur;
   span.classList.add('editing');
-  span.innerHTML = `<button class="cat-emoji-badge" onclick="event.stopPropagation();openCatEmojiPicker('${key}')" title="Change emoji" data-suggested="${curEmoji}">${curEmoji}</button><input class="settings-cat-input" placeholder="Category name..." value="${curText.replace(/"/g, '&quot;')}"
+  span.innerHTML = `<span class="cat-emoji-edit-group" ontouchstart="event.stopPropagation();_catEmojiTouchPending=true" onpointerdown="event.preventDefault()" onclick="event.stopPropagation();openCatEmojiPicker('${key}')"><button class="cat-emoji-badge" data-suggested="${curEmoji}">${curEmoji}</button><span class="cat-emoji-tap-label">Tap to change</span></span><input class="settings-cat-input" placeholder="Category name..." value="${curText.replace(/"/g, '&quot;')}"
     onblur="saveRenameCategory('${key}', this.value)"
     onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${curText.replace(/'/g, "\\'")}';this.blur()}"
     oninput="updateCatEmojiSuggest('${key}', this.value)"
@@ -3994,6 +3994,11 @@ function saveRenameCategory(key, newText) {
     const cat = cats.find(c => c.key === key);
     if (cat) { cat.label = label; saveShopCategories(cats); }
   }
+  if (_catEmojiTouchPending) {
+    // Emoji badge was just tapped on mobile — skip re-render so the click can land on the button
+    _catEmojiTouchPending = false;
+    return;
+  }
   renderSettingsCategories();
 }
 
@@ -4011,6 +4016,7 @@ function updateCatEmojiSuggest(key, text) {
 }
 
 let _emojiPickerKey = null;
+let _catEmojiTouchPending = false;
 
 const CATEGORY_EMOJI_PICKER_SET = [
   '🍎','🥦','🥩','🐟','🧀','🧊','🥫','🥤','🍿','🧁','🍞','🌶️','🏠','🧴',
@@ -4029,10 +4035,24 @@ function openCatEmojiPicker(key) {
 
 function selectCatEmoji(emoji) {
   if (!_emojiPickerKey) return;
-  const span = document.getElementById('catlabel-' + _emojiPickerKey);
-  const emojiBtn = span ? span.querySelector('.cat-emoji-badge') : null;
-  if (emojiBtn) { emojiBtn.textContent = emoji; emojiBtn.dataset.suggested = emoji; }
+  const key = _emojiPickerKey;
   closeCatEmojiPicker();
+  const span = document.getElementById('catlabel-' + key);
+  const emojiBtn = span ? span.querySelector('.cat-emoji-badge') : null;
+  const inp = span ? span.querySelector('input') : null;
+  if (inp) {
+    // Still in edit mode — update the badge; blur/save will persist it
+    if (emojiBtn) { emojiBtn.textContent = emoji; emojiBtn.dataset.suggested = emoji; }
+  } else {
+    // Blur already triggered a save+re-render — save new emoji directly to DB
+    const cats = getShopCategories().slice();
+    const cat = cats.find(c => c.key === key);
+    if (cat) {
+      cat.label = emoji + ' ' + (labelWithoutEmoji(cat.label) || cat.label);
+      saveShopCategories(cats);
+      renderSettingsCategories();
+    }
+  }
 }
 
 function closeCatEmojiPicker() {
