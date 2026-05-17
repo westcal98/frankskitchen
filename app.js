@@ -987,6 +987,16 @@ let _filterDropdownTab = null; // 'recipe' | 'shop' — which tab opened the dro
 let expandedCard = null;
 let activeTab = {};
 
+// ── Nutrition state ─────────────────────────────────────────────────────────
+let nutritionView = 'today';
+let nutritionDate = new Date().toISOString().slice(0, 10);
+let nutritionHistoryMonth = new Date().toISOString().slice(0, 7);
+let nutritionHistoryDayDetail = null; // date string when viewing a specific day from history
+let _nutRecognition = null;
+let _nutRecording = false;
+let _pendingNutritionEntries = [];
+let _usdaSelectedFood = null; // { fdcId, name, nutrients, servings }
+
 // In-memory cache for all persisted data — loaded from IndexedDB at startup.
 // All reads are synchronous (from cache); writes update cache + fire async IDB write.
 const DB_CACHE = {
@@ -1003,6 +1013,9 @@ const DB_CACHE = {
   memory:             [],  // user-added autocomplete strings
   timer_presets:      {},  // { "recipeId:stepIndex": seconds }
   category_memory:    {},  // { normalizedName: categoryKey } — user-assigned categories
+  nutrition_log:      [],  // array of { id, date, name, qty, unit, calories, protein, carbs, fat, meal, time, isEstimate, addedAt }
+  nutrition_goals:    {},  // { calories, protein, carbs, fat, age, height, heightIn, weight, activityLevel, goalType, goalRate, targetWeight, customCalories, useCustom, unitSystem }
+  weight_log:         [],  // array of { id, date, weight, unit, note }
 };
 
 function getState(recipeId) {
@@ -1243,6 +1256,13 @@ async function initDB() {
 
     const catMem = await _idbGet('kv', 'category_memory');
     if (catMem && typeof catMem === 'object' && !Array.isArray(catMem)) DB_CACHE.category_memory = catMem;
+
+    const nl = await _idbGet('kv', 'nutrition_log');
+    if (Array.isArray(nl)) DB_CACHE.nutrition_log = nl;
+    const ng = await _idbGet('kv', 'nutrition_goals');
+    if (ng && typeof ng === 'object') DB_CACHE.nutrition_goals = ng;
+    const wl = await _idbGet('kv', 'weight_log');
+    if (Array.isArray(wl)) DB_CACHE.weight_log = wl;
 
     const sv = await _idbGet('kv', 'schema_version');
     migrateShoplistCategories();
@@ -1864,10 +1884,13 @@ function changeServings(recipeId, delta) {
 function switchMainTab(tab) {
   document.getElementById('view-recipes').classList.toggle('hidden', tab !== 'recipes');
   document.getElementById('view-shop').classList.toggle('hidden', tab !== 'shop');
+  document.getElementById('view-nutrition').classList.toggle('hidden', tab !== 'nutrition');
   document.getElementById('nav-recipes').classList.toggle('active', tab === 'recipes');
   document.getElementById('nav-shop').classList.toggle('active', tab === 'shop');
+  document.getElementById('nav-nutrition').classList.toggle('active', tab === 'nutrition');
   document.getElementById('addRecipeFab').classList.toggle('hidden', tab !== 'recipes');
   document.getElementById('addShopFab').classList.toggle('hidden', tab !== 'shop');
+  document.getElementById('addNutritionFab').classList.toggle('hidden', tab !== 'nutrition');
   if (tab === 'shop') {
     const rsp = document.getElementById('recipeSearchPanel');
     if (rsp && !rsp.classList.contains('hidden')) clearRecipeSearch();
@@ -1875,6 +1898,7 @@ function switchMainTab(tab) {
     renderShopList();
     showRecoveryBanner();
   }
+  if (tab === 'nutrition') renderNutritionTab();
 }
 
 function showRecoveryBanner() {
@@ -4014,6 +4038,1364 @@ function saveAnthropicApiKey() {
   showToast(val ? 'API key saved.' : 'API key cleared.');
 }
 
+// ── Settings: USDA API Key + Nutrition Units ──────────────────────────────────
+
+const _DEFAULT_USDA_KEY = 'WyBuGD50OGJsJQfNW6Gh2E2YEbkzKN0lfnfVdoKj';
+
+function saveUsdaApiKey() {
+  const val = (document.getElementById('usdaKeyInput').value || '').trim();
+  if (!DB_CACHE.preferences) DB_CACHE.preferences = {};
+  DB_CACHE.preferences.usdaApiKey = val || _DEFAULT_USDA_KEY;
+  _idbPut('kv', 'preferences', DB_CACHE.preferences);
+  showToast('USDA API key saved.');
+}
+
+function setNutritionUnits(unit) {
+  if (!DB_CACHE.preferences) DB_CACHE.preferences = {};
+  DB_CACHE.preferences.nutritionUnits = unit;
+  _idbPut('kv', 'preferences', DB_CACHE.preferences);
+  document.getElementById('nutUnitImperial')?.classList.toggle('active', unit === 'imperial');
+  document.getElementById('nutUnitMetric')?.classList.toggle('active', unit === 'metric');
+  if (nutritionView === 'goals') renderNutritionGoals();
+  if (nutritionView === 'weight') renderNutritionWeight();
+}
+
+function getNutritionUnits() {
+  return (DB_CACHE.preferences && DB_CACHE.preferences.nutritionUnits) || 'imperial';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  NUTRITION TAB
+// ═══════════════════════════════════════════════════════════════════
+
+// ─── Data helpers ─────────────────────────────────────────────────
+
+function genNutritionId() {
+  return 'nut-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+}
+
+function getEntriesForDate(date) {
+  return DB_CACHE.nutrition_log.filter(e => e.date === date);
+}
+
+function getNutritionSummary(date) {
+  const entries = getEntriesForDate(date);
+  return entries.reduce((s, e) => ({
+    calories: s.calories + (e.calories || 0),
+    protein:  s.protein  + (e.protein  || 0),
+    carbs:    s.carbs    + (e.carbs    || 0),
+    fat:      s.fat      + (e.fat      || 0),
+  }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+}
+
+function saveNutritionEntry(entry) {
+  DB_CACHE.nutrition_log.push(entry);
+  _idbPut('kv', 'nutrition_log', DB_CACHE.nutrition_log);
+}
+
+function updateNutritionEntry(id, patch) {
+  const idx = DB_CACHE.nutrition_log.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  DB_CACHE.nutrition_log[idx] = Object.assign({}, DB_CACHE.nutrition_log[idx], patch);
+  _idbPut('kv', 'nutrition_log', DB_CACHE.nutrition_log);
+}
+
+function deleteNutritionEntry(id) {
+  DB_CACHE.nutrition_log = DB_CACHE.nutrition_log.filter(e => e.id !== id);
+  _idbPut('kv', 'nutrition_log', DB_CACHE.nutrition_log);
+}
+
+function saveNutritionGoals(goals) {
+  DB_CACHE.nutrition_goals = Object.assign({}, DB_CACHE.nutrition_goals, goals);
+  _idbPut('kv', 'nutrition_goals', DB_CACHE.nutrition_goals);
+}
+
+function addWeightEntry(entry) {
+  DB_CACHE.weight_log.push(entry);
+  _idbPut('kv', 'weight_log', DB_CACHE.weight_log);
+}
+
+function deleteWeightEntry(id) {
+  DB_CACHE.weight_log = DB_CACHE.weight_log.filter(e => e.id !== id);
+  _idbPut('kv', 'weight_log', DB_CACHE.weight_log);
+}
+
+function updateWeightEntry(id, patch) {
+  const idx = DB_CACHE.weight_log.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  DB_CACHE.weight_log[idx] = Object.assign({}, DB_CACHE.weight_log[idx], patch);
+  _idbPut('kv', 'weight_log', DB_CACHE.weight_log);
+}
+
+// ─── Sub-navigation ────────────────────────────────────────────────
+
+function renderNutritionTab() {
+  switchNutritionView(nutritionView);
+}
+
+function switchNutritionView(view) {
+  nutritionView = view;
+  ['today','history','goals','weight'].forEach(v => {
+    document.getElementById('nutrition-' + v + '-view')?.classList.toggle('hidden', v !== view);
+    document.getElementById('nn' + v.charAt(0).toUpperCase() + v.slice(1))?.classList.toggle('active', v === view);
+  });
+  if (view === 'today')   renderNutritionToday(nutritionDate);
+  if (view === 'history') renderNutritionHistory();
+  if (view === 'goals')   renderNutritionGoals();
+  if (view === 'weight')  renderNutritionWeight();
+}
+
+// ─── Date helpers ──────────────────────────────────────────────────
+
+function formatNutritionDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (dt.getTime() === today.getTime()) return 'Today';
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  if (dt.getTime() === yesterday.getTime()) return 'Yesterday';
+  return dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+}
+
+function changeNutritionDate(delta) {
+  const [y, m, d] = nutritionDate.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + delta);
+  nutritionDate = dt.toISOString().slice(0, 10);
+  renderNutritionToday(nutritionDate);
+}
+
+// ─── TODAY VIEW ────────────────────────────────────────────────────
+
+function renderNutritionToday(date) {
+  if (!date) date = nutritionDate;
+  nutritionDate = date;
+  const el = document.getElementById('nutrition-today-view');
+  if (!el) return;
+
+  const goals   = DB_CACHE.nutrition_goals || {};
+  const calGoal = goals.calories || 2000;
+  const summary = getNutritionSummary(date);
+  const entries = getEntriesForDate(date);
+
+  const consumed  = Math.round(summary.calories);
+  const remaining = calGoal - consumed;
+  const pct       = Math.min(consumed / calGoal, 1);
+
+  // SVG ring
+  const R = 45, CIRC = 2 * Math.PI * R;
+  const offset = CIRC * (1 - pct);
+  const ringColor = consumed > calGoal ? 'var(--red2)' : 'var(--gold)';
+
+  const prGoal = goals.protein || 0;
+  const crGoal = goals.carbs   || 0;
+  const ftGoal = goals.fat     || 0;
+
+  const macroHtml = buildMacroRow(summary, prGoal, crGoal, ftGoal);
+  const mealHtml  = buildMealSections(entries);
+
+  el.innerHTML = `
+    <div class="nut-date-header">
+      <button class="nut-date-arrow" onclick="changeNutritionDate(-1)">‹</button>
+      <div class="nut-date-label" onclick="openNutritionDatePicker()">${formatNutritionDate(date)}</div>
+      <button class="nut-date-arrow" onclick="changeNutritionDate(1)">›</button>
+      <input type="date" id="nutDatePickerInput" class="nut-date-input-hidden" value="${date}" onchange="pickNutritionDate(this.value)">
+    </div>
+    <div class="calorie-card">
+      <div class="calorie-ring-wrap">
+        <svg viewBox="0 0 110 110" width="110" height="110">
+          <circle class="calorie-ring-bg" cx="55" cy="55" r="${R}"/>
+          <circle class="calorie-ring-fill" cx="55" cy="55" r="${R}"
+            stroke="${ringColor}"
+            stroke-dasharray="${CIRC.toFixed(1)}"
+            stroke-dashoffset="${offset.toFixed(1)}"/>
+        </svg>
+        <div class="calorie-ring-text">
+          <div class="calorie-ring-num">${consumed.toLocaleString()}</div>
+          <div class="calorie-ring-label">cal</div>
+        </div>
+      </div>
+      <div class="calorie-card-info">
+        <div class="calorie-total-line">${consumed.toLocaleString()} / ${calGoal.toLocaleString()}</div>
+        <div class="calorie-goal-line">Daily goal</div>
+        <div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}">
+          ${remaining < 0
+            ? `${Math.abs(remaining).toLocaleString()} cal over goal`
+            : `${remaining.toLocaleString()} cal remaining`}
+        </div>
+      </div>
+    </div>
+    ${macroHtml}
+    <div class="nutrition-quick-log">
+      <div class="nut-quick-log-label">Quick Log</div>
+      <div class="nut-quick-log-row">
+        <textarea class="nut-quick-textarea" id="nutQuickInput" rows="2"
+          placeholder="What did you eat or drink?"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitNutritionQuickLog();}"></textarea>
+        <button class="nut-mic-btn" id="nutMicBtn" onclick="toggleNutritionVoice()" title="Voice input">🎙</button>
+        <button class="nut-submit-btn" id="nutSubmitBtn" onclick="submitNutritionQuickLog()">Log</button>
+      </div>
+      <div id="nutParsingIndicator" class="nut-parsing-indicator hidden">
+        <div class="nut-parsing-dot"></div>Parsing with AI…
+      </div>
+    </div>
+    ${mealHtml}
+  `;
+}
+
+function openNutritionDatePicker() {
+  const inp = document.getElementById('nutDatePickerInput');
+  if (inp) inp.showPicker ? inp.showPicker() : inp.click();
+}
+
+function pickNutritionDate(val) {
+  if (!val) return;
+  nutritionDate = val;
+  renderNutritionToday(val);
+}
+
+function buildMacroRow(summary, prGoal, crGoal, ftGoal) {
+  const hasGoals = prGoal > 0 || crGoal > 0 || ftGoal > 0;
+  const macros = [
+    { label:'Protein', val: Math.round(summary.protein), goal: prGoal, color: 'var(--macro-protein)', cls:'protein' },
+    { label:'Carbs',   val: Math.round(summary.carbs),   goal: crGoal, color: 'var(--macro-carbs)',   cls:'carbs' },
+    { label:'Fat',     val: Math.round(summary.fat),     goal: ftGoal, color: 'var(--macro-fat)',     cls:'fat' },
+  ];
+  return `<div class="macro-row">${macros.map(m => {
+    const pct = m.goal > 0 ? Math.min(m.val / m.goal * 100, 100) : 0;
+    const valStr = m.goal > 0 ? `${m.val}g / ${m.goal}g` : `${m.val}g`;
+    return `<div class="macro-pill">
+      <div class="macro-pill-label">${m.label}</div>
+      <div class="macro-pill-val${!hasGoals ? ' no-goal' : ''}">${valStr}</div>
+      <div class="macro-pill-bar"><div class="macro-pill-fill" style="width:${pct}%;background:${m.color}"></div></div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+const MEAL_ICONS = { Breakfast:'🌅', Lunch:'☀️', Dinner:'🌙', Snack:'🍎', Drink:'💧' };
+
+function buildMealSections(entries) {
+  const meals = ['Breakfast','Lunch','Dinner','Snack','Drink'];
+  return meals.map(meal => {
+    const mealEntries = entries.filter(e => e.meal === meal || (meal === 'Snack' && e.meal === 'Snacks'));
+    const totalCals = mealEntries.reduce((s, e) => s + (e.calories || 0), 0);
+    const hasEntries = mealEntries.length > 0;
+    const sectionId = 'meal-section-' + meal.toLowerCase();
+    const bodyId = 'meal-body-' + meal.toLowerCase();
+    return `<div class="meal-section">
+      <div class="meal-section-hdr${hasEntries ? ' has-entries' : ''}" onclick="toggleMealSection('${meal}')">
+        <div class="meal-section-title">
+          <span>${MEAL_ICONS[meal] || '🍽'}</span>
+          <span>${meal}s</span>
+          ${hasEntries ? `<span style="font-size:12px;color:var(--muted);font-weight:400">${mealEntries.length} item${mealEntries.length>1?'s':''}</span>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${hasEntries ? `<span class="meal-section-cals">${Math.round(totalCals)} cal</span>` : ''}
+          <span class="meal-section-chevron${hasEntries ? ' open' : ''}" id="meal-chev-${meal.toLowerCase()}">▾</span>
+        </div>
+      </div>
+      <div class="meal-section-body${hasEntries ? ' open' : ''}" id="${bodyId}">
+        ${mealEntries.map(e => buildFoodEntryCard(e)).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function buildFoodEntryCard(e) {
+  const hasMacros = (e.protein || e.carbs || e.fat);
+  return `<div class="food-entry-card">
+    <div class="food-entry-info">
+      <div class="food-entry-name">${escHtml(e.name)}</div>
+      <div class="food-entry-detail">${e.qty} ${escHtml(e.unit)} · ${e.time || ''}</div>
+      ${hasMacros ? `<div class="food-entry-macros">
+        ${e.protein ? `<span class="food-macro-tag protein">P ${Math.round(e.protein)}g</span>` : ''}
+        ${e.carbs   ? `<span class="food-macro-tag carbs">C ${Math.round(e.carbs)}g</span>` : ''}
+        ${e.fat     ? `<span class="food-macro-tag fat">F ${Math.round(e.fat)}g</span>` : ''}
+      </div>` : ''}
+      ${e.isEstimate ? '<div class="food-entry-estimate">~ estimated</div>' : ''}
+    </div>
+    <div class="food-entry-cals">${Math.round(e.calories)}</div>
+    <div class="food-entry-actions">
+      <button class="food-entry-btn" onclick="openNutritionEntryEdit('${e.id}')" title="Edit">✏️</button>
+      <button class="food-entry-btn delete" onclick="confirmDeleteNutritionEntry('${e.id}')" title="Delete">🗑</button>
+    </div>
+  </div>`;
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toggleMealSection(meal) {
+  const body = document.getElementById('meal-body-' + meal.toLowerCase());
+  const chev = document.getElementById('meal-chev-' + meal.toLowerCase());
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (chev) chev.classList.toggle('open', open);
+}
+
+// ─── VOICE INPUT (Nutrition) ─────────────────────────────────────
+
+function toggleNutritionVoice() {
+  if (_nutRecording) stopNutritionVoice();
+  else startNutritionVoice();
+}
+
+function startNutritionVoice() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) { showToast('Voice input not supported on this browser.'); return; }
+  _nutRecognition = new SpeechRec();
+  _nutRecognition.continuous = true;
+  _nutRecognition.interimResults = true;
+  _nutRecognition.lang = 'en-US';
+  let finalText = (document.getElementById('nutQuickInput') || {value:''}).value;
+  _nutRecognition.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    const inp = document.getElementById('nutQuickInput');
+    if (inp) inp.value = finalText + interim;
+  };
+  _nutRecognition.onend = () => { if (_nutRecording) { try { _nutRecognition.start(); } catch(e){} } };
+  _nutRecognition.onerror = (e) => { if (e.error !== 'aborted') stopNutritionVoice(); };
+  try {
+    _nutRecognition.start();
+    _nutRecording = true;
+    document.getElementById('nutMicBtn')?.classList.add('recording');
+  } catch(e) { _nutRecording = false; }
+}
+
+function stopNutritionVoice() {
+  _nutRecording = false;
+  if (_nutRecognition) { try { _nutRecognition.stop(); } catch(e){} _nutRecognition = null; }
+  document.getElementById('nutMicBtn')?.classList.remove('recording');
+}
+
+// ─── AI QUICK LOG ──────────────────────────────────────────────────
+
+async function submitNutritionQuickLog() {
+  const inp = document.getElementById('nutQuickInput');
+  const text = inp ? inp.value.trim() : '';
+  if (!text) return;
+  stopNutritionVoice();
+  const apiKey = DB_CACHE.preferences && DB_CACHE.preferences.anthropicApiKey;
+  if (!apiKey) {
+    showToast('Add your Anthropic API key in Settings → AI Parser.');
+    return;
+  }
+  const submitBtn = document.getElementById('nutSubmitBtn');
+  const indicator = document.getElementById('nutParsingIndicator');
+  if (submitBtn) submitBtn.disabled = true;
+  if (indicator) indicator.classList.remove('hidden');
+
+  const now = new Date();
+  const currentTime = now.toTimeString().slice(0, 5);
+  const NUTRITION_SYSTEM_PROMPT = `You are a nutrition logger. Parse the provided text into a JSON array of food/drink entries. Each entry: { name: string (clean food/drink name), qty: number (serving quantity), unit: string (serving unit e.g. 'cup', 'oz', 'piece'), calories: number (estimated calories for this serving), protein: number (grams), carbs: number (grams), fat: number (grams), meal: one of [Breakfast, Lunch, Dinner, Snack, Drink], time: string (HH:MM in 24hr format, use current time if not specified, extract from text if mentioned e.g. '2:30pm' → '14:30'), isEstimate: boolean (true if calories are estimated rather than known) } Return ONLY a valid JSON array. No explanation, no markdown, no code blocks.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 800,
+        system: NUTRITION_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: `Current time: ${currentTime}\n${text}` }],
+      }),
+    });
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      throw new Error(errData.error?.message || `API error ${resp.status}`);
+    }
+    const data = await resp.json();
+    const raw = data.content?.[0]?.text?.trim() || '';
+    let entries;
+    try {
+      entries = JSON.parse(raw);
+      if (!Array.isArray(entries)) throw new Error('Not an array');
+    } catch(e) {
+      throw new Error('Could not parse AI response. Try again.');
+    }
+    entries = entries.map(e => ({
+      id: genNutritionId(),
+      date: nutritionDate,
+      name: String(e.name || 'Food'),
+      qty: Number(e.qty) || 1,
+      unit: String(e.unit || 'serving'),
+      calories: Math.round(Number(e.calories) || 0),
+      protein: Math.round((Number(e.protein) || 0) * 10) / 10,
+      carbs: Math.round((Number(e.carbs)   || 0) * 10) / 10,
+      fat: Math.round((Number(e.fat)     || 0) * 10) / 10,
+      meal: ['Breakfast','Lunch','Dinner','Snack','Drink'].includes(e.meal) ? e.meal : 'Snack',
+      time: String(e.time || currentTime),
+      isEstimate: !!e.isEstimate,
+      addedAt: new Date().toISOString(),
+    }));
+    _pendingNutritionEntries = entries;
+    showNutritionConfirm(entries);
+    if (inp) inp.value = '';
+  } catch(err) {
+    showToast('Error: ' + err.message);
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+    if (indicator) indicator.classList.add('hidden');
+  }
+}
+
+function showNutritionConfirm(entries) {
+  const modal = document.getElementById('nutritionConfirmModal');
+  const body  = document.getElementById('nutritionConfirmBody');
+  if (!modal || !body) return;
+  const total = entries.reduce((s, e) => s + e.calories, 0);
+  body.innerHTML = entries.map((e, i) => `
+    <div class="nut-confirm-item" id="nutConfItem${i}">
+      <div style="display:flex;align-items:start;justify-content:space-between">
+        <div style="flex:1;min-width:0">
+          <div class="nut-confirm-item-name">
+            <input class="form-input" style="font-weight:600;font-size:14px;padding:4px 8px" value="${escHtml(e.name)}"
+              onchange="_pendingNutritionEntries[${i}].name=this.value">
+          </div>
+          <div class="nut-confirm-item-detail" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+            <input class="form-input" style="font-size:12px;padding:3px 6px;width:60px" type="number" value="${e.qty}"
+              onchange="_pendingNutritionEntries[${i}].qty=parseFloat(this.value)||1">
+            <input class="form-input" style="font-size:12px;padding:3px 6px;width:80px" value="${escHtml(e.unit)}"
+              onchange="_pendingNutritionEntries[${i}].unit=this.value">
+            <select class="form-select" style="font-size:12px;padding:3px 6px"
+              onchange="_pendingNutritionEntries[${i}].meal=this.value">
+              ${['Breakfast','Lunch','Dinner','Snack','Drink'].map(m=>`<option${m===e.meal?' selected':''}>${m}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:8px">
+          <input class="form-input" style="font-size:15px;font-weight:700;color:var(--gold);padding:4px 6px;width:70px;text-align:right"
+            type="number" value="${e.calories}"
+            onchange="_pendingNutritionEntries[${i}].calories=parseInt(this.value)||0">
+          <span style="font-size:12px;color:var(--muted)">cal</span>
+        </div>
+      </div>
+      ${e.isEstimate ? '<div class="food-entry-estimate" style="margin-top:4px">~ estimated</div>' : ''}
+    </div>
+  `).join('') + `<div class="nut-confirm-total">Total: ${Math.round(total)} cal</div>`;
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeNutritionConfirm() {
+  document.getElementById('nutritionConfirmModal')?.classList.add('hidden');
+  document.body.style.overflow = '';
+  _pendingNutritionEntries = [];
+}
+
+function saveNutritionConfirmed() {
+  _pendingNutritionEntries.forEach(e => saveNutritionEntry(e));
+  closeNutritionConfirm();
+  renderNutritionToday(nutritionDate);
+  showToast(`${_pendingNutritionEntries.length || 'All'} entries saved.`);
+  _pendingNutritionEntries = [];
+}
+
+// ─── ENTRY EDIT MODAL ─────────────────────────────────────────────
+
+function openNutritionEntryEdit(id) {
+  const entry = DB_CACHE.nutrition_log.find(e => e.id === id);
+  if (!entry) return;
+  document.getElementById('nutEditId').value = id;
+  document.getElementById('nutEditName').value = entry.name || '';
+  document.getElementById('nutEditQty').value = entry.qty || 1;
+  document.getElementById('nutEditUnit').value = entry.unit || '';
+  document.getElementById('nutEditCalories').value = entry.calories || 0;
+  document.getElementById('nutEditMeal').value = entry.meal || 'Snack';
+  document.getElementById('nutEditProtein').value = entry.protein || 0;
+  document.getElementById('nutEditCarbs').value = entry.carbs || 0;
+  document.getElementById('nutEditFat').value = entry.fat || 0;
+  document.getElementById('nutEditTime').value = entry.time || '';
+  document.getElementById('nutritionEntryEditModal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeNutritionEntryEdit() {
+  document.getElementById('nutritionEntryEditModal')?.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function saveNutritionEntryEdit() {
+  const id = document.getElementById('nutEditId').value;
+  updateNutritionEntry(id, {
+    name:     document.getElementById('nutEditName').value.trim() || 'Food',
+    qty:      parseFloat(document.getElementById('nutEditQty').value) || 1,
+    unit:     document.getElementById('nutEditUnit').value.trim() || 'serving',
+    calories: parseInt(document.getElementById('nutEditCalories').value) || 0,
+    meal:     document.getElementById('nutEditMeal').value,
+    protein:  parseFloat(document.getElementById('nutEditProtein').value) || 0,
+    carbs:    parseFloat(document.getElementById('nutEditCarbs').value) || 0,
+    fat:      parseFloat(document.getElementById('nutEditFat').value) || 0,
+    time:     document.getElementById('nutEditTime').value || '',
+  });
+  closeNutritionEntryEdit();
+  if (nutritionView === 'today')   renderNutritionToday(nutritionDate);
+  if (nutritionView === 'history' && nutritionHistoryDayDetail) renderNutritionToday(nutritionHistoryDayDetail);
+  showToast('Entry updated.');
+}
+
+function deleteNutritionEntryFromEdit() {
+  const id = document.getElementById('nutEditId').value;
+  if (!id) return;
+  deleteNutritionEntry(id);
+  closeNutritionEntryEdit();
+  if (nutritionView === 'today')   renderNutritionToday(nutritionDate);
+  if (nutritionView === 'history' && nutritionHistoryDayDetail) showHistoryDayDetail(nutritionHistoryDayDetail);
+  showToast('Entry deleted.');
+}
+
+function confirmDeleteNutritionEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  deleteNutritionEntry(id);
+  renderNutritionToday(nutritionDate);
+  showToast('Entry deleted.');
+}
+
+// ─── FOOD SEARCH MODAL ────────────────────────────────────────────
+
+function openFoodSearchModal() {
+  const modal = document.getElementById('foodSearchModal');
+  if (!modal) return;
+  // Reset state
+  _usdaSelectedFood = null;
+  const now = new Date();
+  const timeStr = now.toTimeString().slice(0, 5);
+  document.getElementById('usdaSearchInput').value = '';
+  document.getElementById('usdaResults').innerHTML = '';
+  document.getElementById('usdaSelectedSection')?.classList.add('hidden');
+  document.getElementById('manualEntrySection')?.classList.add('hidden');
+  document.getElementById('foodLogTime').value = timeStr;
+  const hour = now.getHours();
+  const meal = hour < 10 ? 'Breakfast' : hour < 13 ? 'Lunch' : hour < 17 ? 'Snack' : hour < 20 ? 'Dinner' : 'Snack';
+  document.getElementById('foodLogMeal').value = meal;
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('usdaSearchInput')?.focus(), 100);
+}
+
+function closeFoodSearchModal() {
+  document.getElementById('foodSearchModal')?.classList.add('hidden');
+  document.body.style.overflow = '';
+  _usdaSelectedFood = null;
+}
+
+async function searchUSDA() {
+  const query = (document.getElementById('usdaSearchInput')?.value || '').trim();
+  if (!query) return;
+  const resultsEl = document.getElementById('usdaResults');
+  resultsEl.innerHTML = '<div class="usda-loading">Searching…</div>';
+  document.getElementById('usdaSelectedSection')?.classList.add('hidden');
+  _usdaSelectedFood = null;
+  const apiKey = (DB_CACHE.preferences && DB_CACHE.preferences.usdaApiKey) || _DEFAULT_USDA_KEY;
+  try {
+    const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&pageSize=10&api_key=${encodeURIComponent(apiKey)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('Search failed');
+    const data = await resp.json();
+    const foods = (data.foods || []).slice(0, 10);
+    if (!foods.length) {
+      resultsEl.innerHTML = '<div class="usda-no-results">No results found. Try a different search term.</div>';
+      return;
+    }
+    resultsEl.innerHTML = foods.map((f, i) => {
+      const cal = getUsdaCal(f);
+      return `<div class="usda-result-item" onclick="selectUsdaFood(${i})" data-idx="${i}">
+        <div class="usda-result-name">${escHtml(f.description)}</div>
+        <div class="usda-result-meta">${cal !== null ? cal + ' cal / 100g' : ''} · ${escHtml(f.brandName || f.foodCategory || '')}</div>
+      </div>`;
+    }).join('');
+    // Store results for selection
+    resultsEl._usdaFoods = foods;
+  } catch(err) {
+    resultsEl.innerHTML = `<div class="usda-no-results">Error: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function getUsdaCal(food) {
+  const nutrients = food.foodNutrients || [];
+  const calNut = nutrients.find(n => n.nutrientId === 1008 || n.nutrientName === 'Energy');
+  return calNut ? Math.round(calNut.value) : null;
+}
+
+function getUsdaMacro(food, id, names) {
+  const nutrients = food.foodNutrients || [];
+  const nut = nutrients.find(n => n.nutrientId === id || names.includes(n.nutrientName));
+  return nut ? nut.value : 0;
+}
+
+function selectUsdaFood(idx) {
+  const resultsEl = document.getElementById('usdaResults');
+  const foods = resultsEl._usdaFoods;
+  if (!foods || !foods[idx]) return;
+  const food = foods[idx];
+  // Remove selected class from all
+  resultsEl.querySelectorAll('.usda-result-item').forEach(el => el.classList.remove('selected'));
+  resultsEl.querySelectorAll('.usda-result-item')[idx]?.classList.add('selected');
+
+  const calPer100 = getUsdaCal(food) || 0;
+  const protPer100 = getUsdaMacro(food, 1003, ['Protein']);
+  const carbPer100 = getUsdaMacro(food, 1005, ['Carbohydrate, by difference']);
+  const fatPer100  = getUsdaMacro(food, 1004, ['Total lipid (fat)']);
+
+  _usdaSelectedFood = { name: food.description, calPer100, protPer100, carbPer100, fatPer100 };
+
+  const selectedEl = document.getElementById('usdaSelectedSection');
+  if (selectedEl) {
+    selectedEl.classList.remove('hidden');
+    document.getElementById('usdaSelectedName').textContent = food.description;
+    // Build unit select
+    const unitSel = document.getElementById('usdaUnit');
+    unitSel.innerHTML = '<option value="100g">100g</option><option value="1g">1g</option>';
+    const servings = food.servingSizeUnit ? `${food.servingSize || 100}${food.servingSizeUnit}` : null;
+    if (servings && food.servingSize) {
+      unitSel.innerHTML += `<option value="serving:${food.servingSize}">1 serving (${Math.round(food.servingSize)}${food.servingSizeUnit})</option>`;
+    }
+    document.getElementById('usdaQty').value = 1;
+    recalcUsdaCalories();
+  }
+}
+
+function recalcUsdaCalories() {
+  if (!_usdaSelectedFood) return;
+  const qty = parseFloat(document.getElementById('usdaQty')?.value) || 1;
+  const unitVal = document.getElementById('usdaUnit')?.value || '100g';
+  let gramsFactor = 100; // default per 100g
+  if (unitVal === '1g') gramsFactor = 1;
+  else if (unitVal.startsWith('serving:')) gramsFactor = parseFloat(unitVal.slice(8)) || 100;
+  const totalGrams = qty * gramsFactor;
+  const cal  = Math.round(_usdaSelectedFood.calPer100  * totalGrams / 100);
+  const prot = Math.round(_usdaSelectedFood.protPer100 * totalGrams / 100 * 10) / 10;
+  const carb = Math.round(_usdaSelectedFood.carbPer100 * totalGrams / 100 * 10) / 10;
+  const fat  = Math.round(_usdaSelectedFood.fatPer100  * totalGrams / 100 * 10) / 10;
+  const el = document.getElementById('usdaCalcCalories');
+  if (el) el.textContent = `${cal} cal · P ${prot}g · C ${carb}g · F ${fat}g`;
+  _usdaSelectedFood._calcCal  = cal;
+  _usdaSelectedFood._calcProt = prot;
+  _usdaSelectedFood._calcCarb = carb;
+  _usdaSelectedFood._calcFat  = fat;
+  _usdaSelectedFood._unitVal  = unitVal;
+  _usdaSelectedFood._qty      = qty;
+}
+
+function toggleManualEntry() {
+  const section = document.getElementById('manualEntrySection');
+  const btn = document.getElementById('manualToggleBtn');
+  const isHidden = section?.classList.contains('hidden');
+  section?.classList.toggle('hidden', !isHidden);
+  if (btn) btn.textContent = isHidden ? '✕ Close manual entry' : '✏️ Enter manually instead';
+  if (isHidden) {
+    document.getElementById('usdaResults').innerHTML = '';
+    document.getElementById('usdaSelectedSection')?.classList.add('hidden');
+    _usdaSelectedFood = null;
+  }
+}
+
+function saveFoodLogEntry() {
+  const meal = document.getElementById('foodLogMeal')?.value || 'Snack';
+  const time = document.getElementById('foodLogTime')?.value || new Date().toTimeString().slice(0, 5);
+  const manualSection = document.getElementById('manualEntrySection');
+  const isManual = manualSection && !manualSection.classList.contains('hidden');
+
+  if (isManual) {
+    const name = (document.getElementById('manualName')?.value || '').trim();
+    const cals = parseInt(document.getElementById('manualCalories')?.value) || 0;
+    if (!name) { showToast('Please enter a food name.'); return; }
+    if (!cals) { showToast('Please enter calories.'); return; }
+    saveNutritionEntry({
+      id: genNutritionId(),
+      date: nutritionDate,
+      name,
+      qty: parseFloat(document.getElementById('manualQty')?.value) || 1,
+      unit: document.getElementById('manualUnit')?.value || 'serving',
+      calories: cals,
+      protein: parseFloat(document.getElementById('manualProtein')?.value) || 0,
+      carbs:   parseFloat(document.getElementById('manualCarbs')?.value) || 0,
+      fat:     parseFloat(document.getElementById('manualFat')?.value) || 0,
+      meal, time,
+      isEstimate: false,
+      addedAt: new Date().toISOString(),
+    });
+  } else if (_usdaSelectedFood && _usdaSelectedFood._calcCal !== undefined) {
+    const unitVal = _usdaSelectedFood._unitVal || '100g';
+    const unitLabel = unitVal === '100g' ? '100g' : unitVal === '1g' ? 'g' : 'serving';
+    saveNutritionEntry({
+      id: genNutritionId(),
+      date: nutritionDate,
+      name: _usdaSelectedFood.name,
+      qty: _usdaSelectedFood._qty || 1,
+      unit: unitLabel,
+      calories: _usdaSelectedFood._calcCal,
+      protein:  _usdaSelectedFood._calcProt || 0,
+      carbs:    _usdaSelectedFood._calcCarb || 0,
+      fat:      _usdaSelectedFood._calcFat  || 0,
+      meal, time,
+      isEstimate: false,
+      addedAt: new Date().toISOString(),
+    });
+  } else {
+    showToast('Select a food from search results or use manual entry.');
+    return;
+  }
+  closeFoodSearchModal();
+  renderNutritionToday(nutritionDate);
+  showToast('Food logged.');
+}
+
+// ─── HISTORY VIEW ─────────────────────────────────────────────────
+
+function renderNutritionHistory() {
+  const el = document.getElementById('nutrition-history-view');
+  if (!el) return;
+  nutritionHistoryDayDetail = null;
+
+  const [year, month] = nutritionHistoryMonth.split('-').map(Number);
+  const monthLabel = new Date(year, month - 1, 1).toLocaleDateString('en-US', { month:'long', year:'numeric' });
+
+  const calendarHtml = buildCalendarGrid(year, month);
+  const weekSummaryHtml = buildWeekSummary();
+
+  el.innerHTML = `
+    <div class="nut-month-nav">
+      <button class="nut-month-arrow" onclick="changeHistoryMonth(-1)">‹</button>
+      <div class="nut-month-label">${monthLabel}</div>
+      <button class="nut-month-arrow" onclick="changeHistoryMonth(1)">›</button>
+    </div>
+    ${calendarHtml}
+    ${weekSummaryHtml}
+  `;
+}
+
+function changeHistoryMonth(delta) {
+  const [y, m] = nutritionHistoryMonth.split('-').map(Number);
+  const dt = new Date(y, m - 1 + delta, 1);
+  nutritionHistoryMonth = dt.toISOString().slice(0, 7);
+  renderNutritionHistory();
+}
+
+function buildCalendarGrid(year, month) {
+  const goals = DB_CACHE.nutrition_goals || {};
+  const calGoal = goals.calories || 2000;
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const today = new Date().toISOString().slice(0, 10);
+
+  const dayLabels = ['Su','Mo','Tu','We','Th','Fr','Sa'].map(d =>
+    `<div class="cal-day-label">${d}</div>`).join('');
+
+  let cells = '';
+  for (let i = 0; i < firstDay; i++) cells += '<div class="cal-day empty"></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const summary = getNutritionSummary(dateStr);
+    const hasData = getEntriesForDate(dateStr).length > 0;
+    const isToday = dateStr === today;
+    const isSelected = dateStr === nutritionDate && nutritionView === 'history';
+    let dotClass = '';
+    if (hasData) {
+      if (summary.calories <= calGoal) dotClass = 'green';
+      else if (summary.calories <= calGoal * 1.15) dotClass = 'yellow';
+      else dotClass = 'red';
+    }
+    cells += `<div class="cal-day${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}"
+      onclick="showHistoryDayDetail('${dateStr}')">
+      ${d}
+      ${dotClass ? `<div class="cal-dot ${dotClass}"></div>` : ''}
+    </div>`;
+  }
+  return `<div class="nutrition-calendar">${dayLabels}${cells}</div>`;
+}
+
+function buildWeekSummary() {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const weekStart = new Date(today); weekStart.setDate(today.getDate() - dayOfWeek);
+  const weekDates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
+    weekDates.push(d.toISOString().slice(0, 10));
+  }
+  const goals = DB_CACHE.nutrition_goals || {};
+  const calGoal = goals.calories || 2000;
+  let totalCals = 0, daysWithData = 0, daysOnGoal = 0, bestDay = null, bestCal = 0;
+  weekDates.forEach(date => {
+    const summary = getNutritionSummary(date);
+    const entries = getEntriesForDate(date);
+    if (entries.length > 0) {
+      daysWithData++;
+      totalCals += summary.calories;
+      if (summary.calories <= calGoal) daysOnGoal++;
+      if (summary.calories > bestCal) { bestCal = summary.calories; bestDay = date; }
+    }
+  });
+  const avgCals = daysWithData > 0 ? Math.round(totalCals / daysWithData) : 0;
+  const bestDayStr = bestDay ? new Date(bestDay + 'T00:00:00').toLocaleDateString('en-US', { weekday:'short' }) : '—';
+  return `<div class="nut-week-summary">
+    <div class="nut-week-summary-title">This Week</div>
+    <div class="nut-week-stats">
+      <div class="nut-week-stat">
+        <div class="nut-week-stat-val">${avgCals ? avgCals.toLocaleString() : '—'}</div>
+        <div class="nut-week-stat-label">Avg daily calories</div>
+      </div>
+      <div class="nut-week-stat">
+        <div class="nut-week-stat-val">${daysOnGoal} / ${daysWithData}</div>
+        <div class="nut-week-stat-label">Days on goal</div>
+      </div>
+      <div class="nut-week-stat">
+        <div class="nut-week-stat-val">${totalCals ? Math.round(totalCals).toLocaleString() : '—'}</div>
+        <div class="nut-week-stat-label">Total calories</div>
+      </div>
+      <div class="nut-week-stat">
+        <div class="nut-week-stat-val">${bestDayStr}</div>
+        <div class="nut-week-stat-label">Most logged day</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function showHistoryDayDetail(date) {
+  nutritionHistoryDayDetail = date;
+  const el = document.getElementById('nutrition-history-view');
+  if (!el) return;
+  const goals   = DB_CACHE.nutrition_goals || {};
+  const calGoal = goals.calories || 2000;
+  const summary = getNutritionSummary(date);
+  const entries = getEntriesForDate(date);
+  const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+  const consumed = Math.round(summary.calories);
+
+  // Save current history month then restore scroll position
+  const scroll = el.scrollTop;
+  el.innerHTML = `
+    <button class="nut-back-btn" onclick="renderNutritionHistory()">← Back to Calendar</button>
+    <div class="nut-day-detail-banner">
+      <div class="nut-day-detail-date">${dateLabel}</div>
+      <div class="nut-day-detail-cals">${consumed.toLocaleString()} cal</div>
+    </div>
+    ${buildMacroRow(summary, goals.protein||0, goals.carbs||0, goals.fat||0)}
+    ${buildMealSections(entries)}
+  `;
+}
+
+// ─── GOALS VIEW ───────────────────────────────────────────────────
+
+function renderNutritionGoals() {
+  const el = document.getElementById('nutrition-goals-view');
+  if (!el) return;
+  const g = DB_CACHE.nutrition_goals || {};
+  const units = getNutritionUnits();
+  const isMetric = units === 'metric';
+
+  const activityOptions = [
+    { val:'sedentary',  label:'Sedentary (desk job, little exercise)' },
+    { val:'light',      label:'Lightly Active (1-3 days/week)' },
+    { val:'moderate',   label:'Moderately Active (3-5 days/week)' },
+    { val:'active',     label:'Very Active (6-7 days/week)' },
+    { val:'extra',      label:'Extra Active (physical job)' },
+  ];
+
+  const tdee = calcTDEE(g);
+  const recCals = calcRecommendedCals(g, tdee);
+  const goalType = g.goalType || 'maintain';
+  const useCustom = !!g.useCustom;
+  const calTarget = useCustom ? (g.customCalories || 2000) : (recCals || 2000);
+  const projDate = calcProjectedDate(g, tdee);
+
+  el.innerHTML = `
+    <div class="nut-goals-section">
+      <div class="nut-goals-section-title">Personal Stats</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Age</label>
+          <input class="form-input" id="goalAge" type="number" min="10" max="100" value="${g.age||''}" placeholder="years" oninput="onGoalInput()">
+        </div>
+        ${isMetric ? `
+        <div class="form-group">
+          <label class="form-label">Height (cm)</label>
+          <input class="form-input" id="goalHeightCm" type="number" min="100" max="250" value="${g.height||''}" placeholder="cm" oninput="onGoalInput()">
+        </div>` : `
+        <div class="form-group">
+          <label class="form-label">Height</label>
+          <div style="display:flex;gap:6px">
+            <input class="form-input" id="goalHeightFt" type="number" min="3" max="8" value="${g.height||''}" placeholder="ft" style="width:56px" oninput="onGoalInput()">
+            <input class="form-input" id="goalHeightIn" type="number" min="0" max="11" value="${g.heightIn||''}" placeholder="in" style="width:56px" oninput="onGoalInput()">
+          </div>
+        </div>`}
+        <div class="form-group">
+          <label class="form-label">Weight (${isMetric?'kg':'lbs'})</label>
+          <input class="form-input" id="goalWeight" type="number" min="50" max="600" step="0.1" value="${g.weight||''}" placeholder="${isMetric?'kg':'lbs'}" oninput="onGoalInput()">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Activity Level</label>
+        <select class="form-select" id="goalActivity" onchange="onGoalInput()">
+          ${activityOptions.map(o => `<option value="${o.val}"${g.activityLevel===o.val?' selected':''}>${o.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="nut-tdee-display">
+        <div class="nut-tdee-val" id="tdeeDisplay">${tdee ? tdee.toLocaleString() + ' cal' : '—'}</div>
+        <div class="nut-tdee-label">Estimated daily burn (TDEE)</div>
+      </div>
+    </div>
+
+    <div class="nut-goals-section">
+      <div class="nut-goals-section-title">Goal</div>
+      <div class="nut-goal-type-row">
+        ${['lose','maintain','gain'].map(t => `
+          <button class="nut-goal-type-btn${goalType===t?' active':''}" onclick="setGoalType('${t}')">
+            ${t==='lose'?'Lose Weight':t==='maintain'?'Maintain':'Gain Weight'}
+          </button>`).join('')}
+      </div>
+      <div id="goalRateSection" class="${goalType==='maintain'?'hidden':''}">
+        <div class="form-group">
+          <label class="form-label">Rate</label>
+          <select class="form-select" id="goalRate" onchange="onGoalInput()">
+            ${[0.5,1,1.5,2].map(r=>`<option value="${r}"${(g.goalRate||1)==r?' selected':''}>${r} lb/week</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="nut-rec-calories">
+        <div>
+          <div class="nut-rec-cals-label">Recommended daily calories</div>
+          <div class="nut-rec-cals-val" id="recCalsDisplay">${recCals ? recCals.toLocaleString() + ' cal' : '—'}</div>
+        </div>
+      </div>
+      <div class="nut-override-row">
+        <div class="nut-override-label">Set custom calorie target</div>
+        <button class="nut-toggle-switch${useCustom?' on':''}" id="customCalToggle" onclick="toggleCustomCal()">
+          <div class="nut-toggle-knob"></div>
+        </button>
+      </div>
+      <div id="customCalSection" class="${useCustom?'':'hidden'}" style="margin-top:10px">
+        <div class="form-group">
+          <label class="form-label">Custom Daily Calories</label>
+          <input class="form-input" id="customCalInput" type="number" min="500" max="10000" value="${g.customCalories||calTarget}" oninput="onGoalInput()">
+        </div>
+      </div>
+      ${projDate ? `<div class="nut-proj-date">Projected goal date: ${projDate}</div>` : ''}
+    </div>
+
+    <div class="nut-goals-section">
+      <div class="nut-goals-section-title">Macro Targets</div>
+      <div class="nut-macro-presets">
+        <button class="nut-preset-btn" onclick="applyMacroPreset('balanced')">Balanced (30/40/30)</button>
+        <button class="nut-preset-btn" onclick="applyMacroPreset('highprotein')">High Protein (40/30/30)</button>
+        <button class="nut-preset-btn" onclick="applyMacroPreset('lowcarb')">Low Carb (30/20/50)</button>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Protein (g)</label>
+          <input class="form-input" id="goalProtein" type="number" min="0" value="${g.protein||''}" placeholder="0" oninput="onGoalInput()">
+          <div class="nut-macro-helper" id="protHelper"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Carbs (g)</label>
+          <input class="form-input" id="goalCarbs" type="number" min="0" value="${g.carbs||''}" placeholder="0" oninput="onGoalInput()">
+          <div class="nut-macro-helper" id="carbHelper"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fat (g)</label>
+          <input class="form-input" id="goalFat" type="number" min="0" value="${g.fat||''}" placeholder="0" oninput="onGoalInput()">
+          <div class="nut-macro-helper" id="fatHelper"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nut-goals-section">
+      <div class="nut-goals-section-title">Goal Weight</div>
+      <div class="form-group">
+        <label class="form-label">Target Weight (${isMetric?'kg':'lbs'})</label>
+        <input class="form-input" id="goalTargetWeight" type="number" min="50" max="600" step="0.1"
+          value="${g.targetWeight||''}" placeholder="${isMetric?'kg':'lbs'}" oninput="onGoalInput()">
+      </div>
+      <div id="projDateFromWeight" class="nut-proj-date"></div>
+    </div>
+  `;
+  updateMacroHelpers();
+}
+
+function onGoalInput() {
+  const g = buildGoalsFromForm();
+  saveNutritionGoals(g);
+  const tdee = calcTDEE(g);
+  const recCals = calcRecommendedCals(g, tdee);
+  const tdeeEl = document.getElementById('tdeeDisplay');
+  const recEl  = document.getElementById('recCalsDisplay');
+  if (tdeeEl) tdeeEl.textContent = tdee ? tdee.toLocaleString() + ' cal' : '—';
+  if (recEl)  recEl.textContent  = recCals ? recCals.toLocaleString() + ' cal' : '—';
+  updateMacroHelpers();
+}
+
+function buildGoalsFromForm() {
+  const units = getNutritionUnits();
+  const isMetric = units === 'metric';
+  const g = Object.assign({}, DB_CACHE.nutrition_goals);
+  g.age            = parseInt(document.getElementById('goalAge')?.value) || 0;
+  g.activityLevel  = document.getElementById('goalActivity')?.value || 'sedentary';
+  g.goalType       = DB_CACHE.nutrition_goals?.goalType || 'maintain';
+  g.goalRate       = parseFloat(document.getElementById('goalRate')?.value) || 1;
+  g.useCustom      = !!document.getElementById('customCalSection')?.classList.contains('hidden') === false;
+  g.customCalories = parseInt(document.getElementById('customCalInput')?.value) || 0;
+  g.protein        = parseInt(document.getElementById('goalProtein')?.value) || 0;
+  g.carbs          = parseInt(document.getElementById('goalCarbs')?.value) || 0;
+  g.fat            = parseInt(document.getElementById('goalFat')?.value) || 0;
+  g.targetWeight   = parseFloat(document.getElementById('goalTargetWeight')?.value) || 0;
+  if (isMetric) {
+    g.height   = parseInt(document.getElementById('goalHeightCm')?.value) || 0;
+    g.heightIn = 0;
+    g.weight   = parseFloat(document.getElementById('goalWeight')?.value) || 0;
+  } else {
+    g.height   = parseInt(document.getElementById('goalHeightFt')?.value) || 0;
+    g.heightIn = parseInt(document.getElementById('goalHeightIn')?.value) || 0;
+    g.weight   = parseFloat(document.getElementById('goalWeight')?.value) || 0;
+  }
+  // Compute calorie target
+  const tdee = calcTDEE(g);
+  const rec  = calcRecommendedCals(g, tdee);
+  g.calories = g.useCustom ? (g.customCalories || rec || 2000) : (rec || g.calories || 2000);
+  return g;
+}
+
+function setGoalType(type) {
+  if (!DB_CACHE.nutrition_goals) DB_CACHE.nutrition_goals = {};
+  DB_CACHE.nutrition_goals.goalType = type;
+  document.querySelectorAll('.nut-goal-type-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', ['lose','maintain','gain'][i] === type);
+  });
+  document.getElementById('goalRateSection')?.classList.toggle('hidden', type === 'maintain');
+  onGoalInput();
+}
+
+function toggleCustomCal() {
+  const toggle = document.getElementById('customCalToggle');
+  const section = document.getElementById('customCalSection');
+  if (!toggle || !section) return;
+  const nowOn = toggle.classList.toggle('on');
+  section.classList.toggle('hidden', !nowOn);
+  if (!DB_CACHE.nutrition_goals) DB_CACHE.nutrition_goals = {};
+  DB_CACHE.nutrition_goals.useCustom = nowOn;
+  onGoalInput();
+}
+
+function applyMacroPreset(preset) {
+  const g = DB_CACHE.nutrition_goals || {};
+  const calTarget = g.calories || 2000;
+  const presets = { balanced:[0.30,0.40,0.30], highprotein:[0.40,0.30,0.30], lowcarb:[0.30,0.20,0.50] };
+  const [pPct, cPct, fPct] = presets[preset] || presets.balanced;
+  const protein = Math.round(calTarget * pPct / 4);
+  const carbs   = Math.round(calTarget * cPct / 4);
+  const fat     = Math.round(calTarget * fPct / 9);
+  const pEl = document.getElementById('goalProtein');
+  const cEl = document.getElementById('goalCarbs');
+  const fEl = document.getElementById('goalFat');
+  if (pEl) pEl.value = protein;
+  if (cEl) cEl.value = carbs;
+  if (fEl) fEl.value = fat;
+  onGoalInput();
+}
+
+function updateMacroHelpers() {
+  const g = DB_CACHE.nutrition_goals || {};
+  const calTarget = g.calories || 2000;
+  const helpers = [
+    { id:'protHelper', grams: g.protein, cal: 4 },
+    { id:'carbHelper', grams: g.carbs,   cal: 4 },
+    { id:'fatHelper',  grams: g.fat,     cal: 9 },
+  ];
+  helpers.forEach(h => {
+    const el = document.getElementById(h.id);
+    if (el && h.grams && calTarget) {
+      const pct = Math.round(h.grams * h.cal / calTarget * 100);
+      el.textContent = `${pct}% of calories`;
+    } else if (el) el.textContent = '';
+  });
+}
+
+function calcTDEE(g) {
+  if (!g || !g.age || !g.weight) return 0;
+  const units = getNutritionUnits();
+  const isMetric = units === 'metric';
+  let weightKg, heightCm;
+  if (isMetric) {
+    weightKg = g.weight;
+    heightCm = g.height || 0;
+  } else {
+    weightKg = (g.weight || 0) * 0.453592;
+    const totalIn = (g.height || 0) * 12 + (g.heightIn || 0);
+    heightCm = totalIn * 2.54;
+  }
+  if (!weightKg || !heightCm || !g.age) return 0;
+  // Mifflin-St Jeor (gender-neutral average)
+  const bmrM = 10 * weightKg + 6.25 * heightCm - 5 * g.age + 5;
+  const bmrF = 10 * weightKg + 6.25 * heightCm - 5 * g.age - 161;
+  const bmr = (bmrM + bmrF) / 2;
+  const multipliers = { sedentary:1.2, light:1.375, moderate:1.55, active:1.725, extra:1.9 };
+  const mult = multipliers[g.activityLevel || 'sedentary'] || 1.2;
+  return Math.round(bmr * mult);
+}
+
+function calcRecommendedCals(g, tdee) {
+  if (!tdee) return 0;
+  const goalType = g.goalType || 'maintain';
+  if (goalType === 'maintain') return tdee;
+  const rate = parseFloat(g.goalRate) || 1;
+  const delta = Math.round(rate * 500);
+  return goalType === 'lose' ? tdee - delta : tdee + delta;
+}
+
+function calcProjectedDate(g, tdee) {
+  if (!g.targetWeight || !g.weight || !tdee) return null;
+  const units = getNutritionUnits();
+  const isMetric = units === 'metric';
+  const currentLbs = isMetric ? g.weight * 2.20462 : g.weight;
+  const targetLbs  = isMetric ? g.targetWeight * 2.20462 : g.targetWeight;
+  const diffLbs    = Math.abs(currentLbs - targetLbs);
+  if (diffLbs < 0.1) return 'Already at goal!';
+  const recCals = calcRecommendedCals(g, tdee);
+  const dailyDelta = Math.abs(tdee - recCals);
+  if (!dailyDelta) return null;
+  const daysNeeded = Math.round((diffLbs * 3500) / dailyDelta);
+  const projDt = new Date();
+  projDt.setDate(projDt.getDate() + daysNeeded);
+  return projDt.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+}
+
+// ─── WEIGHT VIEW ──────────────────────────────────────────────────
+
+function renderNutritionWeight() {
+  const el = document.getElementById('nutrition-weight-view');
+  if (!el) return;
+  const units = getNutritionUnits();
+  const unitLabel = units === 'metric' ? 'kg' : 'lbs';
+  const g = DB_CACHE.nutrition_goals || {};
+  const sortedLog = DB_CACHE.weight_log.slice().sort((a,b) => a.date < b.date ? -1 : 1);
+  const lastEntry = sortedLog[sortedLog.length - 1];
+  const firstEntry = sortedLog[0];
+  const chartHtml = buildWeightChart(sortedLog, g.targetWeight, unitLabel);
+  const statsHtml = buildWeightStats(sortedLog, unitLabel);
+
+  el.innerHTML = `
+    <div class="weight-log-card">
+      <div class="weight-log-card-title">Log Today's Weight</div>
+      <div class="weight-quick-row">
+        <input class="form-input" id="weightQuickInput" type="number" min="0" step="0.1"
+          placeholder="0.0 ${unitLabel}" style="flex:1">
+        <button class="nut-submit-btn" onclick="quickLogWeight()">Log</button>
+      </div>
+      ${lastEntry ? `<div class="weight-last-logged">Last: ${lastEntry.weight} ${unitLabel} on ${new Date(lastEntry.date + 'T00:00:00').toLocaleDateString('en-US', {month:'short',day:'numeric'})}</div>` : ''}
+    </div>
+    ${chartHtml}
+    ${statsHtml}
+    <div class="weight-log-card" style="margin-top:4px">
+      <div class="weight-log-card-title" style="margin-bottom:10px">History</div>
+      <div class="weight-entries-list">
+        ${sortedLog.slice().reverse().map(e => `
+          <div class="weight-entry-row" onclick="openWeightEditModal('${e.id}')">
+            <div>
+              <div class="weight-entry-val">${e.weight} ${unitLabel}</div>
+              <div class="weight-entry-date">${new Date(e.date + 'T00:00:00').toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric'})}</div>
+              ${e.note ? `<div class="weight-entry-note">${escHtml(e.note)}</div>` : ''}
+            </div>
+            <span style="color:var(--muted);font-size:12px">✏️</span>
+          </div>`).join('') || '<div style="text-align:center;padding:20px;color:var(--muted);font-size:14px">No weight entries yet</div>'}
+      </div>
+    </div>
+  `;
+}
+
+function buildWeightStats(sortedLog, unitLabel) {
+  if (sortedLog.length < 2) return '';
+  const first = sortedLog[0];
+  const last  = sortedLog[sortedLog.length - 1];
+  const change = (last.weight - first.weight).toFixed(1);
+  const changeSign = change >= 0 ? '+' : '';
+
+  // Weekly average change
+  let weeklyAvg = null;
+  if (sortedLog.length >= 2) {
+    const firstDate = new Date(first.date + 'T00:00:00');
+    const lastDate  = new Date(last.date + 'T00:00:00');
+    const weeks = (lastDate - firstDate) / (7 * 24 * 3600 * 1000);
+    if (weeks > 0) weeklyAvg = ((last.weight - first.weight) / weeks).toFixed(1);
+  }
+
+  return `<div class="weight-stats-grid">
+    <div class="weight-stat-card">
+      <div class="weight-stat-val">${first.weight} ${unitLabel}</div>
+      <div class="weight-stat-label">Starting weight</div>
+    </div>
+    <div class="weight-stat-card">
+      <div class="weight-stat-val">${last.weight} ${unitLabel}</div>
+      <div class="weight-stat-label">Current weight</div>
+    </div>
+    <div class="weight-stat-card">
+      <div class="weight-stat-val" style="color:${change>0?'var(--red2)':change<0?'var(--green2)':'var(--text)'}">${changeSign}${change} ${unitLabel}</div>
+      <div class="weight-stat-label">Total change</div>
+    </div>
+    ${weeklyAvg !== null ? `<div class="weight-stat-card">
+      <div class="weight-stat-val">${weeklyAvg >= 0 ? '+' : ''}${weeklyAvg} ${unitLabel}</div>
+      <div class="weight-stat-label">Avg / week</div>
+    </div>` : ''}
+  </div>`;
+}
+
+function buildWeightChart(sortedLog, goalWeight, unitLabel) {
+  if (sortedLog.length === 0) {
+    return `<div class="weight-chart-wrap"><div class="weight-chart-empty">Log your first weight entry to see your progress chart.</div></div>`;
+  }
+  const W = 360, H = 160;
+  const PAD = { top:16, right:16, bottom:30, left:44 };
+  const plotW = W - PAD.left - PAD.right;
+  const plotH = H - PAD.top  - PAD.bottom;
+
+  const weights = sortedLog.map(e => e.weight);
+  const allW    = goalWeight ? [...weights, goalWeight] : weights;
+  let minW = Math.min(...allW), maxW = Math.max(...allW);
+  if (minW === maxW) { minW -= 5; maxW += 5; }
+  const wRange = maxW - minW || 1;
+
+  const dates = sortedLog.map(e => new Date(e.date + 'T00:00:00').getTime());
+  const minD = dates[0], maxD = dates[dates.length - 1];
+  const dRange = (maxD - minD) || 1;
+
+  const toX = t  => PAD.left + (t  - minD) / dRange * plotW;
+  const toY = w  => PAD.top  + (1 - (w - minW) / wRange) * plotH;
+
+  const points = sortedLog.map((e, i) => ({
+    x: toX(dates[i]),
+    y: toY(e.weight),
+    entry: e,
+  }));
+
+  // Smooth polyline using cubic bezier (catmull-rom approximation)
+  let pathD = '';
+  if (points.length === 1) {
+    pathD = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+  } else {
+    pathD = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+    for (let i = 1; i < points.length; i++) {
+      const p0 = points[i-1], p1 = points[i];
+      const cpx = (p0.x + p1.x) / 2;
+      pathD += ` C ${cpx.toFixed(1)},${p0.y.toFixed(1)} ${cpx.toFixed(1)},${p1.y.toFixed(1)} ${p1.x.toFixed(1)},${p1.y.toFixed(1)}`;
+    }
+  }
+
+  // Y-axis labels
+  const yTicks = 4;
+  let yAxisHtml = '';
+  for (let i = 0; i <= yTicks; i++) {
+    const w = minW + (wRange * i / yTicks);
+    const y = toY(w);
+    yAxisHtml += `<text x="${PAD.left - 6}" y="${y.toFixed(1)}" text-anchor="end" font-size="10" fill="#7a6e5e" dominant-baseline="middle">${w.toFixed(0)}</text>`;
+  }
+
+  // X-axis labels (show first, last, optionally middle)
+  let xAxisHtml = '';
+  const showIdxs = new Set([0, points.length - 1]);
+  if (points.length > 2) showIdxs.add(Math.floor(points.length / 2));
+  showIdxs.forEach(idx => {
+    const p = points[idx];
+    const dateStr = sortedLog[idx].date;
+    const label = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric'});
+    xAxisHtml += `<text x="${p.x.toFixed(1)}" y="${(H - PAD.bottom + 14).toFixed(1)}" text-anchor="middle" font-size="10" fill="#7a6e5e">${escHtml(label)}</text>`;
+  });
+
+  // Goal line
+  let goalLineHtml = '';
+  if (goalWeight && goalWeight >= minW && goalWeight <= maxW) {
+    const gy = toY(goalWeight);
+    goalLineHtml = `
+      <line x1="${PAD.left}" y1="${gy.toFixed(1)}" x2="${(W - PAD.right).toFixed(1)}" y2="${gy.toFixed(1)}"
+        stroke="var(--green2)" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.7"/>
+      <text x="${(W - PAD.right + 2).toFixed(1)}" y="${gy.toFixed(1)}" font-size="9" fill="var(--green2)" dominant-baseline="middle">Goal</text>`;
+  }
+
+  const dotsHtml = points.map((p, i) =>
+    `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="var(--gold)" stroke="var(--bg)" stroke-width="2"
+      style="cursor:pointer" onclick="openWeightEditModal('${sortedLog[i].id}')" />`
+  ).join('');
+
+  return `<div class="weight-chart-wrap">
+    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+      ${yAxisHtml}
+      ${xAxisHtml}
+      ${goalLineHtml}
+      <path d="${pathD}" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      ${dotsHtml}
+    </svg>
+  </div>`;
+}
+
+function quickLogWeight() {
+  const val = parseFloat(document.getElementById('weightQuickInput')?.value);
+  if (!val || val <= 0) { showToast('Enter a valid weight.'); return; }
+  const units = getNutritionUnits();
+  const today = new Date().toISOString().slice(0, 10);
+  addWeightEntry({ id: 'wt-' + Date.now(), date: today, weight: val, unit: units === 'metric' ? 'kg' : 'lbs', note: '' });
+  renderNutritionWeight();
+  showToast('Weight logged.');
+}
+
+// ─── WEIGHT EDIT MODAL ────────────────────────────────────────────
+
+function openWeightEditModal(id) {
+  const entry = DB_CACHE.weight_log.find(e => e.id === id);
+  const isNew = !entry;
+  document.getElementById('weightEditId').value = id || '';
+  document.getElementById('weightModalTitle').textContent = isNew ? 'Log Weight' : 'Edit Weight';
+  document.getElementById('weightInput').value = entry ? entry.weight : '';
+  document.getElementById('weightDate').value = entry ? entry.date : new Date().toISOString().slice(0, 10);
+  document.getElementById('weightNote').value = entry ? (entry.note || '') : '';
+  const delBtn = document.getElementById('weightDeleteBtn');
+  if (delBtn) delBtn.style.display = isNew ? 'none' : '';
+  const units = getNutritionUnits();
+  document.getElementById('weightInputLabel').textContent = `Weight (${units === 'metric' ? 'kg' : 'lbs'})`;
+  document.getElementById('weightLogModal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeWeightLogModal() {
+  document.getElementById('weightLogModal')?.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function saveWeightEntry() {
+  const id = document.getElementById('weightEditId').value;
+  const val = parseFloat(document.getElementById('weightInput').value);
+  const date = document.getElementById('weightDate').value;
+  const note = document.getElementById('weightNote').value.trim();
+  if (!val || val <= 0) { showToast('Enter a valid weight.'); return; }
+  if (!date) { showToast('Select a date.'); return; }
+  const units = getNutritionUnits();
+  const unitLabel = units === 'metric' ? 'kg' : 'lbs';
+  if (id && DB_CACHE.weight_log.find(e => e.id === id)) {
+    updateWeightEntry(id, { weight: val, date, note, unit: unitLabel });
+  } else {
+    addWeightEntry({ id: 'wt-' + Date.now(), date, weight: val, unit: unitLabel, note });
+  }
+  closeWeightLogModal();
+  renderNutritionWeight();
+  showToast('Weight saved.');
+}
+
+function deleteWeightEntryFromModal() {
+  const id = document.getElementById('weightEditId').value;
+  if (!id) return;
+  if (!confirm('Delete this weight entry?')) return;
+  deleteWeightEntry(id);
+  closeWeightLogModal();
+  renderNutritionWeight();
+  showToast('Entry deleted.');
+}
+
 // ─── STEP TIMERS ────────────────────────────────────────────────────────────
 
 // In-memory timer state — survives re-renders, keyed by "recipeId:stepIndex"
@@ -4370,9 +5752,14 @@ function openSettings() {
   renderPreferences();
   renderDingSettings();
   renderSettingsCategories();
-  // Populate API key field
   const keyInp = document.getElementById('anthropicKeyInput');
   if (keyInp) keyInp.value = (DB_CACHE.preferences && DB_CACHE.preferences.anthropicApiKey) || '';
+  const usdaInp = document.getElementById('usdaKeyInput');
+  const DEFAULT_USDA_KEY = 'WyBuGD50OGJsJQfNW6Gh2E2YEbkzKN0lfnfVdoKj';
+  if (usdaInp) usdaInp.value = (DB_CACHE.preferences && DB_CACHE.preferences.usdaApiKey) || DEFAULT_USDA_KEY;
+  const units = (DB_CACHE.preferences && DB_CACHE.preferences.nutritionUnits) || 'imperial';
+  document.getElementById('nutUnitImperial')?.classList.toggle('active', units === 'imperial');
+  document.getElementById('nutUnitMetric')?.classList.toggle('active', units === 'metric');
 }
 
 function closeSettings() {

@@ -29,6 +29,7 @@
 <div class="nav-tabs">
   <button class="nav-tab" id="nav-shop" onclick="switchMainTab('shop')">🛒 Shopping</button>
   <button class="nav-tab" id="nav-recipes" onclick="switchMainTab('recipes')">🍳 Recipes</button>
+  <button class="nav-tab" id="nav-nutrition" onclick="switchMainTab('nutrition')">📊 Nutrition</button>
 </div>
 
 <div id="view-recipes">
@@ -174,6 +175,235 @@
   </div>
   <button class="add-shop-fab hidden" id="addShopFab" onclick="toggleShopAdd()">+ Add Item</button>
 </div>
+<!-- ── NUTRITION VIEW ── -->
+<div id="view-nutrition" class="hidden">
+  <div class="nutrition-subnav" id="nutritionSubnav">
+    <button class="nutrition-subnav-btn active" id="nnToday" onclick="switchNutritionView('today')">Today</button>
+    <button class="nutrition-subnav-btn" id="nnHistory" onclick="switchNutritionView('history')">History</button>
+    <button class="nutrition-subnav-btn" id="nnGoals" onclick="switchNutritionView('goals')">Goals</button>
+    <button class="nutrition-subnav-btn" id="nnWeight" onclick="switchNutritionView('weight')">Weight</button>
+  </div>
+  <div id="nutrition-today-view" class="nutrition-view-panel"></div>
+  <div id="nutrition-history-view" class="nutrition-view-panel hidden"></div>
+  <div id="nutrition-goals-view" class="nutrition-view-panel hidden"></div>
+  <div id="nutrition-weight-view" class="nutrition-view-panel hidden"></div>
+  <button class="add-nutrition-fab hidden" id="addNutritionFab" onclick="openFoodSearchModal()">+ Log Food</button>
+</div>
+
+<!-- ── NUTRITION CONFIRM MODAL ── -->
+<div id="nutritionConfirmModal" class="modal-overlay hidden" onclick="if(event.target===this)closeNutritionConfirm()">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div class="modal-title">Confirm Food Log</div>
+      <button class="modal-close" onclick="closeNutritionConfirm()">✕</button>
+    </div>
+    <div class="modal-body" id="nutritionConfirmBody"></div>
+    <div class="modal-footer">
+      <button class="modal-cancel-btn" onclick="closeNutritionConfirm()">Cancel</button>
+      <button class="modal-save-btn" onclick="saveNutritionConfirmed()">Save All</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── NUTRITION ENTRY EDIT MODAL ── -->
+<div id="nutritionEntryEditModal" class="modal-overlay hidden" onclick="if(event.target===this)closeNutritionEntryEdit()">
+  <div class="modal-container" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">Edit Entry</div>
+      <button class="modal-close" onclick="closeNutritionEntryEdit()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="nutEditId">
+      <div class="form-group">
+        <label class="form-label">Food Name</label>
+        <input class="form-input" id="nutEditName" type="text" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Qty</label>
+          <input class="form-input" id="nutEditQty" type="number" min="0" step="0.1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unit</label>
+          <input class="form-input" id="nutEditUnit" type="text" autocomplete="off">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Calories</label>
+          <input class="form-input" id="nutEditCalories" type="number" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Meal</label>
+          <select class="form-select" id="nutEditMeal">
+            <option value="Breakfast">Breakfast</option>
+            <option value="Lunch">Lunch</option>
+            <option value="Dinner">Dinner</option>
+            <option value="Snack">Snack</option>
+            <option value="Drink">Drink</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Protein (g)</label>
+          <input class="form-input" id="nutEditProtein" type="number" min="0" step="0.1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Carbs (g)</label>
+          <input class="form-input" id="nutEditCarbs" type="number" min="0" step="0.1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fat (g)</label>
+          <input class="form-input" id="nutEditFat" type="number" min="0" step="0.1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Time</label>
+        <input class="form-input" id="nutEditTime" type="time">
+      </div>
+    </div>
+    <div class="modal-footer" style="gap:8px">
+      <button class="modal-cancel-btn" style="color:var(--red2);border-color:var(--red)" onclick="deleteNutritionEntryFromEdit()">Delete</button>
+      <button class="modal-cancel-btn" onclick="closeNutritionEntryEdit()">Cancel</button>
+      <button class="modal-save-btn" onclick="saveNutritionEntryEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── FOOD SEARCH / MANUAL LOG MODAL ── -->
+<div id="foodSearchModal" class="modal-overlay hidden" onclick="if(event.target===this)closeFoodSearchModal()">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div class="modal-title" id="foodSearchModalTitle">Log Food</div>
+      <button class="modal-close" onclick="closeFoodSearchModal()">✕</button>
+    </div>
+    <div class="modal-body" id="foodSearchBody">
+      <!-- Search tab -->
+      <div id="foodSearchTab">
+        <div class="form-group">
+          <label class="form-label">Search food database</label>
+          <div style="display:flex;gap:8px">
+            <input class="form-input" id="usdaSearchInput" type="text" placeholder="e.g. chicken breast, apple..." autocomplete="off"
+              onkeydown="if(event.key==='Enter')searchUSDA()">
+            <button class="modal-save-btn" style="flex:0 0 auto;padding:8px 14px" onclick="searchUSDA()">Search</button>
+          </div>
+        </div>
+        <div id="usdaResults" class="usda-results"></div>
+        <div id="usdaSelectedSection" class="hidden">
+          <div class="nut-divider"></div>
+          <div id="usdaSelectedName" class="nut-selected-food-name"></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Qty</label>
+              <input class="form-input" id="usdaQty" type="number" min="0.1" step="0.1" value="1" oninput="recalcUsdaCalories()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Unit</label>
+              <select class="form-select" id="usdaUnit" onchange="recalcUsdaCalories()">
+                <option value="100g">100g</option>
+              </select>
+            </div>
+          </div>
+          <div id="usdaCalcCalories" class="nut-calc-calories"></div>
+        </div>
+      </div>
+      <!-- Manual entry section -->
+      <div class="nut-divider" id="manualDivider"></div>
+      <button class="nut-manual-toggle" id="manualToggleBtn" onclick="toggleManualEntry()">✏️ Enter manually instead</button>
+      <div id="manualEntrySection" class="hidden">
+        <div class="form-group">
+          <label class="form-label">Food Name *</label>
+          <input class="form-input" id="manualName" type="text" placeholder="e.g. Protein shake" autocomplete="off">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Calories *</label>
+            <input class="form-input" id="manualCalories" type="number" min="0" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Qty</label>
+            <input class="form-input" id="manualQty" type="number" min="0.1" step="0.1" value="1">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Unit</label>
+            <input class="form-input" id="manualUnit" type="text" placeholder="serving" value="serving">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Protein (g)</label>
+            <input class="form-input" id="manualProtein" type="number" min="0" step="0.1" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Carbs (g)</label>
+            <input class="form-input" id="manualCarbs" type="number" min="0" step="0.1" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fat (g)</label>
+            <input class="form-input" id="manualFat" type="number" min="0" step="0.1" placeholder="0">
+          </div>
+        </div>
+      </div>
+      <!-- Common fields -->
+      <div id="foodLogCommonFields">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Meal</label>
+            <select class="form-select" id="foodLogMeal">
+              <option value="Breakfast">Breakfast</option>
+              <option value="Lunch">Lunch</option>
+              <option value="Dinner">Dinner</option>
+              <option value="Snack">Snack</option>
+              <option value="Drink">Drink</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Time</label>
+            <input class="form-input" id="foodLogTime" type="time">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-cancel-btn" onclick="closeFoodSearchModal()">Cancel</button>
+      <button class="modal-save-btn" id="foodLogSaveBtn" onclick="saveFoodLogEntry()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── WEIGHT LOG MODAL ── -->
+<div id="weightLogModal" class="modal-overlay hidden" onclick="if(event.target===this)closeWeightLogModal()">
+  <div class="modal-container" style="max-width:360px">
+    <div class="modal-header">
+      <div class="modal-title" id="weightModalTitle">Log Weight</div>
+      <button class="modal-close" onclick="closeWeightLogModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="weightEditId">
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label class="form-label" id="weightInputLabel">Weight (lbs)</label>
+          <input class="form-input" id="weightInput" type="number" min="0" step="0.1" placeholder="0.0">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Date</label>
+          <input class="form-input" id="weightDate" type="date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note (optional)</label>
+        <input class="form-input" id="weightNote" type="text" placeholder="e.g. Morning, before breakfast" autocomplete="off">
+      </div>
+    </div>
+    <div class="modal-footer" style="gap:8px">
+      <button class="modal-cancel-btn" id="weightDeleteBtn" style="color:var(--red2);border-color:var(--red);display:none" onclick="deleteWeightEntryFromModal()">Delete</button>
+      <button class="modal-cancel-btn" onclick="closeWeightLogModal()">Cancel</button>
+      <button class="modal-save-btn" onclick="saveWeightEntry()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── FILTER DROPDOWN ── -->
 <div id="filterDropdownOverlay" class="filter-dropdown-overlay hidden" onclick="closeFilterDropdown()">
   <div class="filter-dropdown-sheet" id="filterDropdownSheet" onclick="event.stopPropagation()">
@@ -441,6 +671,27 @@
         <div style="display:flex;gap:8px;width:100%;margin-top:4px">
           <input class="form-input" id="anthropicKeyInput" type="password" placeholder="sk-ant-…" autocomplete="off" style="flex:1;font-size:13px;padding:8px 10px">
           <button class="modal-save-btn" onclick="saveAnthropicApiKey()" style="flex:0 0 auto;padding:8px 14px;font-size:13px">Save</button>
+        </div>
+      </div>
+      <div class="settings-divider"></div>
+      <div class="settings-section-label">Nutrition</div>
+      <div class="settings-row-static">
+        <div class="settings-row-text">
+          <div class="settings-row-title">Units</div>
+        </div>
+        <div class="shop-view-toggle settings-pref-toggle" id="nutritionUnitsToggle">
+          <button class="shop-view-btn" id="nutUnitImperial" onclick="setNutritionUnits('imperial')">Imperial</button>
+          <button class="shop-view-btn" id="nutUnitMetric" onclick="setNutritionUnits('metric')">Metric</button>
+        </div>
+      </div>
+      <div class="settings-row-static" style="flex-direction:column;align-items:flex-start;gap:6px">
+        <div class="settings-row-text">
+          <div class="settings-row-title" style="font-size:13px">USDA Food Database API Key</div>
+          <div class="settings-row-sub">Used for food search in Nutrition. A default key is provided. Add your own at fdc.nal.usda.gov for higher limits.</div>
+        </div>
+        <div style="display:flex;gap:8px;width:100%;margin-top:4px">
+          <input class="form-input" id="usdaKeyInput" type="text" placeholder="DEMO_KEY or your key" autocomplete="off" style="flex:1;font-size:13px;padding:8px 10px">
+          <button class="modal-save-btn" onclick="saveUsdaApiKey()" style="flex:0 0 auto;padding:8px 14px;font-size:13px">Save</button>
         </div>
       </div>
       <div class="settings-divider"></div>
