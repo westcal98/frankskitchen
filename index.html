@@ -107,6 +107,7 @@
         <label class="form-label">Ingredients</label>
         <div id="rf-ingredients"></div>
         <button type="button" class="dyn-add-btn" onclick="addIngredientRow()">+ Add Ingredient</button>
+        <div class="form-helper-text">Name only — no instructions or alternatives.</div>
       </div>
       <div class="form-group">
         <label class="form-label">Steps</label>
@@ -474,6 +475,17 @@
   </div>
   <button class="install-banner-btn" id="installBannerBtn">Install</button>
   <button class="install-banner-dismiss" id="installBannerDismiss" aria-label="Dismiss">✕</button>
+</div>
+
+<!-- ── CATEGORY EMOJI PICKER ── -->
+<div id="catEmojiPickerOverlay" class="cat-emoji-overlay hidden" onclick="if(event.target===this)closeCatEmojiPicker()">
+  <div class="cat-emoji-sheet">
+    <div class="cat-emoji-sheet-header">
+      <span>Choose Emoji</span>
+      <button class="modal-close" onclick="closeCatEmojiPicker()">✕</button>
+    </div>
+    <div class="emoji-picker-grid"></div>
+  </div>
 </div>
 
 <script src="app.js"></script>

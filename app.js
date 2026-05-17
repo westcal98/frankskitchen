@@ -12,9 +12,9 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Soft chewy oatmeal cookies made from just banana, oats, and honey. No flour, no butter, no mixer. Healthy enough for breakfast.',
     ingredients: [
-      '1 cup old fashioned oats',
-      '1 ripe banana (mashed)',
-      '2 tbsp honey',
+      { name: 'Old fashioned oats', qty: 1, unit: 'cups' },
+      { name: 'Banana', qty: 1, unit: '' },
+      { name: 'Honey', qty: 2, unit: 'tbsp' },
     ],
     steps: [
       'Mash banana thoroughly in a bowl until no large chunks remain.',
@@ -37,13 +37,15 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Fluffy muffins in the air fryer using pancake mix as the base. Customize with whatever mix-ins you have on hand.',
     ingredients: [
-      '1 cup pancake mix',
-      '1 egg',
-      '1/2 cup milk or almond milk',
-      '2 tbsp canola oil',
-      '2 tbsp sugar',
-      '1/2 tsp vanilla extract',
-      '1/4 cup mix-ins (blueberries, chocolate chips, or cinnamon sugar)',
+      { name: 'Pancake mix', qty: 1, unit: 'cups' },
+      { name: 'Egg', qty: 1, unit: '' },
+      { name: 'Milk', qty: 0.5, unit: 'cups' },
+      { name: 'Canola oil', qty: 2, unit: 'tbsp' },
+      { name: 'Sugar', qty: 2, unit: 'tbsp' },
+      { name: 'Vanilla extract', qty: 0.5, unit: 'tsp' },
+      { name: 'Blueberries', qty: 0.25, unit: 'cups' },
+      { name: 'Chocolate chips', qty: 0.25, unit: 'cups' },
+      { name: 'Cinnamon sugar', qty: 0.25, unit: 'cups' },
     ],
     steps: [
       'Combine pancake mix, egg, milk, canola oil, sugar, and vanilla. Stir until just combined — lumps are fine.',
@@ -64,10 +66,11 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Frozen hash brown patties air fried until crispy on the outside and fluffy inside. Better than any diner version.',
     ingredients: [
-      '2 frozen hash brown patties',
-      'Canola oil spray',
-      'Salt & black pepper',
-      'Smoked paprika (optional)',
+      { name: 'Frozen hash brown patties', qty: 2, unit: '' },
+      { name: 'Canola oil spray', qty: null, unit: '' },
+      { name: 'Salt', qty: null, unit: '' },
+      { name: 'Black pepper', qty: null, unit: '' },
+      { name: 'Smoked paprika', qty: null, unit: '' },
     ],
     steps: [
       'Spray both sides of frozen hash brown patties lightly with oil.',
@@ -87,9 +90,8 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Frozen waffles and Pop-Tarts air fried for a crispier result than any toaster — evenly heated with no cold spots.',
     ingredients: [
-      '2 frozen waffles or 1-2 Pop-Tarts',
-      'Butter (optional for waffles)',
-      'Maple syrup or honey to serve',
+      { name: 'Frozen waffles', qty: 2, unit: '' },
+      { name: 'Butter', qty: null, unit: '' },
     ],
     steps: [
       'Place frozen waffles or Pop-Tarts flat in the air fryer basket.',
@@ -111,12 +113,12 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Sliced turkey with melted Gouda on bread, air fried until golden and melty. Better than a pan every time.',
     ingredients: [
-      '2 slices bread',
-      '4 slices turkey',
-      '2 slices Gouda cheese',
-      '1 tbsp mayo',
-      '1 tsp Dijon mustard',
-      'Canola oil spray',
+      { name: 'Bread', qty: 2, unit: 'slices' },
+      { name: 'Turkey', qty: 4, unit: 'slices' },
+      { name: 'Gouda cheese', qty: 2, unit: 'slices' },
+      { name: 'Mayo', qty: 1, unit: 'tbsp' },
+      { name: 'Dijon mustard', qty: 1, unit: 'tsp' },
+      { name: 'Canola oil spray', qty: null, unit: '' },
     ],
     steps: [
       'Spread mayo on one slice of bread and Dijon on the other.',
@@ -137,12 +139,13 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Quick tuna salad on saltine crackers. High protein, zero cooking required, ready in under 5 minutes.',
     ingredients: [
-      '1 can chunk light tuna (well drained)',
-      '2 tbsp mayo',
-      '1 tbsp sweet relish',
-      '1 tsp Dijon mustard',
-      'Salt & black pepper to taste',
-      'Saltine crackers to serve',
+      { name: 'Chunk light tuna', qty: 1, unit: 'cans' },
+      { name: 'Mayo', qty: 2, unit: 'tbsp' },
+      { name: 'Sweet relish', qty: 1, unit: 'tbsp' },
+      { name: 'Dijon mustard', qty: 1, unit: 'tsp' },
+      { name: 'Salt', qty: null, unit: '' },
+      { name: 'Black pepper', qty: null, unit: '' },
+      { name: 'Saltine crackers', qty: null, unit: '' },
     ],
     steps: [
       'Drain tuna thoroughly — squeeze out as much liquid as possible.',
@@ -162,13 +165,12 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Fajita chicken with Korean BBQ sauce and Monterey Jack in a flour tortilla, air fried until golden and crispy. The best quesadilla variant in the playbook.',
     ingredients: [
-      '2 flour tortillas',
-      '1 cup fajita chicken (heated)',
-      '3 tbsp Korean BBQ sauce',
-      '1/2 cup shredded Monterey Jack',
-      'Sliced jalapeños (optional)',
-      'Ranch or sour cream to serve',
-      'Canola oil spray',
+      { name: 'Flour tortillas', qty: 2, unit: '' },
+      { name: 'Fajita chicken', qty: 1, unit: 'cups' },
+      { name: 'Korean BBQ sauce', qty: 3, unit: 'tbsp' },
+      { name: 'Shredded Monterey Jack', qty: 0.5, unit: 'cups' },
+      { name: 'Sliced jalapeños', qty: null, unit: '' },
+      { name: 'Canola oil spray', qty: null, unit: '' },
     ],
     steps: [
       'Heat fajita chicken in microwave 60-90 seconds. Toss with Korean BBQ sauce.',
@@ -189,16 +191,16 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Top Ramen elevated into a real soup with canned chicken, baby carrots, and a flavor-boosted broth. Add a jammy egg for the full ramen shop experience.',
     ingredients: [
-      '2 Top Ramen bricks (any flavor)',
-      '1 seasoning packet (1 only — not both)',
-      '1 can chunk white chicken (drained)',
-      '6 baby carrots',
-      '3 cups water or chicken broth',
-      '1/2 tsp onion powder',
-      '1/4 tsp smoked paprika',
-      '1/4 tsp black pepper',
-      '1 tsp honey',
-      '2 eggs (optional — for jammy egg topping)',
+      { name: 'Top Ramen bricks', qty: 2, unit: '' },
+      { name: 'Ramen seasoning packet', qty: 1, unit: '' },
+      { name: 'Chunk white chicken', qty: 1, unit: 'cans' },
+      { name: 'Baby carrots', qty: 6, unit: '' },
+      { name: 'Water', qty: 3, unit: 'cups' },
+      { name: 'Onion powder', qty: 0.5, unit: 'tsp' },
+      { name: 'Smoked paprika', qty: 0.25, unit: 'tsp' },
+      { name: 'Black pepper', qty: 0.25, unit: 'tsp' },
+      { name: 'Honey', qty: 1, unit: 'tsp' },
+      { name: 'Eggs', qty: 2, unit: '' },
     ],
     steps: [
       'Pour water or broth into insert. Stir in 1 seasoning packet, onion powder, paprika, pepper, and honey.',
@@ -223,15 +225,15 @@ const RECIPES = [
     difficulty: 'Medium',
     description: 'Fall-off-bone tender chicken from the pressure cooker finished in the air fryer for impossibly crispy skin. The best chicken you can make with your current setup.',
     ingredients: [
-      '4 bone-in skin-on chicken thighs',
-      '1 tsp smoked paprika',
-      '1 tsp garlic powder',
-      '1/2 tsp onion powder',
-      '1/2 tsp seafood seasoning',
-      '3/4 tsp salt',
-      '1/4 tsp black pepper',
-      '1 cup water or chicken broth',
-      'Canola oil spray',
+      { name: 'Bone-in skin-on chicken thighs', qty: 4, unit: '' },
+      { name: 'Smoked paprika', qty: 1, unit: 'tsp' },
+      { name: 'Garlic powder', qty: 1, unit: 'tsp' },
+      { name: 'Onion powder', qty: 0.5, unit: 'tsp' },
+      { name: 'Seafood seasoning', qty: 0.5, unit: 'tsp' },
+      { name: 'Salt', qty: 0.75, unit: 'tsp' },
+      { name: 'Black pepper', qty: 0.25, unit: 'tsp' },
+      { name: 'Chicken broth', qty: 1, unit: 'cups' },
+      { name: 'Canola oil spray', qty: null, unit: '' },
     ],
     steps: [
       'Season thighs generously with all spices on both sides. Press seasoning in.',
@@ -255,21 +257,19 @@ const RECIPES = [
     difficulty: 'Medium',
     description: 'Crispy panko tilapia over Mexican corn rice with avocado, hot sauce, and sour cream. Restaurant quality from your kitchen.',
     ingredients: [
-      '2 fresh tilapia fillets',
-      '1/2 cup panko breadcrumbs',
-      '1 egg',
-      '3 tbsp milk or almond milk',
-      '1 tsp seafood seasoning',
-      '1/2 tsp garlic powder',
-      '1/2 tsp smoked paprika',
-      '1 cup jasmine rice (rinsed)',
-      '1 cup Rotel (undrained)',
-      '1/2 cup frozen corn',
-      '1/2 cup water or broth',
-      '1 avocado (sliced)',
-      'Hot sauce to serve',
-      'Sour cream to serve',
-      'Canola oil spray',
+      { name: 'Fresh tilapia fillets', qty: 2, unit: '' },
+      { name: 'Panko breadcrumbs', qty: 0.5, unit: 'cups' },
+      { name: 'Egg', qty: 1, unit: '' },
+      { name: 'Milk', qty: 3, unit: 'tbsp' },
+      { name: 'Seafood seasoning', qty: 1, unit: 'tsp' },
+      { name: 'Garlic powder', qty: 0.5, unit: 'tsp' },
+      { name: 'Smoked paprika', qty: 0.5, unit: 'tsp' },
+      { name: 'Jasmine rice', qty: 1, unit: 'cups' },
+      { name: 'Rotel', qty: 1, unit: 'cans' },
+      { name: 'Frozen corn', qty: 0.5, unit: 'cups' },
+      { name: 'Water', qty: 0.5, unit: 'cups' },
+      { name: 'Avocado', qty: 1, unit: '' },
+      { name: 'Canola oil spray', qty: null, unit: '' },
     ],
     steps: [
       'Start Mexican rice: add 1 tbsp oil to PC insert, Saute LOW. Toast rinsed rice 2-3 minutes stirring constantly until slightly golden. Cancel Saute.',
@@ -294,16 +294,15 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Fresh tilapia coated in seafood seasoned panko, air fried until golden and crispy. Serve with cocktail sauce, ranch, or hot sauce.',
     ingredients: [
-      '2 fresh tilapia fillets',
-      '3/4 cup panko breadcrumbs',
-      '1 egg',
-      '3 tbsp milk or almond milk',
-      '1 tsp seafood seasoning',
-      '1/2 tsp garlic powder',
-      '1/2 tsp smoked paprika',
-      '1/2 tsp salt',
-      'Canola oil spray',
-      'Cocktail sauce or ranch to serve',
+      { name: 'Fresh tilapia fillets', qty: 2, unit: '' },
+      { name: 'Panko breadcrumbs', qty: 0.75, unit: 'cups' },
+      { name: 'Egg', qty: 1, unit: '' },
+      { name: 'Milk', qty: 3, unit: 'tbsp' },
+      { name: 'Seafood seasoning', qty: 1, unit: 'tsp' },
+      { name: 'Garlic powder', qty: 0.5, unit: 'tsp' },
+      { name: 'Smoked paprika', qty: 0.5, unit: 'tsp' },
+      { name: 'Salt', qty: 0.5, unit: 'tsp' },
+      { name: 'Canola oil spray', qty: null, unit: '' },
     ],
     steps: [
       'Pat tilapia completely dry with paper towels. Season lightly with salt.',
@@ -326,23 +325,20 @@ const RECIPES = [
     difficulty: 'Medium',
     description: 'Seasoned ground beef crumbles with chili beans over Mexican corn rice, wrapped in a flour tortilla and crisped in the air fryer. A complete meal from scratch.',
     ingredients: [
-      '2 frozen burger patties (or ground beef)',
-      '1 can chili beans (drained)',
-      '1 cup jasmine rice (rinsed)',
-      '1 cup Rotel (undrained)',
-      '1/2 cup frozen corn',
-      '1/2 cup water or broth',
-      '3 large flour tortillas',
-      '1 tbsp taco seasoning',
-      '1/2 tsp cumin',
-      '1/2 tsp garlic powder (for beef)',
-      '1/2 tsp garlic powder (for rice)',
-      '1/2 tsp onion powder (for beef)',
-      '1/2 tsp onion powder (for rice)',
-      '3/4 tsp salt',
-      '1 cup shredded Monterey Jack',
-      '1 tbsp canola oil',
-      'Sour cream or ranch to serve',
+      { name: 'Frozen burger patties', qty: 2, unit: '' },
+      { name: 'Chili beans', qty: 1, unit: 'cans' },
+      { name: 'Jasmine rice', qty: 1, unit: 'cups' },
+      { name: 'Rotel', qty: 1, unit: 'cans' },
+      { name: 'Frozen corn', qty: 0.5, unit: 'cups' },
+      { name: 'Water', qty: 0.5, unit: 'cups' },
+      { name: 'Large flour tortillas', qty: 3, unit: '' },
+      { name: 'Taco seasoning', qty: 1, unit: 'tbsp' },
+      { name: 'Cumin', qty: 0.5, unit: 'tsp' },
+      { name: 'Garlic powder', qty: 1, unit: 'tsp' },
+      { name: 'Onion powder', qty: 1, unit: 'tsp' },
+      { name: 'Salt', qty: 0.75, unit: 'tsp' },
+      { name: 'Shredded Monterey Jack', qty: 1, unit: 'cups' },
+      { name: 'Canola oil', qty: 1, unit: 'tbsp' },
     ],
     steps: [
       'RICE: Add 1 tbsp oil to PC insert. Saute LOW. Toast rinsed rice 2-3 minutes stirring constantly until slightly golden. Cancel Saute.',
@@ -368,14 +364,14 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Jasmine rice cooked in a rich Korean BBQ and soy sauce broth with chicken. Deep, savory, and sweet — one of the most flavorful one-pot meals in the playbook.',
     ingredients: [
-      '1 cup jasmine rice (rinsed)',
-      '1 can chunk chicken (drained) or 2 bone-in thighs',
-      '1.25 cups chicken broth',
-      '3 tbsp Korean BBQ sauce',
-      '1 tbsp dark soy sauce',
-      '1/2 tsp garlic powder',
-      '1/2 tsp onion powder',
-      '1/4 tsp black pepper',
+      { name: 'Jasmine rice', qty: 1, unit: 'cups' },
+      { name: 'Chunk chicken', qty: 1, unit: 'cans' },
+      { name: 'Chicken broth', qty: 1.25, unit: 'cups' },
+      { name: 'Korean BBQ sauce', qty: 3, unit: 'tbsp' },
+      { name: 'Dark soy sauce', qty: 1, unit: 'tbsp' },
+      { name: 'Garlic powder', qty: 0.5, unit: 'tsp' },
+      { name: 'Onion powder', qty: 0.5, unit: 'tsp' },
+      { name: 'Black pepper', qty: 0.25, unit: 'tsp' },
     ],
     steps: [
       'Rinse jasmine rice until water runs clear. Add to PC insert.',
@@ -398,16 +394,15 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Rich soup with bone-in chicken thighs, carrots, diced tomatoes, and Italian seasoning. The bones create a deeply flavored natural broth. Serve with Texas garlic toast.',
     ingredients: [
-      '4 bone-in chicken thighs',
-      '3 cups chicken broth or water',
-      '1 can diced tomatoes (undrained)',
-      '1 cup baby carrots',
-      '1 tsp Italian seasoning',
-      '1 tsp garlic powder',
-      '1/2 tsp onion powder',
-      '3/4 tsp salt',
-      '1/4 tsp black pepper',
-      'Texas Garlic Toast to serve (air fry 3 min at 350°F)',
+      { name: 'Bone-in chicken thighs', qty: 4, unit: '' },
+      { name: 'Chicken broth', qty: 3, unit: 'cups' },
+      { name: 'Diced tomatoes', qty: 1, unit: 'cans' },
+      { name: 'Baby carrots', qty: 1, unit: 'cups' },
+      { name: 'Italian seasoning', qty: 1, unit: 'tsp' },
+      { name: 'Garlic powder', qty: 1, unit: 'tsp' },
+      { name: 'Onion powder', qty: 0.5, unit: 'tsp' },
+      { name: 'Salt', qty: 0.75, unit: 'tsp' },
+      { name: 'Black pepper', qty: 0.25, unit: 'tsp' },
     ],
     steps: [
       'Season chicken thighs generously with salt, pepper, and garlic powder on both sides.',
@@ -431,18 +426,17 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Spaghetti cooked right in the marinara sauce in one pot — no boiling, no draining. Sauce and pasta cook together into a thick, rich coating.',
     ingredients: [
-      '8 oz spaghetti (broken in half)',
-      '1.5 cups Prego marinara or Classico sauce',
-      '1.5 cups water or chicken broth',
-      '1 can chunk chicken (drained, optional)',
-      '1 tsp garlic powder',
-      '1/2 tsp onion powder',
-      '1/2 tsp Italian seasoning',
-      '1/2 tsp smoked paprika',
-      '3/4 tsp salt',
-      '1/4 tsp black pepper',
-      '1 tbsp canola oil',
-      'Grated Parmesan to serve',
+      { name: 'Spaghetti', qty: 8, unit: 'oz' },
+      { name: 'Marinara sauce', qty: 1.5, unit: 'cups' },
+      { name: 'Water', qty: 1.5, unit: 'cups' },
+      { name: 'Chunk chicken', qty: 1, unit: 'cans' },
+      { name: 'Garlic powder', qty: 1, unit: 'tsp' },
+      { name: 'Onion powder', qty: 0.5, unit: 'tsp' },
+      { name: 'Italian seasoning', qty: 0.5, unit: 'tsp' },
+      { name: 'Smoked paprika', qty: 0.5, unit: 'tsp' },
+      { name: 'Salt', qty: 0.75, unit: 'tsp' },
+      { name: 'Black pepper', qty: 0.25, unit: 'tsp' },
+      { name: 'Canola oil', qty: 1, unit: 'tbsp' },
     ],
     steps: [
       'Break spaghetti in half so it fits in the insert.',
@@ -468,16 +462,16 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Dried pinto beans cooked from scratch in the pressure cooker with smoked paprika, cumin, and garlic. No soaking required. Rich and creamy.',
     ingredients: [
-      '1 cup dried pinto beans (rinsed)',
-      '3 cups water',
-      '1 tsp garlic powder',
-      '1 tsp onion powder',
-      '1 tsp smoked paprika',
-      '1/2 tsp cumin',
-      '3/4 tsp salt',
-      '1/4 tsp black pepper',
-      '1 tbsp canola oil',
-      '1 tsp honey',
+      { name: 'Dried pinto beans', qty: 1, unit: 'cups' },
+      { name: 'Water', qty: 3, unit: 'cups' },
+      { name: 'Garlic powder', qty: 1, unit: 'tsp' },
+      { name: 'Onion powder', qty: 1, unit: 'tsp' },
+      { name: 'Smoked paprika', qty: 1, unit: 'tsp' },
+      { name: 'Cumin', qty: 0.5, unit: 'tsp' },
+      { name: 'Salt', qty: 0.75, unit: 'tsp' },
+      { name: 'Black pepper', qty: 0.25, unit: 'tsp' },
+      { name: 'Canola oil', qty: 1, unit: 'tbsp' },
+      { name: 'Honey', qty: 1, unit: 'tsp' },
     ],
     steps: [
       'Rinse dried pinto beans under cold water. No soaking required.',
@@ -501,9 +495,8 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Frozen buffalo wings air fried until crispy and caramelized. Better than most bar wings with zero prep required.',
     ingredients: [
-      'Frozen buffalo wings (as many as fit in single layer)',
-      'Canola oil spray',
-      'Ranch or blue cheese to serve',
+      { name: 'Frozen buffalo wings', qty: null, unit: '' },
+      { name: 'Canola oil spray', qty: null, unit: '' },
     ],
     steps: [
       'Place frozen wings in basket in a single layer. Do not overlap.',
@@ -525,17 +518,15 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Juicy air fryer burger topped with Maple & Curled Bacon baked beans spooned directly over the patty like a sloppy joe. A discovered classic.',
     ingredients: [
-      '2 frozen burger patties',
-      '1 can Maple & Curled Bacon baked beans',
-      '2 burger buns',
-      '2 slices Gouda or Monterey Jack',
-      '1/2 tsp smoked paprika',
-      '1/2 tsp garlic powder',
-      '1/2 tsp salt',
-      '1/4 tsp black pepper',
-      'Pinch of smoked paprika (for beans)',
-      'Pinch of black pepper (for beans)',
-      '1 tsp honey (optional for beans)',
+      { name: 'Frozen burger patties', qty: 2, unit: '' },
+      { name: 'Maple & Curled Bacon baked beans', qty: 1, unit: 'cans' },
+      { name: 'Burger buns', qty: 2, unit: '' },
+      { name: 'Gouda', qty: 2, unit: 'slices' },
+      { name: 'Smoked paprika', qty: 0.5, unit: 'tsp' },
+      { name: 'Garlic powder', qty: 0.5, unit: 'tsp' },
+      { name: 'Salt', qty: 0.5, unit: 'tsp' },
+      { name: 'Black pepper', qty: 0.25, unit: 'tsp' },
+      { name: 'Honey', qty: 1, unit: 'tsp' },
     ],
     steps: [
       'Season both sides of frozen patties with garlic powder, smoked paprika, salt, and black pepper. No thawing needed.',
@@ -559,12 +550,11 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Hot dog pieces dipped in pancake mix batter and air fried until golden and crispy. Fun, fast, and great with ketchup or mustard.',
     ingredients: [
-      '4 beef hot dogs',
-      '1 cup pancake mix',
-      '1 egg',
-      '1/2 cup milk or almond milk',
-      'Canola oil spray',
-      'Ketchup or mustard to serve',
+      { name: 'Beef hot dogs', qty: 4, unit: '' },
+      { name: 'Pancake mix', qty: 1, unit: 'cups' },
+      { name: 'Egg', qty: 1, unit: '' },
+      { name: 'Milk', qty: 0.5, unit: 'cups' },
+      { name: 'Canola oil spray', qty: null, unit: '' },
     ],
     steps: [
       'Cut hot dogs into 1-inch pieces. Pat dry with a paper towel — dry surface = batter sticks.',
@@ -586,9 +576,8 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Frozen El Monterey bean burritos air fried until the outside is golden and crispy. Far better than microwave — takes the same amount of time.',
     ingredients: [
-      '2 El Monterey frozen bean burritos',
-      'Canola oil spray',
-      'Sour cream, salsa, or hot sauce to serve',
+      { name: 'El Monterey frozen bean burritos', qty: 2, unit: '' },
+      { name: 'Canola oil spray', qty: null, unit: '' },
     ],
     steps: [
       'Place frozen burritos seam side down in air fryer basket.',
@@ -610,11 +599,9 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Fresh tilapia lightly seasoned with seafood seasoning and air fried until flaky and golden. Simple, healthy, and incredibly versatile — serve over Mexican rice or shred into corn tortilla tacos.',
     ingredients: [
-      '2 fresh tilapia fillets',
-      'Seafood seasoning (light dusting)',
-      'Canola or avocado oil (light brush or spray)',
-      'Salt to taste',
-      'Fresh lemon or lime to serve (optional but recommended)',
+      { name: 'Fresh tilapia fillets', qty: 2, unit: '' },
+      { name: 'Seafood seasoning', qty: null, unit: '' },
+      { name: 'Canola oil', qty: null, unit: '' },
     ],
     steps: [
       'Pat tilapia fillets completely dry with paper towels.',
@@ -639,17 +626,17 @@ const RECIPES = [
     difficulty: 'Easy',
     description: "Frank's dialed-in Mexican rice with tomato paste, Rotel, and corn. Toasted rice base for deep nutty flavor, rich red color. Tested and refined. Perfect as a side or burrito bowl base.",
     ingredients: [
-      '1 cup jasmine rice (rinsed until water runs clear)',
-      '1 can tomato paste (small 6 oz)',
-      '1 can mild Rotel (undrained)',
-      '1 can corn (drained)',
-      '1 tbsp canola oil',
-      '3/4 tsp salt',
-      '1 tsp garlic powder',
-      '1 tsp onion powder',
-      '1/2 tsp smoked paprika',
-      '1/4 tsp black pepper',
-      '1 cup water (enough to just cover rice)',
+      { name: 'Jasmine rice', qty: 1, unit: 'cups' },
+      { name: 'Tomato paste', qty: 1, unit: 'cans' },
+      { name: 'Rotel', qty: 1, unit: 'cans' },
+      { name: 'Canned corn', qty: 1, unit: 'cans' },
+      { name: 'Canola oil', qty: 1, unit: 'tbsp' },
+      { name: 'Salt', qty: 0.75, unit: 'tsp' },
+      { name: 'Garlic powder', qty: 1, unit: 'tsp' },
+      { name: 'Onion powder', qty: 1, unit: 'tsp' },
+      { name: 'Smoked paprika', qty: 0.5, unit: 'tsp' },
+      { name: 'Black pepper', qty: 0.25, unit: 'tsp' },
+      { name: 'Water', qty: 1, unit: 'cups' },
     ],
     steps: [
       'Rinse jasmine rice under cold water until water runs clear. Drain well.',
@@ -674,14 +661,14 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Sweet and savory Korean BBQ marinade for bone-in chicken thighs. Marinate overnight for best results. Honey in the marinade caramelizes beautifully — use lower temp to prevent burning.',
     ingredients: [
-      '4 bone-in skin-on chicken thighs',
-      '6 tbsp Korean BBQ sauce (doubled for 4 thighs)',
-      '2 tbsp dark soy sauce',
-      '2 tbsp honey',
-      '2 tsp garlic powder',
-      '2 tsp onion powder',
-      '1 tsp smoked paprika',
-      '1/2 tsp black pepper',
+      { name: 'Bone-in skin-on chicken thighs', qty: 4, unit: '' },
+      { name: 'Korean BBQ sauce', qty: 6, unit: 'tbsp' },
+      { name: 'Dark soy sauce', qty: 2, unit: 'tbsp' },
+      { name: 'Honey', qty: 2, unit: 'tbsp' },
+      { name: 'Garlic powder', qty: 2, unit: 'tsp' },
+      { name: 'Onion powder', qty: 2, unit: 'tsp' },
+      { name: 'Smoked paprika', qty: 1, unit: 'tsp' },
+      { name: 'Black pepper', qty: 0.5, unit: 'tsp' },
     ],
     steps: [
       'Mix all marinade ingredients together in a small bowl until combined.',
@@ -708,16 +695,16 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Bold smoky garlic marinade for bone-in chicken thighs. No honey so it handles higher heat better and produces a deep savory crust.',
     ingredients: [
-      '4 bone-in skin-on chicken thighs',
-      '4 tbsp canola oil',
-      '2 tbsp soy sauce',
-      '2 tsp garlic powder',
-      '2 tsp smoked paprika',
-      '2 tsp onion powder',
-      '1 tsp cumin',
-      '1 tsp salt',
-      '1/2 tsp black pepper',
-      '2 tsp honey',
+      { name: 'Bone-in skin-on chicken thighs', qty: 4, unit: '' },
+      { name: 'Canola oil', qty: 4, unit: 'tbsp' },
+      { name: 'Soy sauce', qty: 2, unit: 'tbsp' },
+      { name: 'Garlic powder', qty: 2, unit: 'tsp' },
+      { name: 'Smoked paprika', qty: 2, unit: 'tsp' },
+      { name: 'Onion powder', qty: 2, unit: 'tsp' },
+      { name: 'Cumin', qty: 1, unit: 'tsp' },
+      { name: 'Salt', qty: 1, unit: 'tsp' },
+      { name: 'Black pepper', qty: 0.5, unit: 'tsp' },
+      { name: 'Honey', qty: 2, unit: 'tsp' },
     ],
     steps: [
       'Mix all marinade ingredients together in a small bowl until combined.',
@@ -744,15 +731,15 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Classic honey garlic soy marinade — sweet, savory, and deeply flavored. A great substitute when Korean BBQ sauce is unavailable. Cook at lower temp due to honey content.',
     ingredients: [
-      '4 bone-in skin-on chicken thighs',
-      '2 tbsp honey',
-      '4 tbsp dark soy sauce',
-      '2 tbsp canola oil',
-      '2 tsp garlic powder',
-      '2 tsp onion powder',
-      '1 tsp smoked paprika',
-      '1/2 tsp black pepper',
-      'Pinch of salt',
+      { name: 'Bone-in skin-on chicken thighs', qty: 4, unit: '' },
+      { name: 'Honey', qty: 2, unit: 'tbsp' },
+      { name: 'Dark soy sauce', qty: 4, unit: 'tbsp' },
+      { name: 'Canola oil', qty: 2, unit: 'tbsp' },
+      { name: 'Garlic powder', qty: 2, unit: 'tsp' },
+      { name: 'Onion powder', qty: 2, unit: 'tsp' },
+      { name: 'Smoked paprika', qty: 1, unit: 'tsp' },
+      { name: 'Black pepper', qty: 0.5, unit: 'tsp' },
+      { name: 'Salt', qty: null, unit: 'pinch' },
     ],
     steps: [
       'Mix honey, dark soy sauce, canola oil, garlic powder, onion powder, smoked paprika, pepper, and salt together in a bowl.',
@@ -779,12 +766,12 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Rich double chocolate brownies made with mayo instead of oil — crispy edges, crunchy bottom, and a fudgy chewy center. Tested and dialed in for your exact setup.',
     ingredients: [
-      '1 box Double Chocolate Brownie Mix',
-      '1/2 cup mayo',
-      '1 egg',
-      '1/4 cup water',
-      'Canola oil spray',
-      'Parchment paper (to line steamer basket)',
+      { name: 'Double Chocolate Brownie Mix', qty: 1, unit: '' },
+      { name: 'Mayo', qty: 0.5, unit: 'cups' },
+      { name: 'Egg', qty: 1, unit: '' },
+      { name: 'Water', qty: 0.25, unit: 'cups' },
+      { name: 'Canola oil spray', qty: null, unit: '' },
+      { name: 'Parchment paper', qty: null, unit: '' },
     ],
     steps: [
       'Line PC steamer basket with parchment paper, pressing into sides. Spray generously with oil.',
@@ -810,16 +797,16 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Chewy peanut butter oatmeal cookies with chocolate chips — refined ratios for better sweetness and binding. No flour needed. Tested and revised.',
     ingredients: [
-      '3/4 cup peanut butter',
-      '1/2 cup old fashioned oats',
-      '1/2 cup chocolate chips',
-      '4 tbsp butter (melted)',
-      '1 egg',
-      '3 tbsp milk or almond milk',
-      '1/2 cup brown sugar',
-      '1 tbsp honey or maple syrup (key binder — do not skip)',
-      '1/2 tsp cinnamon',
-      '1/4 tsp salt',
+      { name: 'Peanut butter', qty: 0.75, unit: 'cups' },
+      { name: 'Old fashioned oats', qty: 0.5, unit: 'cups' },
+      { name: 'Chocolate chips', qty: 0.5, unit: 'cups' },
+      { name: 'Butter', qty: 4, unit: 'tbsp' },
+      { name: 'Egg', qty: 1, unit: '' },
+      { name: 'Milk', qty: 3, unit: 'tbsp' },
+      { name: 'Brown sugar', qty: 0.5, unit: 'cups' },
+      { name: 'Honey', qty: 1, unit: 'tbsp' },
+      { name: 'Cinnamon', qty: 0.5, unit: 'tsp' },
+      { name: 'Salt', qty: 0.25, unit: 'tsp' },
     ],
     steps: [
       'In a bowl combine peanut butter, melted butter, egg, milk, and honey or maple syrup. Stir until smooth.',
@@ -844,10 +831,10 @@ const RECIPES = [
     difficulty: 'Easy',
     description: '5% fat honey Greek yogurt layered with fresh raspberries and crushed cinnamon graham crackers. A genuinely satisfying high-protein dessert with zero cooking.',
     ingredients: [
-      '1 cup 5% honey Greek yogurt',
-      '1/2 cup fresh raspberries',
-      '3 cinnamon graham crackers (crushed)',
-      'Extra honey to drizzle (optional)',
+      { name: '5% Honey Greek yogurt', qty: 1, unit: 'cups' },
+      { name: 'Fresh raspberries', qty: 0.5, unit: 'cups' },
+      { name: 'Cinnamon graham crackers', qty: 3, unit: '' },
+      { name: 'Honey', qty: null, unit: '' },
     ],
     steps: [
       'Crush 3 cinnamon graham crackers into rough crumbles in your hand.',
@@ -869,15 +856,13 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Light air fryer donuts made from pancake mix, finished with a simple powdered sugar glaze. No deep fryer, no yeast, no waiting.',
     ingredients: [
-      '1 cup pancake mix',
-      '1 egg',
-      '1/3 cup milk or almond milk',
-      '2 tbsp sugar',
-      '1/2 tsp vanilla extract',
-      'Canola oil spray',
-      '1/2 cup powdered sugar (for glaze)',
-      '1 tbsp milk (for glaze)',
-      '1/4 tsp vanilla extract (for glaze)',
+      { name: 'Pancake mix', qty: 1, unit: 'cups' },
+      { name: 'Egg', qty: 1, unit: '' },
+      { name: 'Milk', qty: 0.33, unit: 'cups' },
+      { name: 'Sugar', qty: 2, unit: 'tbsp' },
+      { name: 'Vanilla extract', qty: 0.5, unit: 'tsp' },
+      { name: 'Canola oil spray', qty: null, unit: '' },
+      { name: 'Powdered sugar', qty: 0.5, unit: 'cups' },
     ],
     steps: [
       'Mix pancake mix, egg, milk, sugar, and vanilla until just combined. Batter should be thick.',
@@ -899,15 +884,14 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Warm gooey cinnamon roll bites made from pancake mix dough with a cinnamon brown sugar filling and vanilla glaze. No yeast, no waiting.',
     ingredients: [
-      '1 cup pancake mix',
-      '1/4 cup milk or almond milk',
-      '2 tbsp butter (melted)',
-      '1 1/2 tsp cinnamon',
-      '3 tbsp brown sugar',
-      '1/2 cup powdered sugar (glaze)',
-      '1 tbsp milk (glaze)',
-      '1/4 tsp vanilla extract (glaze)',
-      'Canola oil spray',
+      { name: 'Pancake mix', qty: 1, unit: 'cups' },
+      { name: 'Milk', qty: 0.25, unit: 'cups' },
+      { name: 'Butter', qty: 2, unit: 'tbsp' },
+      { name: 'Cinnamon', qty: 1.5, unit: 'tsp' },
+      { name: 'Brown sugar', qty: 3, unit: 'tbsp' },
+      { name: 'Powdered sugar', qty: 0.5, unit: 'cups' },
+      { name: 'Vanilla extract', qty: 0.25, unit: 'tsp' },
+      { name: 'Canola oil spray', qty: null, unit: '' },
     ],
     steps: [
       'Mix pancake mix and milk until a soft dough forms. It will be sticky — that is normal. Refrigerate 10 minutes to make easier to handle.',
@@ -930,13 +914,13 @@ const RECIPES = [
     difficulty: 'Easy',
     description: 'Crispy little funnel cake bites in the air fryer — dusted with powdered sugar. Carnival food at home in under 15 minutes.',
     ingredients: [
-      '1 cup pancake mix',
-      '1 egg',
-      '3/4 cup milk or almond milk',
-      '1/2 tsp vanilla extract',
-      '1 tbsp sugar',
-      '2 tbsp powdered sugar for dusting',
-      'Canola oil spray',
+      { name: 'Pancake mix', qty: 1, unit: 'cups' },
+      { name: 'Egg', qty: 1, unit: '' },
+      { name: 'Milk', qty: 0.75, unit: 'cups' },
+      { name: 'Vanilla extract', qty: 0.5, unit: 'tsp' },
+      { name: 'Sugar', qty: 1, unit: 'tbsp' },
+      { name: 'Powdered sugar', qty: 2, unit: 'tbsp' },
+      { name: 'Canola oil spray', qty: null, unit: '' },
     ],
     steps: [
       'Whisk together pancake mix, egg, milk, vanilla, and sugar until smooth. Batter should be thin and pourable — thinner than regular pancake batter.',
@@ -1009,6 +993,7 @@ const DB_CACHE = {
   recipe_states:      {},  // { recipeId: stateObj }
   custom_recipes:     [],  // array of user-created recipe objects
   deleted_recipes:    [],  // IDs of built-in recipes the user has deleted
+  seeded_recipes:     [],  // built-in recipes seeded from RECIPES on first install
   preferences:        {},  // { defaultTab: 'shop' | 'recipes' }
   favorites:          [],  // IDs of favorited recipes
   shoplist:           [],  // array of shopping list item objects
@@ -1048,7 +1033,8 @@ function saveCustomRecipes(recipes) {
 
 function getAllRecipes() {
   const deleted = DB_CACHE.deleted_recipes;
-  const builtIn = deleted.length ? RECIPES.filter(r => !deleted.includes(r.id)) : RECIPES;
+  const source = DB_CACHE.seeded_recipes.length ? DB_CACHE.seeded_recipes : RECIPES;
+  const builtIn = deleted.length ? source.filter(r => !deleted.includes(r.id)) : source;
   return [...builtIn, ...getCustomRecipes()];
 }
 
@@ -1176,6 +1162,9 @@ function _idbClearStore(store) {
 }
 
 async function initDB() {
+  let _seedComplete = false;
+  let _seededRecs = null;
+
   // ── STEP 1: Read localStorage BEFORE opening IDB ───────────────────────────
   // localStorage is written synchronously in _idbPut, so it always holds the
   // most recent confirmed write — even if the IDB async transaction was killed
@@ -1259,6 +1248,12 @@ async function initDB() {
     migrateShoplistCategories();
     await runMigrations(sv);
 
+    // ── Load seed state ────────────────────────────────────────────────────
+    const _sc = await _idbGet('kv', 'fk_initial_seed_complete');
+    if (_sc) _seedComplete = true;
+    const _sr = await _idbGet('kv', 'fk_seeded_recipes');
+    if (_sr) { _seededRecs = _sr; DB_CACHE.seeded_recipes = _sr; }
+
     // ── Recovery loop: restore other data types from localStorage if IDB missed them
     const lsKeys = [];
     for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k) lsKeys.push(k); }
@@ -1321,14 +1316,40 @@ async function initDB() {
     _loadFromLocalStorage();
   }
 
-  // ── STEP 4: Seed ONLY on genuine first install (both sources empty) ─────────
-  if (DB_CACHE.shoplist.length === 0) {
-    console.log('[FK] First install — seeding default items');
-    preloadKeepList();
+  // ── Migrate custom recipe string ingredients to objects ───────────────────
+  let recipesNeedSave = false;
+  DB_CACHE.custom_recipes = DB_CACHE.custom_recipes.map(r => {
+    if (r.ingredients && r.ingredients.length > 0 && typeof r.ingredients[0] === 'string') {
+      r = { ...r, ingredients: r.ingredients.map(parseIngredientString) };
+      recipesNeedSave = true;
+    }
+    return r;
+  });
+  if (recipesNeedSave) _idbPut('kv', 'custom_recipes', DB_CACHE.custom_recipes);
+
+  // ── STEP 4: Seed-once using explicit flag ─────────────────────────────────
+  if (!_seedComplete) {
+    const hasData = DB_CACHE.shoplist.length > 0 || DB_CACHE.custom_recipes.length > 0;
+    if (!hasData) {
+      console.log('[FK] First install detected — seeding recipes and shopping list');
+      const seed = RECIPES.map(r => ({ ...r }));
+      _idbPut('kv', 'fk_seeded_recipes', seed);
+      DB_CACHE.seeded_recipes = seed;
+      preloadKeepList();
+      _idbPut('kv', 'fk_initial_seed_complete', true);
+      console.log('[FK] Seed complete — fk_initial_seed_complete set');
+    } else {
+      console.log('[FK] Existing user detected — skipping seed, preserving current data');
+      if (!_seededRecs) {
+        const seed = RECIPES.map(r => ({ ...r }));
+        _idbPut('kv', 'fk_seeded_recipes', seed);
+        DB_CACHE.seeded_recipes = seed;
+      }
+      _idbPut('kv', 'fk_initial_seed_complete', true);
+    }
   } else {
-    console.log(`[FK] Seeding skipped — existing data found (${DB_CACHE.shoplist.length} items)`);
+    console.log(`[FK] Load from IndexedDB: ${DB_CACHE.seeded_recipes.length} recipes, ${DB_CACHE.shoplist.length} shop items`);
   }
-  console.log(`[FK] Final load: ${DB_CACHE.shoplist.length} items restored from storage`);
 }
 
 function _loadFromLocalStorage() {
@@ -1399,10 +1420,13 @@ function matchesFilter(recipe) {
 function matchesSearch(recipe) {
   if (!searchTerm) return true;
   const customName = (getState(recipe.id).customName || '').toLowerCase();
+  const ingMatch = recipe.ingredients.some(i =>
+    typeof i === 'object' ? i.name.toLowerCase().includes(searchTerm) : i.toLowerCase().includes(searchTerm)
+  );
   return recipe.name.toLowerCase().includes(searchTerm) ||
     customName.includes(searchTerm) ||
     recipe.description.toLowerCase().includes(searchTerm) ||
-    recipe.ingredients.some(i => i.toLowerCase().includes(searchTerm));
+    ingMatch;
 }
 
 // ─── RENDER ────────────────────────────────────────────────────────────────
@@ -1444,16 +1468,33 @@ function renderRecipe(recipe) {
   const shopItems = getShopItems();
   const ingredientsList = recipe.ingredients.map((ing, i) => {
     const checked = state.ingredients[i] ? 'checked' : '';
-    const allIngNames = parseIngredientParts(ing).flat().map(n => n.toLowerCase());
-    const rawIngLower = ing.toLowerCase();
-    const shopMatch = shopItems.find(item => {
-      const n = item.name.toLowerCase();
-      return allIngNames.includes(n) || n === rawIngLower;
-    });
+    let ingName, qtyControls, unitHtml;
+    if (typeof ing === 'object') {
+      ingName = ing.name;
+      const effQty = (state.ingQtyOverrides && state.ingQtyOverrides[i] != null) ? state.ingQtyOverrides[i] : ing.qty;
+      if (effQty != null) {
+        const scaled = formatQty(effQty * ratio);
+        qtyControls = `<div class="ingredient-qty-controls">
+          <button class="ing-qty-btn" onclick="event.stopPropagation();changeIngQty('${recipe.id}',${i},-1)">−</button>
+          <span class="ing-qty-num">${scaled}</span>
+          <button class="ing-qty-btn" onclick="event.stopPropagation();changeIngQty('${recipe.id}',${i},1)">+</button>
+        </div>`;
+      } else {
+        qtyControls = `<div class="ingredient-qty-controls ingredient-qty-empty"></div>`;
+      }
+      unitHtml = ing.unit ? `<span class="ing-unit">${ing.unit}</span>` : `<span class="ing-unit-empty"></span>`;
+    } else {
+      ingName = stripIngredientToName(ing);
+      qtyControls = '';
+      unitHtml = '';
+    }
+    const shopMatch = shopItems.find(item => item.name.toLowerCase() === ingName.toLowerCase());
     const inNextRun = !!(shopMatch && shopMatch.nextRun);
+    const textContent = typeof ing === 'object' ? ingName : scaleIngredient(ing, ratio);
     return `<div class="ingredient-item ${checked}" onclick="toggleIngredient('${recipe.id}', ${i})">
       <div class="ingredient-cb"></div>
-      <div class="ingredient-text">${scaleIngredient(ing, ratio)}</div>
+      ${qtyControls}${unitHtml}
+      <div class="ingredient-text">${textContent}</div>
       <button class="ingredient-cart-btn${inNextRun ? ' active' : ''}" onclick="event.stopPropagation();toggleIngredientNextRun('${recipe.id}',${i})" title="${inNextRun ? 'Remove from Next Run' : 'Add to Next Run'}">🛒</button>
     </div>`;
   }).join('');
@@ -2036,6 +2077,45 @@ const DEFAULT_SHOP_CATEGORIES = [
   { key: 'other',     label: '📦 Other' },
 ];
 
+const CATEGORY_EMOJI_MAP = [
+  { keywords: ['produce', 'vegetable', 'fruit', 'fresh'], emoji: '🥦' },
+  { keywords: ['protein', 'meat', 'poultry', 'fish', 'seafood'], emoji: '🥩' },
+  { keywords: ['dairy', 'milk', 'cheese'], emoji: '🧀' },
+  { keywords: ['frozen'], emoji: '🧊' },
+  { keywords: ['pantry', 'dry good', 'staple'], emoji: '🥫' },
+  { keywords: ['beverage', 'drink'], emoji: '🥤' },
+  { keywords: ['snack'], emoji: '🍿' },
+  { keywords: ['baking', 'bake'], emoji: '🧁' },
+  { keywords: ['spice', 'seasoning'], emoji: '🌶️' },
+  { keywords: ['household', 'cleaning', 'supply'], emoji: '🏠' },
+  { keywords: ['personal care', 'beauty', 'health'], emoji: '🧴' },
+  { keywords: ['bakery', 'bread'], emoji: '🍞' },
+  { keywords: ['deli'], emoji: '🥪' },
+  { keywords: ['international'], emoji: '🌍' },
+  { keywords: ['baby'], emoji: '👶' },
+  { keywords: ['pet'], emoji: '🐾' },
+  { keywords: ['paper', 'disposable'], emoji: '🧻' },
+  { keywords: ['other'], emoji: '📦' },
+];
+
+function emojiForCategoryName(name) {
+  const lower = (name || '').toLowerCase();
+  for (const { keywords, emoji } of CATEGORY_EMOJI_MAP) {
+    if (keywords.some(k => lower.includes(k))) return emoji;
+  }
+  return '📦';
+}
+
+function extractEmojiFromLabel(label) {
+  const m = (label || '').match(/^(\p{Emoji_Presentation}|\p{Emoji}️)/u);
+  return m ? m[0] : '';
+}
+
+function labelWithoutEmoji(label) {
+  const emoji = extractEmojiFromLabel(label);
+  return emoji ? (label || '').slice(emoji.length).trim() : (label || '').trim();
+}
+
 // Old key → new key map used during migration
 const OLD_CAT_MAP = {
   spices: 'pantry', sauces: 'pantry', baking: 'pantry',
@@ -2227,6 +2307,27 @@ function parseIngredientParts(ing) {
     }).filter(p => p.length > 0);
     return cleaned.length > 0 ? cleaned : null;
   }).filter(x => x !== null);
+}
+
+function parseIngredientString(ing) {
+  const s = ing.trim();
+  const qtyMatch = s.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+\.?\d*)\s*/);
+  let qty = null, rest = s;
+  if (qtyMatch) { qty = evalFraction(qtyMatch[1]); rest = s.slice(qtyMatch[0].length); }
+  const unitRe = /^(cups?|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|lbs?|pounds?|grams?|g\b|kg|ml|liters?|litres?|cloves?|cans?|slices?|pieces?|pinch(?:es)?|dash(?:es)?|handfuls?|strips?|stalks?|heads?|bunch(?:es)?|sprigs?|sheets?|sticks?|packages?|pkgs?)\b\s*/i;
+  const unitMatch = rest.match(unitRe);
+  let unit = '';
+  if (unitMatch) {
+    const u = unitMatch[1].toLowerCase();
+    unit = u.replace(/tablespoons?/, 'tbsp').replace(/teaspoons?/, 'tsp').replace(/ounces?/, 'oz')
+            .replace(/pounds?/, 'lbs').replace(/grams?/, 'g').replace(/liters?|litres?/, 'l')
+            .replace(/cloves?/, 'cloves').replace(/cans?/, 'cans').replace(/slices?/, 'slices')
+            .replace(/pieces?/, 'pieces').replace(/handfuls?/, 'handful').replace(/strips?/, 'strips')
+            .replace(/stalks?/, 'stalks').replace(/sprigs?/, 'sprigs').replace(/sheets?/, 'sheets')
+            .replace(/sticks?/, 'sticks').replace(/packages?|pkgs?/, 'packages');
+  }
+  const name = stripIngredientToName(ing) || s;
+  return { name, qty, unit };
 }
 
 function getCategoryMemory() {
@@ -2463,12 +2564,36 @@ function toggleIngredientNextRun(recipeId, index) {
   const ing = recipe.ingredients[index];
   if (ing == null) return;
 
+  // New object format — name is already clean
+  if (typeof ing === 'object') {
+    const name = ing.name;
+    const items = getShopItems();
+    const existing = items.find(item => item.name.toLowerCase() === name.toLowerCase());
+    if (existing && existing.nextRun) {
+      existing.nextRun = false;
+      saveShopItems(items);
+      showToast(`Removed "${name}" from Next Run`);
+      renderAll();
+      return;
+    }
+    if (existing) {
+      existing.nextRun = true;
+    } else {
+      items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: Date.now() });
+      saveToMemory(name);
+    }
+    saveShopItems(items);
+    showToast(`Added "${name}" to Next Run`);
+    renderAll();
+    return;
+  }
+
+  // Legacy string format — use old parsing logic
   const parts = parseIngredientParts(ing);
   const allNames = parts.flat();
   const items = getShopItems();
   const rawLower = ing.toLowerCase();
 
-  // If any matching item is already in Next Run → toggle it off
   const inNextRun = items.find(item => {
     const n = item.name.toLowerCase();
     return allNames.some(name => name.toLowerCase() === n) || n === rawLower;
@@ -2485,12 +2610,10 @@ function toggleIngredientNextRun(recipeId, index) {
   const choiceParts = parts.filter(p => p.length > 1);
 
   if (choiceParts.length === 0) {
-    // No choices — batch add all required items
     _bulkAddToNextRun(singleParts, items);
     return;
   }
 
-  // Has a choice (or) — auto-add singles silently first, then show picker
   if (singleParts.length > 0) {
     const now = Date.now();
     singleParts.forEach((name, i) => {
@@ -2501,7 +2624,6 @@ function toggleIngredientNextRun(recipeId, index) {
     saveShopItems(items);
     renderAll();
   }
-  // Any extra choice parts beyond the first: auto-add their first alternative
   choiceParts.slice(1).forEach((alts, i) => {
     const name = alts[0];
     const ex = items.find(item => item.name.toLowerCase() === name.toLowerCase());
@@ -2511,6 +2633,19 @@ function toggleIngredientNextRun(recipeId, index) {
   if (choiceParts.slice(1).length > 0) { saveShopItems(items); renderAll(); }
 
   showIngredientPicker(choiceParts[0]);
+}
+
+function changeIngQty(recipeId, ingIndex, delta) {
+  const recipe = getAllRecipes().find(r => r.id === recipeId);
+  if (!recipe) return;
+  const ing = recipe.ingredients[ingIndex];
+  if (!ing || typeof ing !== 'object' || ing.qty == null) return;
+  const state = getState(recipeId);
+  if (!state.ingQtyOverrides) state.ingQtyOverrides = {};
+  const current = state.ingQtyOverrides[ingIndex] != null ? state.ingQtyOverrides[ingIndex] : ing.qty;
+  state.ingQtyOverrides[ingIndex] = Math.max(0.25, +(current + delta).toFixed(4));
+  saveState(recipeId, state);
+  renderAll();
 }
 
 function _bulkAddToNextRun(names, itemsRef) {
@@ -3063,13 +3198,23 @@ function closeAddRecipeForm() {
 }
 
 function buildIngRow() {
+  const UNITS = ['cups','tbsp','tsp','oz','lbs','g','kg','ml','l','cloves','cans','slices','pieces','pinch','dash','handful','strips','stalks','sprigs','sheets'];
   const row = document.createElement('div');
-  row.className = 'dyn-row';
+  row.className = 'dyn-row ing-row';
   row.innerHTML = `
-    <input class="form-input dyn-amount" type="text" placeholder="Qty" autocomplete="off">
-    <input class="form-input dyn-item" type="text" placeholder="Ingredient" autocomplete="off">
+    <input class="form-input dyn-qty" type="number" min="0" step="0.25" placeholder="Qty" autocomplete="off">
+    <select class="form-input dyn-unit">
+      <option value="">—</option>
+      ${UNITS.map(u => `<option value="${u}">${u}</option>`).join('')}
+      <option value="__custom">Custom…</option>
+    </select>
+    <input class="form-input dyn-unit-custom hidden" type="text" placeholder="Unit">
+    <input class="form-input dyn-item" type="text" placeholder="Ingredient name" autocomplete="off">
     <button type="button" class="dyn-remove" onclick="removeRow(this, false)">✕</button>
   `;
+  row.querySelector('.dyn-unit').addEventListener('change', function() {
+    row.querySelector('.dyn-unit-custom').classList.toggle('hidden', this.value !== '__custom');
+  });
   return row;
 }
 
@@ -3116,9 +3261,14 @@ function saveNewRecipe() {
   const ingRows = document.querySelectorAll('#rf-ingredients .dyn-row');
   const ingredients = [];
   ingRows.forEach(row => {
-    const amt = row.querySelector('.dyn-amount').value.trim();
-    const item = row.querySelector('.dyn-item').value.trim();
-    if (item) ingredients.push(amt ? `${amt} ${item}` : item);
+    const name = row.querySelector('.dyn-item').value.trim();
+    if (!name) return;
+    const qtyRaw = parseFloat(row.querySelector('.dyn-qty').value);
+    const unitSel = row.querySelector('.dyn-unit');
+    const unit = unitSel.value === '__custom'
+      ? (row.querySelector('.dyn-unit-custom').value.trim() || '')
+      : unitSel.value;
+    ingredients.push({ name, qty: isNaN(qtyRaw) ? null : qtyRaw, unit: unit || '' });
   });
 
   // Collect steps
@@ -3607,7 +3757,9 @@ function renderSettingsCategories() {
         ontouchstart="catTouchStart(event,'${cat.key}')"
         ontouchmove="catTouchMove(event)"
         ontouchend="catTouchEnd(event)">⠿</span>
-      <span class="settings-cat-label" id="catlabel-${cat.key}" onclick="startRenameCategory('${cat.key}')">${cat.label}</span>
+      <span class="settings-cat-label" id="catlabel-${cat.key}" onclick="startRenameCategory('${cat.key}')">
+        ${extractEmojiFromLabel(cat.label) ? cat.label : `<span class="cat-emoji-suggest-tag" onclick="event.stopPropagation();confirmCatEmoji('${cat.key}','${emojiForCategoryName(cat.label)}')" title="Tap to add emoji">${emojiForCategoryName(cat.label)}</span> ${cat.label}`}
+      </span>
       ${n > 0 ? `<span class="settings-cat-count">${n}</span>` : '<span class="settings-cat-count"></span>'}
       <button class="settings-cat-del${canDel ? '' : ' disabled'}"
         onclick="${canDel ? `deleteCategory('${cat.key}')` : ''}"
@@ -3620,22 +3772,73 @@ function startRenameCategory(key) {
   const span = document.getElementById('catlabel-' + key);
   if (!span || span.querySelector('input')) return;
   const cur = span.textContent;
-  span.innerHTML = `<input class="settings-cat-input" value="${cur.replace(/"/g, '&quot;')}"
+  const curEmoji = extractEmojiFromLabel(cur) || emojiForCategoryName(cur);
+  const curText = labelWithoutEmoji(cur) || cur;
+  span.innerHTML = `<button class="cat-emoji-badge" onclick="event.stopPropagation();openCatEmojiPicker('${key}')" title="Change emoji" data-suggested="${curEmoji}">${curEmoji}</button><input class="settings-cat-input" value="${curText.replace(/"/g, '&quot;')}"
     onblur="saveRenameCategory('${key}', this.value)"
-    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${cur.replace(/'/g, "\\'")}';this.blur()}"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${curText.replace(/'/g, "\\'")}';this.blur()}"
+    oninput="updateCatEmojiSuggest('${key}', this.value)"
     onclick="event.stopPropagation()">`;
   const inp = span.querySelector('input');
-  inp.focus();
-  inp.select();
+  if (inp) { inp.focus(); inp.select(); }
 }
 
-function saveRenameCategory(key, newLabel) {
-  const label = newLabel.trim();
-  if (label) {
+function saveRenameCategory(key, newText) {
+  const text = newText.trim();
+  if (text) {
+    const span = document.getElementById('catlabel-' + key);
+    const emojiBtn = span ? span.querySelector('.cat-emoji-badge') : null;
+    const emoji = emojiBtn ? emojiBtn.textContent.trim() : emojiForCategoryName(text);
+    const label = emoji ? emoji + ' ' + text : text;
     const cats = getShopCategories().slice();
     const cat = cats.find(c => c.key === key);
     if (cat) { cat.label = label; saveShopCategories(cats); }
   }
+  renderSettingsCategories();
+}
+
+function updateCatEmojiSuggest(key, text) {
+  const span = document.getElementById('catlabel-' + key);
+  const emojiBtn = span ? span.querySelector('.cat-emoji-badge') : null;
+  if (!emojiBtn) return;
+  const currentEmoji = emojiBtn.textContent.trim();
+  const prevSuggested = emojiBtn.dataset.suggested;
+  if (!prevSuggested || currentEmoji === prevSuggested) {
+    const newSuggested = emojiForCategoryName(text);
+    emojiBtn.textContent = newSuggested;
+    emojiBtn.dataset.suggested = newSuggested;
+  }
+}
+
+let _emojiPickerKey = null;
+
+function openCatEmojiPicker(key) {
+  _emojiPickerKey = key;
+  const overlay = document.getElementById('catEmojiPickerOverlay');
+  if (!overlay) return;
+  overlay.querySelector('.emoji-picker-grid').innerHTML =
+    CATEGORY_EMOJI_MAP.map(e => `<button class="emoji-pick-btn" onclick="selectCatEmoji('${e.emoji}')">${e.emoji}</button>`).join('');
+  overlay.classList.remove('hidden');
+}
+
+function selectCatEmoji(emoji) {
+  if (!_emojiPickerKey) return;
+  const span = document.getElementById('catlabel-' + _emojiPickerKey);
+  const emojiBtn = span ? span.querySelector('.cat-emoji-badge') : null;
+  if (emojiBtn) { emojiBtn.textContent = emoji; emojiBtn.dataset.suggested = emoji; }
+  closeCatEmojiPicker();
+}
+
+function closeCatEmojiPicker() {
+  const overlay = document.getElementById('catEmojiPickerOverlay');
+  if (overlay) overlay.classList.add('hidden');
+  _emojiPickerKey = null;
+}
+
+function confirmCatEmoji(key, emoji) {
+  const cats = getShopCategories().slice();
+  const cat = cats.find(c => c.key === key);
+  if (cat) { cat.label = emoji + ' ' + cat.label.trim(); saveShopCategories(cats); }
   renderSettingsCategories();
 }
 
@@ -3649,7 +3852,7 @@ function deleteCategory(key) {
 function addNewCategory() {
   const key = 'cat-' + Date.now();
   const cats = getShopCategories().slice();
-  cats.push({ key, label: 'New Category', custom: true });
+  cats.push({ key, label: '📦 New Category', custom: true });
   saveShopCategories(cats);
   renderSettingsCategories();
   requestAnimationFrame(() => startRenameCategory(key));

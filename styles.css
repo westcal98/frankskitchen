@@ -448,6 +448,133 @@ body::before {
 }
 .ingredient-cart-btn:hover { opacity: 0.75; }
 
+/* ── INGREDIENT QTY CONTROLS ── */
+.ingredient-qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ingredient-qty-empty {
+  width: 72px;
+}
+
+.ing-qty-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border2);
+  background: var(--surface);
+  color: var(--text2);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.ing-qty-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+.ing-qty-num {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 18px;
+  text-align: center;
+}
+
+.ing-unit {
+  font-size: 12px;
+  color: var(--muted);
+  flex-shrink: 0;
+  min-width: 28px;
+}
+
+.ing-unit-empty {
+  min-width: 28px;
+  flex-shrink: 0;
+}
+
+/* ── CATEGORY EMOJI ── */
+.cat-emoji-badge {
+  background: none;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1.4;
+  margin-right: 4px;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.cat-emoji-badge:hover { border-color: var(--gold); }
+
+.cat-emoji-suggest-tag {
+  cursor: pointer;
+  font-size: 15px;
+  opacity: 0.55;
+  border: 1px dashed var(--border2);
+  border-radius: 4px;
+  padding: 1px 4px;
+  transition: opacity 0.15s;
+  margin-right: 2px;
+}
+.cat-emoji-suggest-tag:hover { opacity: 1; }
+
+.cat-emoji-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 2000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.cat-emoji-overlay.hidden { display: none; }
+
+.cat-emoji-sheet {
+  background: var(--card);
+  border-radius: 18px 18px 0 0;
+  width: 100%;
+  max-width: 480px;
+  padding: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.cat-emoji-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+
+.emoji-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.emoji-pick-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 22px;
+  padding: 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+.emoji-pick-btn:hover { border-color: var(--gold); background: var(--card2); }
+
 /* ── STEPS ── */
 .step-item {
   display: flex;
@@ -1738,9 +1865,19 @@ body::before {
   margin-bottom: 8px;
 }
 
+.ing-row { align-items: center; }
+.dyn-qty  { flex: 0 0 56px; min-width: 0; }
+.dyn-unit { flex: 0 0 82px; min-width: 0; padding-right: 4px; }
+.dyn-unit-custom { flex: 0 0 72px; min-width: 0; }
 .dyn-amount { flex: 0 0 90px; }
 .dyn-item   { flex: 1; }
 .dyn-step   { flex: 1; min-height: 52px; }
+
+.form-helper-text {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
 
 .dyn-remove {
   flex-shrink: 0;
