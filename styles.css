@@ -3197,7 +3197,7 @@ body::before {
 
 /* ── Fiber card ── */
 .fiber-metric-card {
-  align-items: stretch;
+  align-items: center;
 }
 .fiber-card-inner {
   flex: 1;
@@ -4172,6 +4172,16 @@ body::before {
 }
 .goal-tap:hover { color: var(--gold); }
 .goal-edit-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+
+/* ── Tappable goal number in X / Goal denominator ── */
+.goal-num-tap {
+  color: var(--gold);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.goal-num-tap:hover { opacity: 1; }
 
 /* ── Water goal tap-to-edit ── */
 .water-goal-tap {

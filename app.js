@@ -4447,8 +4447,7 @@ function buildCalorieCard(consumed, calGoal, pct, ringColor) {
       <div class="metric-card-title">Calories</div>
     </div>
     <div class="calorie-card-info">
-      <div class="calorie-total-line">${consumed.toLocaleString()} / ${calGoal.toLocaleString()}</div>
-      <div class="goal-tap" id="calorieGoalTap" onclick="event.stopPropagation();openCalorieGoalEdit()">Goal: ${calGoal.toLocaleString()} cal</div>
+      <div class="calorie-total-line" id="calorieTotalLine">${consumed.toLocaleString()} / <span class="goal-num-tap" id="calorieGoalTap" onclick="event.stopPropagation();openCalorieGoalEdit()">${calGoal.toLocaleString()}</span> cal</div>
       <div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}">
         ${remaining < 0 ? `${Math.abs(remaining).toLocaleString()} cal over goal` : `${remaining.toLocaleString()} cal remaining`}
       </div>
@@ -4458,21 +4457,25 @@ function buildCalorieCard(consumed, calGoal, pct, ringColor) {
 
 function buildWaterCard(waterOz, waterGoal) {
   const pct = waterGoal > 0 ? Math.min(waterOz / waterGoal, 1) : 0;
+  const R = 45, CIRC = 2 * Math.PI * R;
+  const offset = CIRC * (1 - pct);
   const remaining = Math.round(waterGoal - waterOz);
-  const fillH = Math.round(pct * 100);
   return `<div class="metric-card water-metric-card">
     <div class="ring-col">
-      <div class="water-gauge-wrap">
-        <div class="water-gauge-bg">
-          <div class="water-gauge-fill" style="height:${fillH}%"></div>
+      <div class="calorie-ring-wrap">
+        <svg viewBox="0 0 110 110" width="110" height="110">
+          <circle class="calorie-ring-bg" cx="55" cy="55" r="${R}"/>
+          <circle class="calorie-ring-fill" cx="55" cy="55" r="${R}"
+            stroke="#3b82f6" stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"/>
+        </svg>
+        <div class="calorie-ring-text">
+          <div class="calorie-ring-num">${Math.round(waterOz)}</div>
         </div>
-        <div class="water-gauge-icon">💧</div>
       </div>
       <div class="metric-card-title" style="color:#3b82f6">Water</div>
     </div>
     <div class="calorie-card-info">
-      <div class="calorie-total-line" style="color:#3b82f6">${Math.round(waterOz)} / ${waterGoal} oz</div>
-      <div class="water-goal-tap" id="waterGoalTap" onclick="event.stopPropagation();openWaterGoalEdit()">Goal: ${waterGoal}oz</div>
+      <div class="calorie-total-line" id="waterTotalLine" style="color:#3b82f6">${Math.round(waterOz)} / <span class="goal-num-tap" id="waterGoalTap" onclick="event.stopPropagation();openWaterGoalEdit()">${waterGoal}</span> oz</div>
       <div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}" style="${remaining >= 0 ? 'color:#3b82f6' : ''}">
         ${remaining < 0 ? `${Math.abs(remaining)} oz over goal` : `${remaining} oz remaining`}
       </div>
@@ -4487,29 +4490,36 @@ function buildWaterCard(waterOz, waterGoal) {
 }
 
 function openWaterGoalEdit() {
-  const tap = document.getElementById('waterGoalTap');
-  if (!tap) return;
+  const line = document.getElementById('waterTotalLine');
+  if (!line) return;
   const current = (DB_CACHE.nutrition_goals || {}).waterGoal || 64;
-  tap.outerHTML = `<div class="water-goal-edit-row" id="waterGoalEditRow">
-    <input class="form-input" id="waterGoalInput" type="number" min="1" style="width:70px;padding:3px 6px;font-size:13px" value="${current}">
+  line.outerHTML = `<div class="goal-edit-row" id="waterTotalLine">
+    <input class="form-input" id="waterGoalInput" type="number" min="1" style="width:70px;padding:3px 6px;font-size:13px" value="${current}"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+      onblur="saveWaterGoal()">
     <span style="font-size:12px;color:var(--muted)">oz</span>
     <button class="water-add-btn" onclick="saveWaterGoal()" style="padding:3px 8px">Save</button>
   </div>`;
+  setTimeout(() => document.getElementById('waterGoalInput')?.select(), 50);
 }
 
 function saveWaterGoal() {
-  const val = parseInt(document.getElementById('waterGoalInput')?.value) || 64;
+  const input = document.getElementById('waterGoalInput');
+  if (!input) return;
+  const val = parseInt(input.value) || 64;
   saveNutritionGoals({ waterGoal: val });
   renderNutritionToday(nutritionDate);
   showToast(`Water goal set to ${val}oz.`);
 }
 
 function openCalorieGoalEdit() {
-  const tap = document.getElementById('calorieGoalTap');
-  if (!tap) return;
+  const line = document.getElementById('calorieTotalLine');
+  if (!line) return;
   const current = (DB_CACHE.nutrition_goals || {}).calories || 2000;
-  tap.outerHTML = `<div class="goal-edit-row" id="calorieGoalEditRow">
-    <input class="form-input" id="calorieGoalInput" type="number" min="500" max="10000" style="width:80px;padding:3px 6px;font-size:13px" value="${current}">
+  line.outerHTML = `<div class="goal-edit-row" id="calorieTotalLine">
+    <input class="form-input" id="calorieGoalInput" type="number" min="500" max="10000" style="width:80px;padding:3px 6px;font-size:13px" value="${current}"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+      onblur="saveCalorieGoal()">
     <span style="font-size:12px;color:var(--muted)">cal/day</span>
     <button class="water-add-btn" onclick="saveCalorieGoal()" style="padding:3px 8px">Save</button>
   </div>`;
@@ -4517,18 +4527,22 @@ function openCalorieGoalEdit() {
 }
 
 function saveCalorieGoal() {
-  const val = parseInt(document.getElementById('calorieGoalInput')?.value) || 2000;
+  const input = document.getElementById('calorieGoalInput');
+  if (!input) return;
+  const val = parseInt(input.value) || 2000;
   saveNutritionGoals({ calories: val, useCustom: true, customCalories: val });
   renderNutritionToday(nutritionDate);
   showToast(`Calorie goal set to ${val.toLocaleString()} cal.`);
 }
 
 function openProteinGoalEdit() {
-  const tap = document.getElementById('proteinGoalTap');
-  if (!tap) return;
+  const line = document.getElementById('proteinTotalLine');
+  if (!line) return;
   const current = (DB_CACHE.nutrition_goals || {}).protein || 0;
-  tap.outerHTML = `<div class="goal-edit-row" id="proteinGoalEditRow">
-    <input class="form-input" id="proteinGoalInput" type="number" min="0" style="width:70px;padding:3px 6px;font-size:13px" value="${current}">
+  line.outerHTML = `<div class="goal-edit-row" id="proteinTotalLine">
+    <input class="form-input" id="proteinGoalInput" type="number" min="0" style="width:70px;padding:3px 6px;font-size:13px" value="${current}"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+      onblur="saveProteinGoal()">
     <span style="font-size:12px;color:var(--muted)">g per day</span>
     <button class="water-add-btn" onclick="saveProteinGoal()" style="padding:3px 8px">Save</button>
   </div>`;
@@ -4536,18 +4550,22 @@ function openProteinGoalEdit() {
 }
 
 function saveProteinGoal() {
-  const val = parseInt(document.getElementById('proteinGoalInput')?.value) || 0;
+  const input = document.getElementById('proteinGoalInput');
+  if (!input) return;
+  const val = parseInt(input.value) || 0;
   saveNutritionGoals({ protein: val });
   renderNutritionToday(nutritionDate);
   showToast(`Protein goal set to ${val}g.`);
 }
 
 function openFiberGoalEdit() {
-  const tap = document.getElementById('fiberGoalTap');
-  if (!tap) return;
+  const line = document.getElementById('fiberTotalLine');
+  if (!line) return;
   const current = (DB_CACHE.nutrition_goals || {}).fiberGoal || 30;
-  tap.outerHTML = `<div class="goal-edit-row" id="fiberGoalEditRow">
-    <input class="form-input" id="fiberGoalInput" type="number" min="0" style="width:70px;padding:3px 6px;font-size:13px" value="${current}">
+  line.outerHTML = `<div class="goal-edit-row" id="fiberTotalLine">
+    <input class="form-input" id="fiberGoalInput" type="number" min="0" style="width:70px;padding:3px 6px;font-size:13px" value="${current}"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+      onblur="saveFiberGoal()">
     <span style="font-size:12px;color:var(--muted)">g per day</span>
     <button class="water-add-btn" onclick="saveFiberGoal()" style="padding:3px 8px">Save</button>
   </div>`;
@@ -4555,7 +4573,9 @@ function openFiberGoalEdit() {
 }
 
 function saveFiberGoal() {
-  const val = parseInt(document.getElementById('fiberGoalInput')?.value) || 30;
+  const input = document.getElementById('fiberGoalInput');
+  if (!input) return;
+  const val = parseInt(input.value) || 30;
   saveNutritionGoals({ fiberGoal: val });
   renderNutritionToday(nutritionDate);
   showToast(`Fiber goal set to ${val}g.`);
@@ -4610,9 +4630,7 @@ function buildProteinCard(proteinG, protGoal) {
       <div class="metric-card-title" style="color:#14b8a6">Protein</div>
     </div>
     <div class="calorie-card-info">
-      <div class="calorie-total-line" style="color:#14b8a6;font-size:18px">${Math.round(proteinG)}g${protGoal > 0 ? ` / ${protGoal}g` : ''}</div>
-      <div class="calorie-goal-line">Protein${protGoal > 0 ? ` · ${Math.round(pct * 100)}% of goal` : ' today'}</div>
-      <div class="goal-tap" id="proteinGoalTap" onclick="event.stopPropagation();openProteinGoalEdit()">Goal: ${protGoal > 0 ? protGoal + 'g' : 'Set goal'}</div>
+      <div class="calorie-total-line" id="proteinTotalLine" style="color:#14b8a6">${Math.round(proteinG)}g / <span class="goal-num-tap" id="proteinGoalTap" onclick="event.stopPropagation();openProteinGoalEdit()">${protGoal > 0 ? protGoal + 'g' : '–'}</span></div>
       ${protGoal > 0 ? `<div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}" style="${remaining >= 0 ? 'color:#14b8a6' : ''}">
         ${remaining < 0 ? `${Math.abs(remaining)}g over goal` : `${remaining}g remaining`}
       </div>` : ''}
@@ -4622,20 +4640,25 @@ function buildProteinCard(proteinG, protGoal) {
 
 function buildFiberCard(fiberG, fiberGoal) {
   const pct = fiberGoal > 0 ? Math.min(fiberG / fiberGoal, 1) : 0;
-  const pctInt = Math.round(pct * 100);
+  const R = 45, CIRC = 2 * Math.PI * R;
+  const offset = CIRC * (1 - pct);
   const remaining = Math.round((fiberGoal - fiberG) * 10) / 10;
   return `<div class="metric-card fiber-metric-card">
-    <div class="fiber-card-inner">
-      <div class="fiber-card-header">
-        <span class="fiber-card-icon">🌿</span>
-        <span class="fiber-card-title">Fiber</span>
+    <div class="ring-col">
+      <div class="calorie-ring-wrap">
+        <svg viewBox="0 0 110 110" width="110" height="110">
+          <circle class="calorie-ring-bg" cx="55" cy="55" r="${R}"/>
+          <circle class="calorie-ring-fill" cx="55" cy="55" r="${R}"
+            stroke="#22c55e" stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"/>
+        </svg>
+        <div class="calorie-ring-text">
+          <div class="calorie-ring-num">${Math.round(fiberG * 10) / 10}g</div>
+        </div>
       </div>
-      <div class="fiber-val-line">${Math.round(fiberG * 10) / 10}g <span class="fiber-goal-of">/ ${fiberGoal}g daily goal</span></div>
-      <div class="fiber-progress-bar">
-        <div class="fiber-progress-fill" style="width:${pctInt}%"></div>
-      </div>
-      <div class="fiber-pct-label">${pctInt}% of daily goal</div>
-      <div class="goal-tap" id="fiberGoalTap" onclick="event.stopPropagation();openFiberGoalEdit()">Goal: ${fiberGoal}g</div>
+      <div class="metric-card-title" style="color:#22c55e">Fiber</div>
+    </div>
+    <div class="calorie-card-info">
+      <div class="calorie-total-line" id="fiberTotalLine" style="color:#22c55e">${Math.round(fiberG * 10) / 10}g / <span class="goal-num-tap" id="fiberGoalTap" onclick="event.stopPropagation();openFiberGoalEdit()">${fiberGoal}g</span></div>
       ${fiberGoal > 0 ? `<div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}" style="${remaining >= 0 ? 'color:#22c55e' : ''}">
         ${remaining < 0 ? `${Math.abs(remaining)}g over goal` : `${remaining}g remaining`}
       </div>` : ''}
