@@ -4878,11 +4878,126 @@ function renderMealEditItems() {
 }
 
 function addItemRowToMealEdit() {
+  const section = document.getElementById('mealEditAiSection');
+  if (!section) {
+    _editingMealItems.push({ id: genItemId(), name: '', qty: 1, unit: 'serving', calories: 0, protein: 0, fiber: 0, carbs: 0, fat: 0, isEstimate: false, isWater: false });
+    renderMealEditItems();
+    const rows = document.querySelectorAll('.meal-edit-item-row');
+    if (rows.length) rows[rows.length - 1].querySelector('input')?.focus();
+    return;
+  }
+  section.classList.remove('hidden');
+  _renderMealEditAiSearch();
+  setTimeout(() => document.getElementById('mealEditAiInput')?.focus(), 50);
+}
+
+function _renderMealEditAiSearch() {
+  const section = document.getElementById('mealEditAiSection');
+  if (!section) return;
+  section.innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center">
+      <input class="form-input" id="mealEditAiInput" type="text"
+        placeholder="e.g. 2 Oreo cookies, chicken breast..."
+        autocomplete="off"
+        oninput="scheduleMealEditAiLookup()"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();triggerMealEditAiLookup()}">
+      <button class="modal-save-btn" onclick="triggerMealEditAiLookup()" style="flex:0 0 auto;padding:8px 12px;font-size:13px;white-space:nowrap">Look up</button>
+    </div>
+    <div style="margin-top:6px;display:flex;gap:10px;align-items:center">
+      <button class="nut-manual-toggle" onclick="addBlankItemToMealEdit()">Enter manually instead</button>
+      <button class="nut-manual-toggle" onclick="closeMealEditAiSection()" style="color:var(--muted)">Cancel</button>
+    </div>
+  `;
+}
+
+function scheduleMealEditAiLookup() {
+  clearTimeout(_mealEditAiDebounce);
+  _mealEditAiDebounce = setTimeout(triggerMealEditAiLookup, 500);
+}
+
+async function triggerMealEditAiLookup() {
+  clearTimeout(_mealEditAiDebounce);
+  const query = (document.getElementById('mealEditAiInput')?.value || '').trim();
+  if (!query) return;
+  const section = document.getElementById('mealEditAiSection');
+  if (!section) return;
+  section.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;padding:6px 0">
+      <div class="import-spinner" style="width:16px;height:16px;border-width:2px"></div>
+      Looking up nutrition…
+    </div>
+  `;
+  try {
+    const item = await geminiNutritionLookupSingle(query);
+    _renderMealEditAiResult(item);
+  } catch(err) {
+    const noKey = err.message === 'NO_KEY';
+    section.innerHTML = `
+      <div style="font-size:13px;color:var(--danger,#e55);padding:4px 0">${noKey ? 'AI lookup unavailable — enter nutrition manually.' : 'Lookup failed: ' + escHtml(err.message)}</div>
+      <div style="margin-top:6px;display:flex;gap:8px">
+        <button class="nut-manual-toggle" onclick="addBlankItemToMealEdit()">Enter manually instead</button>
+        ${!noKey ? `<button class="nut-manual-toggle" onclick="_renderMealEditAiSearch()">Try again</button>` : ''}
+      </div>
+    `;
+  }
+}
+
+function _renderMealEditAiResult(item) {
+  const section = document.getElementById('mealEditAiSection');
+  if (!section) return;
+  section.innerHTML = `
+    <div style="background:var(--surface2,rgba(255,255,255,0.05));border-radius:8px;padding:10px;margin-bottom:8px">
+      ${item.isEstimate ? '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">~ estimated</div>' : ''}
+      <div class="meal-edit-item-main">
+        <input class="form-input" id="aiResultName" style="flex:2;min-width:80px" placeholder="Food name" value="${escHtml(item.name)}">
+        <input class="form-input" id="aiResultQty" style="width:55px" type="number" min="0" step="0.1" placeholder="Qty" value="${item.qty}">
+        <input class="form-input" id="aiResultUnit" style="width:65px" placeholder="Unit" value="${escHtml(item.unit)}">
+        <input class="form-input" id="aiResultCalories" style="width:65px;color:var(--gold)" type="number" min="0" placeholder="Cal" value="${item.calories}">
+      </div>
+      <div class="meal-edit-item-macros" style="margin-top:6px">
+        <label>P<input class="form-input macro-mini" id="aiResultProtein" type="number" min="0" step="0.1" value="${item.protein}"></label>
+        <label>Fi<input class="form-input macro-mini" id="aiResultFiber" type="number" min="0" step="0.1" value="${item.fiber}"></label>
+        <label>C<input class="form-input macro-mini" id="aiResultCarbs" type="number" min="0" step="0.1" value="${item.carbs}"></label>
+        <label>F<input class="form-input macro-mini" id="aiResultFat" type="number" min="0" step="0.1" value="${item.fat}"></label>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="modal-save-btn" onclick="confirmMealEditAiItem(${item.isEstimate})" style="flex:1">Add to meal</button>
+      <button class="modal-cancel-btn" onclick="_renderMealEditAiSearch()">Search again</button>
+    </div>
+  `;
+}
+
+function confirmMealEditAiItem(isEstimate) {
+  const get = id => document.getElementById(id);
+  const name = (get('aiResultName')?.value || '').trim();
+  if (!name) { showToast('Food name required.'); return; }
+  _editingMealItems.push({
+    id: genItemId(), name,
+    qty: parseFloat(get('aiResultQty')?.value) || 1,
+    unit: get('aiResultUnit')?.value || 'serving',
+    calories: parseInt(get('aiResultCalories')?.value) || 0,
+    protein: parseFloat(get('aiResultProtein')?.value) || 0,
+    fiber: parseFloat(get('aiResultFiber')?.value) || 0,
+    carbs: parseFloat(get('aiResultCarbs')?.value) || 0,
+    fat: parseFloat(get('aiResultFat')?.value) || 0,
+    isEstimate: !!isEstimate, isWater: false,
+  });
+  renderMealEditItems();
+  closeMealEditAiSection();
+}
+
+function addBlankItemToMealEdit() {
+  closeMealEditAiSection();
   _editingMealItems.push({ id: genItemId(), name: '', qty: 1, unit: 'serving', calories: 0, protein: 0, fiber: 0, carbs: 0, fat: 0, isEstimate: false, isWater: false });
   renderMealEditItems();
-  // Focus the new row's name input
   const rows = document.querySelectorAll('.meal-edit-item-row');
   if (rows.length) rows[rows.length - 1].querySelector('input')?.focus();
+}
+
+function closeMealEditAiSection() {
+  const section = document.getElementById('mealEditAiSection');
+  if (section) { section.classList.add('hidden'); section.innerHTML = ''; }
 }
 
 function removeMealEditItem(idx) {
@@ -5038,6 +5153,45 @@ async function submitNutritionQuickLog() {
     if (indicator) indicator.classList.add('hidden');
   }
 }
+
+// ─── SHARED GEMINI SINGLE-ITEM LOOKUP ─────────────────────────────
+
+async function geminiNutritionLookupSingle(query) {
+  const apiKey = DB_CACHE.preferences?.anthropicApiKey;
+  if (!apiKey) throw new Error('NO_KEY');
+  const PROMPT = `You are a nutrition database. Return the nutrition info for the provided food item as a single JSON object: {"name": string (clean food name), "qty": number (quantity as provided), "unit": string (serving unit), "calories": number, "protein": number (grams), "fiber": number (grams), "carbs": number (grams), "fat": number (grams), "isEstimate": boolean (true if estimated)}. Return ONLY valid JSON. No explanation or markdown.`;
+  const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
+    body: JSON.stringify({ contents: [{ parts: [{ text: PROMPT + '\n\n' + query }] }] }),
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData.error?.message || `API error ${resp.status}`);
+  }
+  const data = await resp.json();
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch(e) {
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (m) try { parsed = JSON.parse(m[0]); } catch(e2) {}
+  }
+  if (!parsed) throw new Error('Could not parse AI response.');
+  return {
+    name: String(parsed.name || query),
+    qty: Number(parsed.qty) || 1,
+    unit: String(parsed.unit || 'serving'),
+    calories: Math.round(Number(parsed.calories) || 0),
+    protein: Math.round((Number(parsed.protein) || 0) * 10) / 10,
+    fiber: Math.round((Number(parsed.fiber) || 0) * 10) / 10,
+    carbs: Math.round((Number(parsed.carbs) || 0) * 10) / 10,
+    fat: Math.round((Number(parsed.fat) || 0) * 10) / 10,
+    isEstimate: !!parsed.isEstimate,
+  };
+}
+
+let _mealEditAiDebounce = null;
+let _manualAiDebounce = null;
 
 let _pendingConfirmItems = [];
 let _pendingConfirmMealType = 'Snack';
@@ -5412,6 +5566,19 @@ function startMealLogger(type) {
     <div class="nut-divider" id="manualDivider"></div>
     <button class="nut-manual-toggle" id="manualToggleBtn" onclick="toggleManualEntry()">✏️ Enter manually instead</button>
     <div id="manualEntrySection" class="hidden">
+      <div class="form-group" style="margin-top:6px">
+        <label class="form-label">AI Nutrition Lookup</label>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="manualAiInput" type="text"
+            placeholder="e.g. 2 Oreo cookies, chicken breast..."
+            autocomplete="off"
+            oninput="scheduleManualAiLookup()"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();triggerManualAiLookup()}">
+          <button class="modal-save-btn" onclick="triggerManualAiLookup()" style="flex:0 0 auto;padding:8px 12px;font-size:13px;white-space:nowrap">Look up</button>
+        </div>
+        <div id="manualAiStatus" style="font-size:12px;color:var(--muted);margin-top:4px;min-height:18px"></div>
+      </div>
+      <div class="nut-divider"></div>
       <div class="form-group"><label class="form-label">Food Name *</label>
         <input class="form-input" id="manualName" type="text" placeholder="e.g. Protein shake" autocomplete="off"></div>
       <div class="form-row">
@@ -5489,6 +5656,37 @@ function addManualItemToMeal() {
   // Clear manual form
   ['manualName','manualCalories','manualProtein','manualFiber','manualCarbs','manualFat'].forEach(id => { const el = document.getElementById(id); if (el) el.value = id.includes('Calories') || id.includes('Protein') || id.includes('Fiber') || id.includes('Carbs') || id.includes('Fat') ? '0' : ''; });
   document.getElementById('manualQty').value = '1';
+}
+
+function scheduleManualAiLookup() {
+  clearTimeout(_manualAiDebounce);
+  _manualAiDebounce = setTimeout(triggerManualAiLookup, 500);
+}
+
+async function triggerManualAiLookup() {
+  clearTimeout(_manualAiDebounce);
+  const query = (document.getElementById('manualAiInput')?.value || '').trim();
+  if (!query) return;
+  const statusEl = document.getElementById('manualAiStatus');
+  if (statusEl) statusEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:5px"><span class="import-spinner" style="width:12px;height:12px;border-width:2px"></span> Looking up…</span>';
+  try {
+    const item = await geminiNutritionLookupSingle(query);
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    set('manualName', item.name);
+    set('manualQty', item.qty);
+    set('manualUnit', item.unit);
+    set('manualCalories', item.calories);
+    set('manualProtein', item.protein);
+    set('manualFiber', item.fiber);
+    set('manualCarbs', item.carbs);
+    set('manualFat', item.fat);
+    if (statusEl) statusEl.innerHTML = item.isEstimate
+      ? '<span style="color:var(--muted)">~ estimated</span>'
+      : '<span style="color:#4caf50">✓ Fields filled</span>';
+  } catch(err) {
+    const noKey = err.message === 'NO_KEY';
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger,#e55)">${noKey ? 'AI lookup unavailable — enter nutrition manually.' : 'Lookup failed. Enter fields manually below.'}</span>`;
+  }
 }
 
 function saveMealLogger() {
