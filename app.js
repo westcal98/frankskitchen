@@ -4390,7 +4390,7 @@ function buildCalorieCard(consumed, calGoal, pct, ringColor) {
     </div>
     <div class="calorie-card-info">
       <div class="calorie-total-line">${consumed.toLocaleString()} / ${calGoal.toLocaleString()}</div>
-      <div class="calorie-goal-line">Daily goal</div>
+      <div class="goal-tap" id="calorieGoalTap" onclick="event.stopPropagation();openCalorieGoalEdit()">Goal: ${calGoal.toLocaleString()} cal</div>
       <div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}">
         ${remaining < 0 ? `${Math.abs(remaining).toLocaleString()} cal over goal` : `${remaining.toLocaleString()} cal remaining`}
       </div>
@@ -4443,6 +4443,63 @@ function saveWaterGoal() {
   showToast(`Water goal set to ${val}oz.`);
 }
 
+function openCalorieGoalEdit() {
+  const tap = document.getElementById('calorieGoalTap');
+  if (!tap) return;
+  const current = (DB_CACHE.nutrition_goals || {}).calories || 2000;
+  tap.outerHTML = `<div class="goal-edit-row" id="calorieGoalEditRow">
+    <input class="form-input" id="calorieGoalInput" type="number" min="500" max="10000" style="width:80px;padding:3px 6px;font-size:13px" value="${current}">
+    <span style="font-size:12px;color:var(--muted)">cal/day</span>
+    <button class="water-add-btn" onclick="saveCalorieGoal()" style="padding:3px 8px">Save</button>
+  </div>`;
+  setTimeout(() => document.getElementById('calorieGoalInput')?.select(), 50);
+}
+
+function saveCalorieGoal() {
+  const val = parseInt(document.getElementById('calorieGoalInput')?.value) || 2000;
+  saveNutritionGoals({ calories: val, useCustom: true, customCalories: val });
+  renderNutritionToday(nutritionDate);
+  showToast(`Calorie goal set to ${val.toLocaleString()} cal.`);
+}
+
+function openProteinGoalEdit() {
+  const tap = document.getElementById('proteinGoalTap');
+  if (!tap) return;
+  const current = (DB_CACHE.nutrition_goals || {}).protein || 0;
+  tap.outerHTML = `<div class="goal-edit-row" id="proteinGoalEditRow">
+    <input class="form-input" id="proteinGoalInput" type="number" min="0" style="width:70px;padding:3px 6px;font-size:13px" value="${current}">
+    <span style="font-size:12px;color:var(--muted)">g per day</span>
+    <button class="water-add-btn" onclick="saveProteinGoal()" style="padding:3px 8px">Save</button>
+  </div>`;
+  setTimeout(() => document.getElementById('proteinGoalInput')?.select(), 50);
+}
+
+function saveProteinGoal() {
+  const val = parseInt(document.getElementById('proteinGoalInput')?.value) || 0;
+  saveNutritionGoals({ protein: val });
+  renderNutritionToday(nutritionDate);
+  showToast(`Protein goal set to ${val}g.`);
+}
+
+function openFiberGoalEdit() {
+  const tap = document.getElementById('fiberGoalTap');
+  if (!tap) return;
+  const current = (DB_CACHE.nutrition_goals || {}).fiberGoal || 30;
+  tap.outerHTML = `<div class="goal-edit-row" id="fiberGoalEditRow">
+    <input class="form-input" id="fiberGoalInput" type="number" min="0" style="width:70px;padding:3px 6px;font-size:13px" value="${current}">
+    <span style="font-size:12px;color:var(--muted)">g per day</span>
+    <button class="water-add-btn" onclick="saveFiberGoal()" style="padding:3px 8px">Save</button>
+  </div>`;
+  setTimeout(() => document.getElementById('fiberGoalInput')?.select(), 50);
+}
+
+function saveFiberGoal() {
+  const val = parseInt(document.getElementById('fiberGoalInput')?.value) || 30;
+  saveNutritionGoals({ fiberGoal: val });
+  renderNutritionToday(nutritionDate);
+  showToast(`Fiber goal set to ${val}g.`);
+}
+
 function openWaterCustomEntry() {
   const last = (DB_CACHE.nutrition_goals || {}).lastCustomWaterOz || 12;
   const overlay = document.createElement('div');
@@ -4492,6 +4549,7 @@ function buildProteinCard(proteinG, protGoal) {
     <div class="calorie-card-info">
       <div class="calorie-total-line" style="color:#14b8a6;font-size:18px">${Math.round(proteinG)}g${protGoal > 0 ? ` / ${protGoal}g` : ''}</div>
       <div class="calorie-goal-line">Protein${protGoal > 0 ? ` · ${Math.round(pct * 100)}% of goal` : ' today'}</div>
+      <div class="goal-tap" id="proteinGoalTap" onclick="event.stopPropagation();openProteinGoalEdit()">Goal: ${protGoal > 0 ? protGoal + 'g' : 'Set goal'}</div>
       ${protGoal > 0 ? `<div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}" style="${remaining >= 0 ? 'color:#14b8a6' : ''}">
         ${remaining < 0 ? `${Math.abs(remaining)}g over goal` : `${remaining}g remaining`}
       </div>` : ''}
@@ -4514,6 +4572,7 @@ function buildFiberCard(fiberG, fiberGoal) {
         <div class="fiber-progress-fill" style="width:${pctInt}%"></div>
       </div>
       <div class="fiber-pct-label">${pctInt}% of daily goal</div>
+      <div class="goal-tap" id="fiberGoalTap" onclick="event.stopPropagation();openFiberGoalEdit()">Goal: ${fiberGoal}g</div>
       ${fiberGoal > 0 ? `<div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}" style="${remaining >= 0 ? 'color:#22c55e' : ''}">
         ${remaining < 0 ? `${Math.abs(remaining)}g over goal` : `${remaining}g remaining`}
       </div>` : ''}
