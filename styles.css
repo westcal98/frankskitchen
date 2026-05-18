@@ -3398,6 +3398,106 @@ body::before {
 .meal-section-body { display: none; padding: 6px 0 2px; }
 .meal-section-body.open { display: block; }
 
+/* ── Meal card (new grouped layout) ── */
+.meal-card {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.meal-card-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+.meal-card-hdr-left { display: flex; align-items: center; gap: 8px; }
+.meal-card-hdr-right { display: flex; align-items: center; gap: 6px; }
+.meal-card-icon { font-size: 16px; }
+.meal-card-type { font-size: 14px; font-weight: 700; color: var(--text); }
+.meal-card-time { font-size: 12px; color: var(--muted); }
+.meal-card-total-cals { font-size: 14px; font-weight: 700; color: var(--gold); }
+.meal-card-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 5px;
+  border-radius: 6px;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.meal-card-btn:hover { opacity: 1; }
+.meal-card-items { padding: 6px 0 4px; }
+.meal-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.meal-item-row:last-child { border-bottom: none; }
+.meal-item-info { flex: 1; min-width: 0; }
+.meal-item-name { font-size: 13px; font-weight: 600; color: var(--text); display: block; }
+.meal-item-detail { font-size: 11px; color: var(--muted); display: block; margin-top: 1px; }
+.meal-item-macros { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
+.meal-item-cals { font-size: 13px; font-weight: 700; color: var(--gold); white-space: nowrap; padding-top: 1px; }
+.meal-empty-state { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 16px; }
+
+/* ── Meal card editor ── */
+.meal-edit-header-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.meal-edit-items-list { display: flex; flex-direction: column; gap: 10px; max-height: 55vh; overflow-y: auto; }
+.meal-edit-item-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
+.meal-edit-item-main { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.meal-edit-item-macros { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.meal-edit-item-macros label { display: flex; align-items: center; gap: 4px; }
+.meal-edit-remove-btn { background: none; border: none; color: var(--red2); cursor: pointer; font-size: 14px; padding: 2px 5px; border-radius: 6px; flex-shrink: 0; }
+.macro-mini { width: 55px !important; padding: 3px 6px !important; font-size: 12px !important; }
+
+/* ── Meal type picker (+ Log Food first step) ── */
+.meal-type-picker { padding: 4px 0 8px; }
+.meal-type-label { font-size: 13px; color: var(--muted); margin-bottom: 10px; font-weight: 500; }
+.meal-type-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.meal-type-btn {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+  transition: border-color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.meal-type-btn:hover { border-color: var(--gold); background: var(--card); }
+.meal-type-btn.selected { border-color: var(--gold); background: rgba(var(--gold-rgb, 218,165,32), 0.08); }
+
+/* ── Meal logger (items during logging) ── */
+.meal-logger-meal-hdr { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 8px; padding: 0 2px; }
+.meal-logger-items { margin-bottom: 12px; }
+.meal-logger-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 5px;
+}
+.meal-logger-item-name { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); }
+.meal-logger-item-detail { font-size: 11px; color: var(--muted); }
+.meal-logger-item-cals { font-size: 13px; font-weight: 700; color: var(--gold); white-space: nowrap; }
+
+/* ── Confirm modal grouped layout ── */
+.nut-confirm-meal-hdr { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+
 /* ── Food entry card ── */
 .food-entry-card {
   background: var(--card);
@@ -3934,4 +4034,92 @@ body::before {
   transition: border-color 0.15s, color 0.15s;
 }
 .nut-back-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── Nutrition Settings view ── */
+.nut-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+.nut-settings-row:last-child { border-bottom: none; }
+.nut-settings-label { font-size: 13px; color: var(--text); font-weight: 500; }
+.nut-toggle-btn {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-family: 'DM Sans', sans-serif;
+  flex-shrink: 0;
+}
+.nut-toggle-btn.on { background: var(--gold); border-color: var(--gold); color: #000; }
+.nut-unit-btn {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.nut-unit-btn.active { background: var(--gold); border-color: var(--gold); color: #000; }
+
+/* ── Water goal tap-to-edit ── */
+.water-goal-tap {
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  padding: 1px 0;
+  margin-bottom: 2px;
+}
+.water-goal-tap:hover { color: var(--gold); }
+.water-goal-edit-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+
+/* ── Water custom overlay ── */
+.water-custom-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.water-custom-inner {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  padding: 20px 22px;
+  min-width: 240px;
+}
+
+/* ── Water reminder alert (top of screen) ── */
+.water-reminder-alert {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border-bottom: 2px solid #3b82f6;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 9999;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
+.water-reminder-msg { font-size: 14px; font-weight: 600; color: var(--text); flex: 1; }
+.water-reminder-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 

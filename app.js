@@ -1089,7 +1089,7 @@ function toggleFavorite(id) {
 let _db = null;
 const _DB_NAME = 'fk_store';
 const _DB_VER  = 1;
-const APP_SCHEMA_VERSION = 1;
+const APP_SCHEMA_VERSION = 2;
 
 function _openDB() {
   return new Promise((resolve, reject) => {
@@ -1261,12 +1261,25 @@ async function initDB() {
 
     const nl = await _idbGet('kv', 'nutrition_log');
     if (Array.isArray(nl)) DB_CACHE.nutrition_log = nl;
+    if (!DB_CACHE.nutrition_log.length) {
+      try { const d = JSON.parse(localStorage.getItem('fk_nutrition_log')); if (Array.isArray(d) && d.length) { DB_CACHE.nutrition_log = d; console.log('[FK] Nutrition log recovered from localStorage'); } } catch(e) {}
+    }
     const ng = await _idbGet('kv', 'nutrition_goals');
     if (ng && typeof ng === 'object') DB_CACHE.nutrition_goals = ng;
+    if (!Object.keys(DB_CACHE.nutrition_goals).length) {
+      try { const d = JSON.parse(localStorage.getItem('fk_nutrition_goals')); if (d && typeof d === 'object') { DB_CACHE.nutrition_goals = d; } } catch(e) {}
+    }
     const ncs = await _idbGet('kv', 'nutrition_card_settings');
     if (ncs && typeof ncs === 'object') DB_CACHE.nutrition_card_settings = ncs;
+    if (!Object.keys(DB_CACHE.nutrition_card_settings).length) {
+      try { const d = JSON.parse(localStorage.getItem('fk_nutrition_card_settings')); if (d && typeof d === 'object') { DB_CACHE.nutrition_card_settings = d; } } catch(e) {}
+    }
     const wl = await _idbGet('kv', 'weight_log');
     if (Array.isArray(wl)) DB_CACHE.weight_log = wl;
+    if (!DB_CACHE.weight_log.length) {
+      try { const d = JSON.parse(localStorage.getItem('fk_weight_log')); if (Array.isArray(d) && d.length) { DB_CACHE.weight_log = d; } } catch(e) {}
+    }
+    console.log(`[FK] Nutrition log loaded: ${DB_CACHE.nutrition_log.length} entries`);
 
     const sv = await _idbGet('kv', 'schema_version');
     migrateShoplistCategories();
@@ -1383,6 +1396,10 @@ function _loadFromLocalStorage() {
   try { const d = JSON.parse(localStorage.getItem('fk_memory')); if (d) { DB_CACHE.memory = d; MEMORY_BANK = [...new Set([...MEMORY_BANK, ...d])]; } } catch(e) {}
   try { const d = JSON.parse(localStorage.getItem('fk_timer_presets'));  if (d) DB_CACHE.timer_presets = d;  } catch(e) {}
   try { const d = JSON.parse(localStorage.getItem('fk_category_memory')); if (d && typeof d === 'object' && !Array.isArray(d)) DB_CACHE.category_memory = d; } catch(e) {}
+  try { const d = JSON.parse(localStorage.getItem('fk_nutrition_log')); if (Array.isArray(d) && d.length) DB_CACHE.nutrition_log = d; } catch(e) {}
+  try { const d = JSON.parse(localStorage.getItem('fk_nutrition_goals')); if (d && typeof d === 'object') DB_CACHE.nutrition_goals = d; } catch(e) {}
+  try { const d = JSON.parse(localStorage.getItem('fk_nutrition_card_settings')); if (d && typeof d === 'object') DB_CACHE.nutrition_card_settings = d; } catch(e) {}
+  try { const d = JSON.parse(localStorage.getItem('fk_weight_log')); if (Array.isArray(d) && d.length) DB_CACHE.weight_log = d; } catch(e) {}
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
     if (!k || !k.startsWith('fk_') || k.startsWith('fk_shop') ||
@@ -2231,8 +2248,58 @@ async function runMigrations(storedVersion) {
   if (from >= APP_SCHEMA_VERSION) return;
   console.log(`[FK] Running migrations v${from}→v${APP_SCHEMA_VERSION}`);
   if (from < 1) migrate_0_to_1();
+  if (from < 2) migrate_1_to_2();
   _idbPut('kv', 'schema_version', APP_SCHEMA_VERSION);
   console.log(`[FK] Schema updated to v${APP_SCHEMA_VERSION}`);
+}
+
+function migrate_1_to_2() {
+  const log = DB_CACHE.nutrition_log;
+  if (!log.length) return;
+  // Check if already migrated (all entries have items array)
+  if (log.every(e => Array.isArray(e.items))) return;
+  // Separate old-format (flat) from new-format (meal card) entries
+  const flatEntries = log.filter(e => !Array.isArray(e.items));
+  const existingCards = log.filter(e => Array.isArray(e.items));
+  if (!flatEntries.length) return;
+  // Group flat entries by date + meal type
+  const groups = {};
+  for (const e of flatEntries) {
+    const key = (e.date || '') + '|' + (e.meal || 'Snack');
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(e);
+  }
+  const newCards = Object.entries(groups).map(([key, entries]) => {
+    const [date, type] = key.split('|');
+    const sortedTimes = entries.map(e => e.time || '00:00').sort();
+    const time = sortedTimes[0];
+    const items = entries.map(e => ({
+      id: 'item-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      name: e.name || 'Food',
+      qty: e.qty || 1,
+      unit: e.unit || 'serving',
+      calories: e.calories || 0,
+      protein: e.protein || 0,
+      fiber: e.fiber || 0,
+      carbs: e.carbs || 0,
+      fat: e.fat || 0,
+      isEstimate: e.isEstimate || false,
+      isWater: e.isWater || false,
+    }));
+    const card = {
+      id: 'meal-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      type: type || 'Snack',
+      time,
+      date: date || new Date().toISOString().slice(0, 10),
+      items,
+      totalCalories: 0, totalProtein: 0, totalFiber: 0, totalCarbs: 0, totalFat: 0,
+    };
+    recalcMealTotals(card);
+    return card;
+  });
+  DB_CACHE.nutrition_log = [...existingCards, ...newCards];
+  _idbPut('kv', 'nutrition_log', DB_CACHE.nutrition_log);
+  console.log(`[FK] migration 1→2: converted ${flatEntries.length} flat entries to ${newCards.length} meal cards`);
 }
 
 // Full memory bank for autocomplete suggestions
@@ -4065,42 +4132,86 @@ function getNutritionUnits() {
 
 // ─── Data helpers ─────────────────────────────────────────────────
 
-function genNutritionId() {
-  return 'nut-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+function genMealId()  { return 'meal-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6); }
+function genItemId()  { return 'item-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6); }
+function genNutritionId() { return genItemId(); }
+
+function recalcMealTotals(card) {
+  card.totalCalories = card.items.reduce((s, i) => s + (i.calories || 0), 0);
+  card.totalProtein  = card.items.reduce((s, i) => s + (i.protein  || 0), 0);
+  card.totalFiber    = card.items.reduce((s, i) => s + (i.fiber    || 0), 0);
+  card.totalCarbs    = card.items.reduce((s, i) => s + (i.carbs    || 0), 0);
+  card.totalFat      = card.items.reduce((s, i) => s + (i.fat      || 0), 0);
 }
 
-function getEntriesForDate(date) {
-  return DB_CACHE.nutrition_log.filter(e => e.date === date);
+function getMealCardsForDate(date) {
+  return DB_CACHE.nutrition_log
+    .filter(c => c.date === date && Array.isArray(c.items))
+    .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 }
+
+// Keep alias for callers that haven't been updated
+function getEntriesForDate(date) { return getMealCardsForDate(date); }
 
 function getNutritionSummary(date) {
-  const entries = getEntriesForDate(date);
-  return entries.reduce((s, e) => ({
-    calories: s.calories + (e.calories || 0),
-    protein:  s.protein  + (e.protein  || 0),
-    carbs:    s.carbs    + (e.carbs    || 0),
-    fat:      s.fat      + (e.fat      || 0),
-    fiber:    s.fiber    + (e.fiber    || 0),
-    water:    s.water    + (e.isWater  ? (e.qty || 0) : 0),
-  }), { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, water: 0 });
+  const cards = getMealCardsForDate(date);
+  return cards.reduce((s, c) => {
+    s.calories += c.totalCalories || 0;
+    s.protein  += c.totalProtein  || 0;
+    s.carbs    += c.totalCarbs    || 0;
+    s.fat      += c.totalFat      || 0;
+    s.fiber    += c.totalFiber    || 0;
+    if (c.type === 'Drink') {
+      s.water += c.items.filter(i => i.isWater).reduce((w, i) => w + (i.qty || 0), 0);
+    }
+    return s;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, water: 0 });
 }
 
-function saveNutritionEntry(entry) {
-  DB_CACHE.nutrition_log.push(entry);
+function saveMealCard(card) {
+  DB_CACHE.nutrition_log.push(card);
   _idbPut('kv', 'nutrition_log', DB_CACHE.nutrition_log);
+  console.log(`[FK] Nutrition write confirmed: ${DB_CACHE.nutrition_log.length} entries`);
 }
 
-function updateNutritionEntry(id, patch) {
-  const idx = DB_CACHE.nutrition_log.findIndex(e => e.id === id);
+function updateMealCard(id, patch) {
+  const idx = DB_CACHE.nutrition_log.findIndex(c => c.id === id);
   if (idx === -1) return;
-  DB_CACHE.nutrition_log[idx] = Object.assign({}, DB_CACHE.nutrition_log[idx], patch);
+  const card = Object.assign({}, DB_CACHE.nutrition_log[idx], patch);
+  if (patch.items) recalcMealTotals(card);
+  DB_CACHE.nutrition_log[idx] = card;
+  _idbPut('kv', 'nutrition_log', DB_CACHE.nutrition_log);
+  console.log(`[FK] Nutrition write confirmed: ${DB_CACHE.nutrition_log.length} entries`);
+}
+
+function deleteMealCard(id) {
+  DB_CACHE.nutrition_log = DB_CACHE.nutrition_log.filter(c => c.id !== id);
   _idbPut('kv', 'nutrition_log', DB_CACHE.nutrition_log);
 }
 
-function deleteNutritionEntry(id) {
-  DB_CACHE.nutrition_log = DB_CACHE.nutrition_log.filter(e => e.id !== id);
-  _idbPut('kv', 'nutrition_log', DB_CACHE.nutrition_log);
+// Legacy wrapper — wraps a flat entry into a single-item meal card
+function saveNutritionEntry(entry) {
+  const item = {
+    id: entry.id || genItemId(),
+    name: entry.name, qty: entry.qty, unit: entry.unit,
+    calories: entry.calories || 0, protein: entry.protein || 0,
+    fiber: entry.fiber || 0, carbs: entry.carbs || 0, fat: entry.fat || 0,
+    isEstimate: entry.isEstimate || false, isWater: entry.isWater || false,
+  };
+  const card = {
+    id: genMealId(),
+    type: entry.meal || 'Snack',
+    time: entry.time || new Date().toTimeString().slice(0, 5),
+    date: entry.date || nutritionDate,
+    items: [item],
+    totalCalories: item.calories, totalProtein: item.protein,
+    totalFiber: item.fiber, totalCarbs: item.carbs, totalFat: item.fat,
+  };
+  saveMealCard(card);
 }
+
+// Legacy — delete a meal card (or item within) by card id
+function deleteNutritionEntry(id) { deleteMealCard(id); }
 
 function saveNutritionGoals(goals) {
   DB_CACHE.nutrition_goals = Object.assign({}, DB_CACHE.nutrition_goals, goals);
@@ -4117,27 +4228,72 @@ function saveNutCardSettings(patch) {
   _idbPut('kv', 'nutrition_card_settings', DB_CACHE.nutrition_card_settings);
 }
 
-function toggleNutCard(card) {
-  const cs = getNutCardSettings();
-  const key = 'show' + card.charAt(0).toUpperCase() + card.slice(1);
-  cs[key] = !cs[key];
-  saveNutCardSettings(cs);
-  const btn = document.getElementById('card' + card.charAt(0).toUpperCase() + card.slice(1) + 'Toggle');
-  if (btn) btn.classList.toggle('on', cs[key]);
-  if (nutritionView === 'today') renderNutritionToday(nutritionDate);
-}
-
 function addWaterEntry(oz) {
   const now = new Date();
-  saveNutritionEntry({
-    id: genNutritionId(), date: nutritionDate,
-    name: 'Water', qty: oz, unit: 'oz',
-    calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0,
-    meal: 'Drink', time: now.toTimeString().slice(0, 5),
-    isEstimate: false, isWater: true, addedAt: now.toISOString(),
-  });
+  const timeStr = now.toTimeString().slice(0, 5);
+  const waterItem = { id: genItemId(), name: 'Water', qty: oz, unit: 'oz', calories: 0, protein: 0, fiber: 0, carbs: 0, fat: 0, isEstimate: false, isWater: true };
+  const existingDrink = DB_CACHE.nutrition_log.find(c => c.date === nutritionDate && c.type === 'Drink' && Array.isArray(c.items));
+  if (existingDrink) {
+    const updatedItems = [...existingDrink.items, waterItem];
+    updateMealCard(existingDrink.id, { items: updatedItems });
+  } else {
+    saveMealCard({ id: genMealId(), type: 'Drink', time: timeStr, date: nutritionDate, items: [waterItem], totalCalories: 0, totalProtein: 0, totalFiber: 0, totalCarbs: 0, totalFat: 0 });
+  }
   renderNutritionToday(nutritionDate);
   showToast(`+${oz}oz water logged.`);
+}
+
+// ─── WATER REMINDERS ──────────────────────────────────────────────
+
+let _waterReminderInterval = null;
+
+function setupWaterReminders() {
+  if (_waterReminderInterval) { clearInterval(_waterReminderInterval); _waterReminderInterval = null; }
+  const r = (DB_CACHE.nutrition_goals || {}).waterReminder;
+  if (!r || !r.enabled) return;
+  const intervalMs = (r.intervalMin || 60) * 60 * 1000;
+  _waterReminderInterval = setInterval(checkWaterReminder, Math.max(intervalMs, 60000));
+}
+
+function checkWaterReminder() {
+  const r = (DB_CACHE.nutrition_goals || {}).waterReminder;
+  if (!r || !r.enabled) return;
+  const now = new Date();
+  const current = now.getHours() * 60 + now.getMinutes();
+  const startParts = (r.startTime || '08:00').split(':').map(Number);
+  const endParts   = (r.endTime   || '22:00').split(':').map(Number);
+  const start = startParts[0] * 60 + startParts[1];
+  const end   = endParts[0]   * 60 + endParts[1];
+  if (current < start || current > end) return;
+  showWaterReminderAlert(r.message || 'Time to drink some water!');
+}
+
+function showWaterReminderAlert(message) {
+  document.getElementById('waterReminderAlert')?.remove();
+  const alert = document.createElement('div');
+  alert.id = 'waterReminderAlert';
+  alert.className = 'water-reminder-alert';
+  alert.innerHTML = `
+    <div class="water-reminder-msg">💧 ${escHtml(message)}</div>
+    <div class="water-reminder-actions">
+      <button class="water-add-btn" onclick="addWaterEntry(8);document.getElementById('waterReminderAlert').remove()">+8oz</button>
+      <button class="modal-cancel-btn" style="padding:4px 12px;font-size:12px" onclick="document.getElementById('waterReminderAlert').remove()">Dismiss</button>
+    </div>`;
+  document.body.prepend(alert);
+  // Play gentle ding
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    osc.start(); osc.stop(ctx.currentTime + 0.5);
+  } catch(e) {}
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+  setTimeout(() => document.getElementById('waterReminderAlert')?.remove(), 15000);
 }
 
 function goToCard(idx) {
@@ -4203,14 +4359,15 @@ function renderNutritionTab() {
 
 function switchNutritionView(view) {
   nutritionView = view;
-  ['today','history','goals','weight'].forEach(v => {
+  ['today','history','goals','weight','settings'].forEach(v => {
     document.getElementById('nutrition-' + v + '-view')?.classList.toggle('hidden', v !== view);
     document.getElementById('nn' + v.charAt(0).toUpperCase() + v.slice(1))?.classList.toggle('active', v === view);
   });
-  if (view === 'today')   renderNutritionToday(nutritionDate);
-  if (view === 'history') renderNutritionHistory();
-  if (view === 'goals')   renderNutritionGoals();
-  if (view === 'weight')  renderNutritionWeight();
+  if (view === 'today')    renderNutritionToday(nutritionDate);
+  if (view === 'history')  renderNutritionHistory();
+  if (view === 'goals')    renderNutritionGoals();
+  if (view === 'weight')   renderNutritionWeight();
+  if (view === 'settings') renderNutritionSettings();
 }
 
 // ─── Date helpers ──────────────────────────────────────────────────
@@ -4254,7 +4411,7 @@ function buildWaterCard(waterOz, waterGoal) {
     </div>
     <div class="calorie-card-info">
       <div class="calorie-total-line" style="color:#3b82f6">${Math.round(waterOz)} / ${waterGoal} oz</div>
-      <div class="calorie-goal-line">Hydration goal</div>
+      <div class="water-goal-tap" id="waterGoalTap" onclick="event.stopPropagation();openWaterGoalEdit()">Goal: ${waterGoal}oz</div>
       <div class="calorie-remaining ${remaining < 0 ? 'over' : 'under'}" style="${remaining >= 0 ? 'color:#3b82f6' : ''}">
         ${remaining < 0 ? `${Math.abs(remaining)} oz over goal` : `${remaining} oz remaining`}
       </div>
@@ -4262,9 +4419,57 @@ function buildWaterCard(waterOz, waterGoal) {
         <button class="water-add-btn" onclick="event.stopPropagation();addWaterEntry(8)">+8oz</button>
         <button class="water-add-btn" onclick="event.stopPropagation();addWaterEntry(16)">+16oz</button>
         <button class="water-add-btn" onclick="event.stopPropagation();addWaterEntry(24)">+24oz</button>
+        <button class="water-add-btn" onclick="event.stopPropagation();openWaterCustomEntry()">+Custom</button>
       </div>
     </div>
   </div>`;
+}
+
+function openWaterGoalEdit() {
+  const tap = document.getElementById('waterGoalTap');
+  if (!tap) return;
+  const current = (DB_CACHE.nutrition_goals || {}).waterGoal || 64;
+  tap.outerHTML = `<div class="water-goal-edit-row" id="waterGoalEditRow">
+    <input class="form-input" id="waterGoalInput" type="number" min="1" style="width:70px;padding:3px 6px;font-size:13px" value="${current}">
+    <span style="font-size:12px;color:var(--muted)">oz</span>
+    <button class="water-add-btn" onclick="saveWaterGoal()" style="padding:3px 8px">Save</button>
+  </div>`;
+}
+
+function saveWaterGoal() {
+  const val = parseInt(document.getElementById('waterGoalInput')?.value) || 64;
+  saveNutritionGoals({ waterGoal: val });
+  renderNutritionToday(nutritionDate);
+  showToast(`Water goal set to ${val}oz.`);
+}
+
+function openWaterCustomEntry() {
+  const last = (DB_CACHE.nutrition_goals || {}).lastCustomWaterOz || 12;
+  const overlay = document.createElement('div');
+  overlay.id = 'waterCustomOverlay';
+  overlay.className = 'water-custom-overlay';
+  overlay.innerHTML = `
+    <div class="water-custom-inner">
+      <div style="font-size:14px;font-weight:600;margin-bottom:10px">Custom Water Amount</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <input class="form-input" id="waterCustomInput" type="number" min="1" style="width:80px" value="${last}">
+        <span style="font-size:13px;color:var(--muted)">oz</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="modal-cancel-btn" onclick="document.getElementById('waterCustomOverlay').remove()">Cancel</button>
+        <button class="modal-save-btn" onclick="confirmCustomWater()">Add</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('waterCustomInput')?.select(), 50);
+}
+
+function confirmCustomWater() {
+  const oz = parseFloat(document.getElementById('waterCustomInput')?.value) || 0;
+  if (oz <= 0) { showToast('Enter a valid amount.'); return; }
+  saveNutritionGoals({ lastCustomWaterOz: oz });
+  document.getElementById('waterCustomOverlay')?.remove();
+  addWaterEntry(oz);
 }
 
 function buildProteinCard(proteinG, protGoal) {
@@ -4365,7 +4570,7 @@ function renderNutritionToday(date) {
     : '';
 
   const macroHtml = buildMacroRow(summary, prGoal, crGoal, ftGoal);
-  const mealHtml  = buildMealSections(entries);
+  const mealHtml  = buildMealCards(entries);
 
   el.innerHTML = `
     <div class="nut-date-header">
@@ -4428,31 +4633,54 @@ function buildMacroRow(summary, prGoal, crGoal, ftGoal) {
 
 const MEAL_ICONS = { Breakfast:'🌅', Lunch:'☀️', Dinner:'🌙', Snack:'🍎', Drink:'💧' };
 
-function buildMealSections(entries) {
-  const meals = ['Breakfast','Lunch','Dinner','Snack','Drink'];
-  return meals.map(meal => {
-    const mealEntries = entries.filter(e => e.meal === meal || (meal === 'Snack' && e.meal === 'Snacks'));
-    const totalCals = mealEntries.reduce((s, e) => s + (e.calories || 0), 0);
-    const hasEntries = mealEntries.length > 0;
-    const sectionId = 'meal-section-' + meal.toLowerCase();
-    const bodyId = 'meal-body-' + meal.toLowerCase();
-    return `<div class="meal-section">
-      <div class="meal-section-hdr${hasEntries ? ' has-entries' : ''}" onclick="toggleMealSection('${meal}')">
-        <div class="meal-section-title">
-          <span>${MEAL_ICONS[meal] || '🍽'}</span>
-          <span>${meal}s</span>
-          ${hasEntries ? `<span style="font-size:12px;color:var(--muted);font-weight:400">${mealEntries.length} item${mealEntries.length>1?'s':''}</span>` : ''}
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          ${hasEntries ? `<span class="meal-section-cals">${Math.round(totalCals)} cal</span>` : ''}
-          <span class="meal-section-chevron${hasEntries ? ' open' : ''}" id="meal-chev-${meal.toLowerCase()}">▾</span>
-        </div>
+function fmt12hr(time24) {
+  if (!time24) return '';
+  const [h, m] = time24.split(':').map(Number);
+  const ampm = h >= 12 ? 'pm' : 'am';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2,'0')}${ampm}`;
+}
+
+function buildMealCards(mealCards) {
+  if (!mealCards.length) return '<div class="meal-empty-state">Nothing logged yet — use Quick Log or + Log Food below.</div>';
+  return mealCards.map(card => buildMealCard(card)).join('');
+}
+
+function buildMealCard(card) {
+  const icon = MEAL_ICONS[card.type] || '🍽';
+  const itemsHtml = (card.items || []).map(item => buildMealItemRow(item)).join('');
+  return `<div class="meal-card" id="meal-card-${escHtml(card.id)}">
+    <div class="meal-card-hdr">
+      <div class="meal-card-hdr-left">
+        <span class="meal-card-icon">${icon}</span>
+        <span class="meal-card-type">${escHtml(card.type)}</span>
+        <span class="meal-card-time">${fmt12hr(card.time)}</span>
       </div>
-      <div class="meal-section-body${hasEntries ? ' open' : ''}" id="${bodyId}">
-        ${mealEntries.map(e => buildFoodEntryCard(e)).join('')}
+      <div class="meal-card-hdr-right">
+        <span class="meal-card-total-cals">${Math.round(card.totalCalories)} cal</span>
+        <button class="meal-card-btn" onclick="openMealCardEdit('${escHtml(card.id)}')" title="Edit">✏️</button>
+        <button class="meal-card-btn delete" onclick="confirmDeleteMealCard('${escHtml(card.id)}')" title="Delete">🗑</button>
       </div>
-    </div>`;
-  }).join('');
+    </div>
+    <div class="meal-card-items">${itemsHtml}</div>
+  </div>`;
+}
+
+function buildMealItemRow(item) {
+  const macros = [
+    item.protein ? `<span class="food-macro-tag protein">P ${Math.round(item.protein)}g</span>` : '',
+    item.fiber   ? `<span class="food-macro-tag fiber">Fi ${Math.round(item.fiber * 10) / 10}g</span>` : '',
+    item.carbs   ? `<span class="food-macro-tag carbs">C ${Math.round(item.carbs)}g</span>` : '',
+    item.fat     ? `<span class="food-macro-tag fat">F ${Math.round(item.fat)}g</span>` : '',
+  ].filter(Boolean).join('');
+  return `<div class="meal-item-row">
+    <div class="meal-item-info">
+      <span class="meal-item-name">${escHtml(item.name)}</span>
+      <span class="meal-item-detail">${item.qty} ${escHtml(item.unit)}${item.isEstimate ? ' · ~est' : ''}</span>
+      ${macros ? `<div class="meal-item-macros">${macros}</div>` : ''}
+    </div>
+    <span class="meal-item-cals">${Math.round(item.calories)}</span>
+  </div>`;
 }
 
 function buildFoodEntryCard(e) {
@@ -4463,9 +4691,9 @@ function buildFoodEntryCard(e) {
       <div class="food-entry-detail">${e.qty} ${escHtml(e.unit)} · ${e.time || ''}</div>
       ${hasMacros ? `<div class="food-entry-macros">
         ${e.protein ? `<span class="food-macro-tag protein">P ${Math.round(e.protein)}g</span>` : ''}
+        ${e.fiber   ? `<span class="food-macro-tag fiber">Fi ${Math.round(e.fiber * 10) / 10}g</span>` : ''}
         ${e.carbs   ? `<span class="food-macro-tag carbs">C ${Math.round(e.carbs)}g</span>` : ''}
         ${e.fat     ? `<span class="food-macro-tag fat">F ${Math.round(e.fat)}g</span>` : ''}
-        ${e.fiber   ? `<span class="food-macro-tag fiber">Fi ${Math.round(e.fiber * 10) / 10}g</span>` : ''}
       </div>` : ''}
       ${e.isEstimate ? '<div class="food-entry-estimate">~ estimated</div>' : ''}
     </div>
@@ -4488,6 +4716,92 @@ function toggleMealSection(meal) {
   const open = body.classList.toggle('open');
   if (chev) chev.classList.toggle('open', open);
 }
+
+// ─── MEAL CARD EDITOR ─────────────────────────────────────────────
+
+let _editingMealCardId = null;
+let _editingMealItems = [];
+
+function openMealCardEdit(id) {
+  const card = DB_CACHE.nutrition_log.find(c => c.id === id);
+  if (!card) return;
+  _editingMealCardId = id;
+  _editingMealItems = card.items.map(i => ({ ...i }));
+  document.getElementById('mealEditType').value = card.type || 'Snack';
+  document.getElementById('mealEditTime').value = card.time || new Date().toTimeString().slice(0, 5);
+  renderMealEditItems();
+  document.getElementById('mealCardEditModal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function renderMealEditItems() {
+  const container = document.getElementById('mealEditItems');
+  if (!container) return;
+  container.innerHTML = _editingMealItems.map((item, i) => `
+    <div class="meal-edit-item-row" id="meal-edit-row-${i}">
+      <div class="meal-edit-item-main">
+        <input class="form-input" style="flex:2;min-width:80px" placeholder="Food name" value="${escHtml(item.name || '')}"
+          onchange="_editingMealItems[${i}].name=this.value">
+        <input class="form-input" style="width:55px" type="number" min="0" step="0.1" placeholder="Qty" value="${item.qty || 1}"
+          onchange="_editingMealItems[${i}].qty=parseFloat(this.value)||1">
+        <input class="form-input" style="width:65px" placeholder="Unit" value="${escHtml(item.unit || 'serving')}"
+          onchange="_editingMealItems[${i}].unit=this.value">
+        <input class="form-input" style="width:65px;color:var(--gold)" type="number" min="0" placeholder="Cal" value="${item.calories || 0}"
+          onchange="_editingMealItems[${i}].calories=parseInt(this.value)||0">
+        <button class="meal-edit-remove-btn" onclick="removeMealEditItem(${i})" title="Remove">✕</button>
+      </div>
+      <div class="meal-edit-item-macros">
+        <label>P<input class="form-input macro-mini" type="number" min="0" step="0.1" value="${item.protein || 0}" onchange="_editingMealItems[${i}].protein=parseFloat(this.value)||0"></label>
+        <label>Fi<input class="form-input macro-mini" type="number" min="0" step="0.1" value="${item.fiber || 0}" onchange="_editingMealItems[${i}].fiber=parseFloat(this.value)||0"></label>
+        <label>C<input class="form-input macro-mini" type="number" min="0" step="0.1" value="${item.carbs || 0}" onchange="_editingMealItems[${i}].carbs=parseFloat(this.value)||0"></label>
+        <label>F<input class="form-input macro-mini" type="number" min="0" step="0.1" value="${item.fat || 0}" onchange="_editingMealItems[${i}].fat=parseFloat(this.value)||0"></label>
+      </div>
+    </div>
+  `).join('');
+}
+
+function addItemRowToMealEdit() {
+  _editingMealItems.push({ id: genItemId(), name: '', qty: 1, unit: 'serving', calories: 0, protein: 0, fiber: 0, carbs: 0, fat: 0, isEstimate: false, isWater: false });
+  renderMealEditItems();
+  // Focus the new row's name input
+  const rows = document.querySelectorAll('.meal-edit-item-row');
+  if (rows.length) rows[rows.length - 1].querySelector('input')?.focus();
+}
+
+function removeMealEditItem(idx) {
+  _editingMealItems.splice(idx, 1);
+  renderMealEditItems();
+}
+
+function saveMealCardEdit() {
+  if (!_editingMealCardId) return;
+  const type = document.getElementById('mealEditType')?.value || 'Snack';
+  const time = document.getElementById('mealEditTime')?.value || new Date().toTimeString().slice(0, 5);
+  const items = _editingMealItems.filter(i => i.name && i.name.trim());
+  if (!items.length) { showToast('Add at least one item.'); return; }
+  updateMealCard(_editingMealCardId, { type, time, items });
+  closeMealCardEdit();
+  renderNutritionToday(nutritionDate);
+}
+
+function closeMealCardEdit() {
+  document.getElementById('mealCardEditModal')?.classList.add('hidden');
+  document.body.style.overflow = '';
+  _editingMealCardId = null;
+  _editingMealItems = [];
+}
+
+function confirmDeleteMealCard(id) {
+  const card = DB_CACHE.nutrition_log.find(c => c.id === id);
+  const label = card ? `${card.type} (${card.items.length} item${card.items.length !== 1 ? 's' : ''})` : 'this meal';
+  if (!confirm(`Delete ${label}?`)) return;
+  deleteMealCard(id);
+  renderNutritionToday(nutritionDate);
+}
+
+// Legacy (old per-entry edit kept for compatibility during transition)
+function confirmDeleteNutritionEntry(id) { confirmDeleteMealCard(id); }
+function openNutritionEntryEdit(id) { openMealCardEdit(id); }
 
 // ─── VOICE INPUT (Nutrition) ─────────────────────────────────────
 
@@ -4603,77 +4917,86 @@ async function submitNutritionQuickLog() {
   }
 }
 
+let _pendingConfirmItems = [];
+let _pendingConfirmMealType = 'Snack';
+let _pendingConfirmTime = '';
+
 function showNutritionConfirm(entries) {
   const modal = document.getElementById('nutritionConfirmModal');
   const body  = document.getElementById('nutritionConfirmBody');
   if (!modal || !body) return;
-  const total = entries.reduce((s, e) => s + e.calories, 0);
-  body.innerHTML = entries.map((e, i) => `
-    <div class="nut-confirm-item" id="nutConfItem${i}">
-      <div style="display:flex;align-items:start;justify-content:space-between">
-        <div style="flex:1;min-width:0">
-          <div class="nut-confirm-item-name">
-            <input class="form-input" style="font-weight:600;font-size:14px;padding:4px 8px" value="${escHtml(e.name)}"
-              onchange="_pendingNutritionEntries[${i}].name=this.value">
-          </div>
-          <div class="nut-confirm-item-detail" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
-            <input class="form-input" style="font-size:12px;padding:3px 6px;width:60px" type="number" value="${e.qty}"
-              onchange="_pendingNutritionEntries[${i}].qty=parseFloat(this.value)||1">
-            <input class="form-input" style="font-size:12px;padding:3px 6px;width:80px" value="${escHtml(e.unit)}"
-              onchange="_pendingNutritionEntries[${i}].unit=this.value">
-            <select class="form-select" style="font-size:12px;padding:3px 6px"
-              onchange="_pendingNutritionEntries[${i}].meal=this.value">
-              ${['Breakfast','Lunch','Dinner','Snack','Drink'].map(m=>`<option${m===e.meal?' selected':''}>${m}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:8px">
-          <input class="form-input" style="font-size:15px;font-weight:700;color:var(--gold);padding:4px 6px;width:70px;text-align:right"
-            type="number" value="${e.calories}"
-            onchange="_pendingNutritionEntries[${i}].calories=parseInt(this.value)||0">
-          <span style="font-size:12px;color:var(--muted)">cal</span>
-        </div>
-      </div>
-      ${e.isEstimate ? '<div class="food-entry-estimate" style="margin-top:4px">~ estimated</div>' : ''}
-    </div>
-  `).join('') + `<div class="nut-confirm-total">Total: ${Math.round(total)} cal</div>`;
+  // Convert flat entries to items, detect shared meal type
+  const mealType = entries[0]?.meal || 'Snack';
+  const sharedTime = entries[0]?.time || new Date().toTimeString().slice(0, 5);
+  _pendingConfirmMealType = mealType;
+  _pendingConfirmTime = sharedTime;
+  _pendingConfirmItems = entries.map(e => ({
+    id: genItemId(), name: e.name, qty: e.qty, unit: e.unit,
+    calories: e.calories || 0, protein: e.protein || 0, fiber: e.fiber || 0,
+    carbs: e.carbs || 0, fat: e.fat || 0,
+    isEstimate: e.isEstimate || false, isWater: e.isWater || false,
+  }));
+  renderNutritionConfirmBody();
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+}
+
+function renderNutritionConfirmBody() {
+  const body = document.getElementById('nutritionConfirmBody');
+  if (!body) return;
+  const total = _pendingConfirmItems.reduce((s, i) => s + (i.calories || 0), 0);
+  const mealSelect = ['Breakfast','Lunch','Dinner','Snack','Drink'].map(m => `<option${m===_pendingConfirmMealType?' selected':''}>${m}</option>`).join('');
+  body.innerHTML = `
+    <div class="nut-confirm-meal-hdr">
+      <select class="form-select" style="flex:1" onchange="_pendingConfirmMealType=this.value">${mealSelect}</select>
+      <input class="form-input" type="time" value="${escHtml(_pendingConfirmTime)}" style="width:110px" onchange="_pendingConfirmTime=this.value">
+    </div>
+    ${_pendingConfirmItems.map((item, i) => `
+      <div class="nut-confirm-item">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <input class="form-input" style="flex:2;min-width:80px;font-weight:600;font-size:14px;padding:4px 8px" value="${escHtml(item.name)}"
+            onchange="_pendingConfirmItems[${i}].name=this.value">
+          <input class="form-input" style="width:55px;font-size:12px;padding:3px 6px" type="number" value="${item.qty}"
+            onchange="_pendingConfirmItems[${i}].qty=parseFloat(this.value)||1">
+          <input class="form-input" style="width:70px;font-size:12px;padding:3px 6px" value="${escHtml(item.unit)}"
+            onchange="_pendingConfirmItems[${i}].unit=this.value">
+          <input class="form-input" style="width:65px;font-size:14px;font-weight:700;color:var(--gold);padding:4px 6px;text-align:right" type="number" value="${item.calories}"
+            onchange="_pendingConfirmItems[${i}].calories=parseInt(this.value)||0">
+          <span style="font-size:12px;color:var(--muted)">cal</span>
+        </div>
+        ${item.isEstimate ? '<div class="food-entry-estimate" style="margin-top:2px">~ estimated</div>' : ''}
+      </div>
+    `).join('')}
+    <div class="nut-confirm-total">Total: ${Math.round(total)} cal</div>
+  `;
 }
 
 function closeNutritionConfirm() {
   document.getElementById('nutritionConfirmModal')?.classList.add('hidden');
   document.body.style.overflow = '';
   _pendingNutritionEntries = [];
+  _pendingConfirmItems = [];
 }
 
 function saveNutritionConfirmed() {
-  _pendingNutritionEntries.forEach(e => saveNutritionEntry(e));
+  const items = _pendingConfirmItems.filter(i => i.name && i.name.trim());
+  if (!items.length) { closeNutritionConfirm(); return; }
+  const card = {
+    id: genMealId(),
+    type: _pendingConfirmMealType || 'Snack',
+    time: _pendingConfirmTime || new Date().toTimeString().slice(0, 5),
+    date: nutritionDate,
+    items,
+    totalCalories: 0, totalProtein: 0, totalFiber: 0, totalCarbs: 0, totalFat: 0,
+  };
+  recalcMealTotals(card);
+  saveMealCard(card);
   closeNutritionConfirm();
   renderNutritionToday(nutritionDate);
-  showToast(`${_pendingNutritionEntries.length || 'All'} entries saved.`);
-  _pendingNutritionEntries = [];
+  showToast(`${items.length} item${items.length !== 1 ? 's' : ''} saved.`);
 }
 
-// ─── ENTRY EDIT MODAL ─────────────────────────────────────────────
-
-function openNutritionEntryEdit(id) {
-  const entry = DB_CACHE.nutrition_log.find(e => e.id === id);
-  if (!entry) return;
-  document.getElementById('nutEditId').value = id;
-  document.getElementById('nutEditName').value = entry.name || '';
-  document.getElementById('nutEditQty').value = entry.qty || 1;
-  document.getElementById('nutEditUnit').value = entry.unit || '';
-  document.getElementById('nutEditCalories').value = entry.calories || 0;
-  document.getElementById('nutEditMeal').value = entry.meal || 'Snack';
-  document.getElementById('nutEditProtein').value = entry.protein || 0;
-  document.getElementById('nutEditCarbs').value = entry.carbs || 0;
-  document.getElementById('nutEditFat').value = entry.fat || 0;
-  document.getElementById('nutEditFiber').value = entry.fiber || 0;
-  document.getElementById('nutEditTime').value = entry.time || '';
-  document.getElementById('nutritionEntryEditModal').classList.remove('hidden');
-  document.body.style.overflow = 'hidden';
-}
+// ─── ENTRY EDIT MODAL (legacy, delegated to meal card editor) ──────
 
 function closeNutritionEntryEdit() {
   document.getElementById('nutritionEntryEditModal')?.classList.add('hidden');
@@ -4681,40 +5004,18 @@ function closeNutritionEntryEdit() {
 }
 
 function saveNutritionEntryEdit() {
-  const id = document.getElementById('nutEditId').value;
-  updateNutritionEntry(id, {
-    name:     document.getElementById('nutEditName').value.trim() || 'Food',
-    qty:      parseFloat(document.getElementById('nutEditQty').value) || 1,
-    unit:     document.getElementById('nutEditUnit').value.trim() || 'serving',
-    calories: parseInt(document.getElementById('nutEditCalories').value) || 0,
-    meal:     document.getElementById('nutEditMeal').value,
-    protein:  parseFloat(document.getElementById('nutEditProtein').value) || 0,
-    carbs:    parseFloat(document.getElementById('nutEditCarbs').value) || 0,
-    fat:      parseFloat(document.getElementById('nutEditFat').value) || 0,
-    fiber:    parseFloat(document.getElementById('nutEditFiber').value) || 0,
-    time:     document.getElementById('nutEditTime').value || '',
-  });
-  closeNutritionEntryEdit();
-  if (nutritionView === 'today')   renderNutritionToday(nutritionDate);
-  if (nutritionView === 'history' && nutritionHistoryDayDetail) renderNutritionToday(nutritionHistoryDayDetail);
-  showToast('Entry updated.');
+  // Delegate to meal card edit save (modal is now mealCardEditModal)
+  saveMealCardEdit();
 }
 
 function deleteNutritionEntryFromEdit() {
-  const id = document.getElementById('nutEditId').value;
-  if (!id) return;
-  deleteNutritionEntry(id);
-  closeNutritionEntryEdit();
-  if (nutritionView === 'today')   renderNutritionToday(nutritionDate);
-  if (nutritionView === 'history' && nutritionHistoryDayDetail) showHistoryDayDetail(nutritionHistoryDayDetail);
-  showToast('Entry deleted.');
-}
-
-function confirmDeleteNutritionEntry(id) {
-  if (!confirm('Delete this entry?')) return;
-  deleteNutritionEntry(id);
-  renderNutritionToday(nutritionDate);
-  showToast('Entry deleted.');
+  closeMealCardEdit();
+  if (_editingMealCardId) {
+    deleteMealCard(_editingMealCardId);
+    if (nutritionView === 'today') renderNutritionToday(nutritionDate);
+    if (nutritionView === 'history' && nutritionHistoryDayDetail) showHistoryDayDetail(nutritionHistoryDayDetail);
+    showToast('Meal deleted.');
+  }
 }
 
 // ─── FOOD SEARCH MODAL ────────────────────────────────────────────
@@ -4722,27 +5023,19 @@ function confirmDeleteNutritionEntry(id) {
 function openFoodSearchModal() {
   const modal = document.getElementById('foodSearchModal');
   if (!modal) return;
-  // Reset state
   _usdaSelectedFood = null;
-  const now = new Date();
-  const timeStr = now.toTimeString().slice(0, 5);
-  document.getElementById('usdaSearchInput').value = '';
-  document.getElementById('usdaResults').innerHTML = '';
-  document.getElementById('usdaSelectedSection')?.classList.add('hidden');
-  document.getElementById('manualEntrySection')?.classList.add('hidden');
-  document.getElementById('foodLogTime').value = timeStr;
-  const hour = now.getHours();
-  const meal = hour < 10 ? 'Breakfast' : hour < 13 ? 'Lunch' : hour < 17 ? 'Snack' : hour < 20 ? 'Dinner' : 'Snack';
-  document.getElementById('foodLogMeal').value = meal;
+  _mealLoggerState = null;
+  document.getElementById('foodSearchModalTitle').textContent = 'Log Food';
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
-  setTimeout(() => document.getElementById('usdaSearchInput')?.focus(), 100);
+  openMealTypeFirst();
 }
 
 function closeFoodSearchModal() {
   document.getElementById('foodSearchModal')?.classList.add('hidden');
   document.body.style.overflow = '';
   _usdaSelectedFood = null;
+  _mealLoggerState = null;
 }
 
 async function searchUSDA() {
@@ -4798,12 +5091,13 @@ function selectUsdaFood(idx) {
   resultsEl.querySelectorAll('.usda-result-item').forEach(el => el.classList.remove('selected'));
   resultsEl.querySelectorAll('.usda-result-item')[idx]?.classList.add('selected');
 
-  const calPer100 = getUsdaCal(food) || 0;
-  const protPer100 = getUsdaMacro(food, 1003, ['Protein']);
-  const carbPer100 = getUsdaMacro(food, 1005, ['Carbohydrate, by difference']);
-  const fatPer100  = getUsdaMacro(food, 1004, ['Total lipid (fat)']);
+  const calPer100   = getUsdaCal(food) || 0;
+  const protPer100  = getUsdaMacro(food, 1003, ['Protein']);
+  const carbPer100  = getUsdaMacro(food, 1005, ['Carbohydrate, by difference']);
+  const fatPer100   = getUsdaMacro(food, 1004, ['Total lipid (fat)']);
+  const fiberPer100 = getUsdaMacro(food, 1079, ['Fiber, total dietary']);
 
-  _usdaSelectedFood = { name: food.description, calPer100, protPer100, carbPer100, fatPer100 };
+  _usdaSelectedFood = { name: food.description, calPer100, protPer100, carbPer100, fatPer100, fiberPer100 };
 
   const selectedEl = document.getElementById('usdaSelectedSection');
   if (selectedEl) {
@@ -4829,18 +5123,20 @@ function recalcUsdaCalories() {
   if (unitVal === '1g') gramsFactor = 1;
   else if (unitVal.startsWith('serving:')) gramsFactor = parseFloat(unitVal.slice(8)) || 100;
   const totalGrams = qty * gramsFactor;
-  const cal  = Math.round(_usdaSelectedFood.calPer100  * totalGrams / 100);
-  const prot = Math.round(_usdaSelectedFood.protPer100 * totalGrams / 100 * 10) / 10;
-  const carb = Math.round(_usdaSelectedFood.carbPer100 * totalGrams / 100 * 10) / 10;
-  const fat  = Math.round(_usdaSelectedFood.fatPer100  * totalGrams / 100 * 10) / 10;
+  const cal   = Math.round(_usdaSelectedFood.calPer100   * totalGrams / 100);
+  const prot  = Math.round(_usdaSelectedFood.protPer100  * totalGrams / 100 * 10) / 10;
+  const carb  = Math.round(_usdaSelectedFood.carbPer100  * totalGrams / 100 * 10) / 10;
+  const fat   = Math.round(_usdaSelectedFood.fatPer100   * totalGrams / 100 * 10) / 10;
+  const fiber = Math.round((_usdaSelectedFood.fiberPer100 || 0) * totalGrams / 100 * 10) / 10;
   const el = document.getElementById('usdaCalcCalories');
-  if (el) el.textContent = `${cal} cal · P ${prot}g · C ${carb}g · F ${fat}g`;
-  _usdaSelectedFood._calcCal  = cal;
-  _usdaSelectedFood._calcProt = prot;
-  _usdaSelectedFood._calcCarb = carb;
-  _usdaSelectedFood._calcFat  = fat;
-  _usdaSelectedFood._unitVal  = unitVal;
-  _usdaSelectedFood._qty      = qty;
+  if (el) el.textContent = `${cal} cal · P ${prot}g · Fi ${fiber}g · C ${carb}g · F ${fat}g`;
+  _usdaSelectedFood._calcCal   = cal;
+  _usdaSelectedFood._calcProt  = prot;
+  _usdaSelectedFood._calcCarb  = carb;
+  _usdaSelectedFood._calcFat   = fat;
+  _usdaSelectedFood._calcFiber = fiber;
+  _usdaSelectedFood._unitVal   = unitVal;
+  _usdaSelectedFood._qty       = qty;
 }
 
 function toggleManualEntry() {
@@ -4857,55 +5153,226 @@ function toggleManualEntry() {
 }
 
 function saveFoodLogEntry() {
-  const meal = document.getElementById('foodLogMeal')?.value || 'Snack';
+  const mealType = document.getElementById('foodLogMeal')?.value || 'Snack';
   const time = document.getElementById('foodLogTime')?.value || new Date().toTimeString().slice(0, 5);
   const manualSection = document.getElementById('manualEntrySection');
   const isManual = manualSection && !manualSection.classList.contains('hidden');
+  let item = null;
 
   if (isManual) {
     const name = (document.getElementById('manualName')?.value || '').trim();
     const cals = parseInt(document.getElementById('manualCalories')?.value) || 0;
     if (!name) { showToast('Please enter a food name.'); return; }
     if (!cals) { showToast('Please enter calories.'); return; }
-    saveNutritionEntry({
-      id: genNutritionId(),
-      date: nutritionDate,
-      name,
-      qty: parseFloat(document.getElementById('manualQty')?.value) || 1,
-      unit: document.getElementById('manualUnit')?.value || 'serving',
+    item = {
+      id: genItemId(), name,
+      qty:     parseFloat(document.getElementById('manualQty')?.value) || 1,
+      unit:    document.getElementById('manualUnit')?.value || 'serving',
       calories: cals,
       protein: parseFloat(document.getElementById('manualProtein')?.value) || 0,
+      fiber:   parseFloat(document.getElementById('manualFiber')?.value) || 0,
       carbs:   parseFloat(document.getElementById('manualCarbs')?.value) || 0,
       fat:     parseFloat(document.getElementById('manualFat')?.value) || 0,
-      fiber:   parseFloat(document.getElementById('manualFiber')?.value) || 0,
-      meal, time,
-      isEstimate: false,
-      addedAt: new Date().toISOString(),
-    });
+      isEstimate: false, isWater: false,
+    };
   } else if (_usdaSelectedFood && _usdaSelectedFood._calcCal !== undefined) {
     const unitVal = _usdaSelectedFood._unitVal || '100g';
     const unitLabel = unitVal === '100g' ? '100g' : unitVal === '1g' ? 'g' : 'serving';
-    saveNutritionEntry({
-      id: genNutritionId(),
-      date: nutritionDate,
-      name: _usdaSelectedFood.name,
-      qty: _usdaSelectedFood._qty || 1,
-      unit: unitLabel,
+    item = {
+      id: genItemId(), name: _usdaSelectedFood.name,
+      qty:     _usdaSelectedFood._qty || 1,
+      unit:    unitLabel,
       calories: _usdaSelectedFood._calcCal,
       protein:  _usdaSelectedFood._calcProt || 0,
-      carbs:    _usdaSelectedFood._calcCarb || 0,
-      fat:      _usdaSelectedFood._calcFat  || 0,
-      meal, time,
-      isEstimate: false,
-      addedAt: new Date().toISOString(),
-    });
+      fiber:    _usdaSelectedFood._calcFiber || 0,
+      carbs:    _usdaSelectedFood._calcCarb  || 0,
+      fat:      _usdaSelectedFood._calcFat   || 0,
+      isEstimate: false, isWater: false,
+    };
   } else {
     showToast('Select a food from search results or use manual entry.');
     return;
   }
+
+  // Check if there's a pending meal being built (meal-first flow)
+  if (_mealLoggerState) {
+    _mealLoggerState.items.push(item);
+    renderMealLoggerItems();
+    return;
+  }
+
+  const card = { id: genMealId(), type: mealType, time, date: nutritionDate, items: [item], totalCalories: 0, totalProtein: 0, totalFiber: 0, totalCarbs: 0, totalFat: 0 };
+  recalcMealTotals(card);
+  saveMealCard(card);
   closeFoodSearchModal();
   renderNutritionToday(nutritionDate);
   showToast('Food logged.');
+}
+
+let _mealLoggerState = null;
+
+function openMealTypeFirst() {
+  const body = document.getElementById('foodSearchBody');
+  if (!body) return;
+  _mealLoggerState = null;
+  const now = new Date();
+  const hour = now.getHours();
+  const defaultMeal = hour < 10 ? 'Breakfast' : hour < 13 ? 'Lunch' : hour < 17 ? 'Snack' : hour < 20 ? 'Dinner' : 'Snack';
+  body.innerHTML = `
+    <div class="meal-type-picker">
+      <div class="meal-type-label">Select meal type</div>
+      <div class="meal-type-btns">
+        ${['Breakfast','Lunch','Dinner','Snack','Drink'].map(m => `
+          <button class="meal-type-btn${m === defaultMeal ? ' selected' : ''}" onclick="selectMealType('${m}')">${MEAL_ICONS[m]} ${m}</button>
+        `).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+        <label class="form-label" style="margin:0;white-space:nowrap">Time</label>
+        <input class="form-input" type="time" id="mealLoggerTime" value="${now.toTimeString().slice(0,5)}" style="width:120px">
+      </div>
+      <button class="modal-save-btn" style="margin-top:16px;width:100%" onclick="startMealLogger('${defaultMeal}')">Continue →</button>
+    </div>`;
+  document.getElementById('foodLogSaveBtn').style.display = 'none';
+}
+
+function selectMealType(type) {
+  document.querySelectorAll('.meal-type-btn').forEach(b => b.classList.toggle('selected', b.textContent.trim().endsWith(type)));
+  document.querySelector('.meal-type-btns button.selected')?.setAttribute('data-type', type);
+  // Update the continue button's onclick with selected type
+  document.querySelector('.meal-type-picker .modal-save-btn')?.setAttribute('onclick', `startMealLogger('${type}')`);
+}
+
+function startMealLogger(type) {
+  const time = document.getElementById('mealLoggerTime')?.value || new Date().toTimeString().slice(0, 5);
+  _mealLoggerState = { type, time, items: [] };
+  const body = document.getElementById('foodSearchBody');
+  document.getElementById('foodSearchModalTitle').textContent = `Log ${type}`;
+  document.getElementById('foodLogSaveBtn').style.display = '';
+  document.getElementById('foodLogSaveBtn').textContent = 'Save Meal';
+  document.getElementById('foodLogSaveBtn').onclick = saveMealLogger;
+  body.innerHTML = `
+    <div id="mealLoggerItemsWrap">
+      <div class="meal-logger-meal-hdr">${MEAL_ICONS[type] || '🍽'} <strong>${type}</strong> · ${fmt12hr(time)}</div>
+      <div id="mealLoggerItems" class="meal-logger-items"></div>
+    </div>
+    <div id="foodSearchTab">
+      <div class="form-group">
+        <label class="form-label">Add item — search food database</label>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="usdaSearchInput" type="text" placeholder="e.g. chicken breast, apple..." autocomplete="off" onkeydown="if(event.key==='Enter')searchUSDA()">
+          <button class="modal-save-btn" style="flex:0 0 auto;padding:8px 14px" onclick="searchUSDA()">Search</button>
+        </div>
+      </div>
+      <div id="usdaResults" class="usda-results"></div>
+      <div id="usdaSelectedSection" class="hidden">
+        <div class="nut-divider"></div>
+        <div id="usdaSelectedName" class="nut-selected-food-name"></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Qty</label>
+            <input class="form-input" id="usdaQty" type="number" min="0.1" step="0.1" value="1" oninput="recalcUsdaCalories()"></div>
+          <div class="form-group"><label class="form-label">Unit</label>
+            <select class="form-select" id="usdaUnit" onchange="recalcUsdaCalories()"><option value="100g">100g</option></select></div>
+        </div>
+        <div id="usdaCalcCalories" class="nut-calc-calories"></div>
+        <button class="modal-save-btn" style="width:100%;margin-top:8px" onclick="addUsdaItemToMeal()">+ Add to ${type}</button>
+      </div>
+    </div>
+    <div class="nut-divider" id="manualDivider"></div>
+    <button class="nut-manual-toggle" id="manualToggleBtn" onclick="toggleManualEntry()">✏️ Enter manually instead</button>
+    <div id="manualEntrySection" class="hidden">
+      <div class="form-group"><label class="form-label">Food Name *</label>
+        <input class="form-input" id="manualName" type="text" placeholder="e.g. Protein shake" autocomplete="off"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Calories *</label><input class="form-input" id="manualCalories" type="number" min="0" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">Qty</label><input class="form-input" id="manualQty" type="number" min="0.1" step="0.1" value="1"></div>
+        <div class="form-group"><label class="form-label">Unit</label><input class="form-input" id="manualUnit" type="text" placeholder="serving" value="serving"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">P (g)</label><input class="form-input" id="manualProtein" type="number" min="0" step="0.1" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">Fi (g)</label><input class="form-input" id="manualFiber" type="number" min="0" step="0.1" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">C (g)</label><input class="form-input" id="manualCarbs" type="number" min="0" step="0.1" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">F (g)</label><input class="form-input" id="manualFat" type="number" min="0" step="0.1" placeholder="0"></div>
+      </div>
+      <button class="modal-save-btn" style="width:100%;margin-top:8px" onclick="addManualItemToMeal()">+ Add to ${type}</button>
+    </div>
+  `;
+  renderMealLoggerItems();
+}
+
+function renderMealLoggerItems() {
+  const el = document.getElementById('mealLoggerItems');
+  if (!el || !_mealLoggerState) return;
+  const items = _mealLoggerState.items;
+  if (!items.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">No items yet — search or enter manually below.</div>'; return; }
+  el.innerHTML = items.map((item, i) => `
+    <div class="meal-logger-item-row">
+      <span class="meal-logger-item-name">${escHtml(item.name)}</span>
+      <span class="meal-logger-item-detail">${item.qty} ${escHtml(item.unit)}</span>
+      <span class="meal-logger-item-cals">${Math.round(item.calories)} cal</span>
+      <button class="meal-edit-remove-btn" onclick="removeMealLoggerItem(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeMealLoggerItem(idx) {
+  if (_mealLoggerState) { _mealLoggerState.items.splice(idx, 1); renderMealLoggerItems(); }
+}
+
+function addUsdaItemToMeal() {
+  if (!_usdaSelectedFood || _usdaSelectedFood._calcCal === undefined) { showToast('Select a food first.'); return; }
+  const unitVal = _usdaSelectedFood._unitVal || '100g';
+  const unitLabel = unitVal === '100g' ? '100g' : unitVal === '1g' ? 'g' : 'serving';
+  const item = {
+    id: genItemId(), name: _usdaSelectedFood.name,
+    qty: _usdaSelectedFood._qty || 1, unit: unitLabel,
+    calories: _usdaSelectedFood._calcCal,
+    protein: _usdaSelectedFood._calcProt || 0, fiber: _usdaSelectedFood._calcFiber || 0,
+    carbs: _usdaSelectedFood._calcCarb || 0, fat: _usdaSelectedFood._calcFat || 0,
+    isEstimate: false, isWater: false,
+  };
+  if (_mealLoggerState) { _mealLoggerState.items.push(item); renderMealLoggerItems(); }
+  document.getElementById('usdaSelectedSection')?.classList.add('hidden');
+  document.getElementById('usdaResults').innerHTML = '';
+  document.getElementById('usdaSearchInput').value = '';
+  _usdaSelectedFood = null;
+}
+
+function addManualItemToMeal() {
+  const name = (document.getElementById('manualName')?.value || '').trim();
+  const cals = parseInt(document.getElementById('manualCalories')?.value) || 0;
+  if (!name) { showToast('Please enter a food name.'); return; }
+  if (!cals) { showToast('Please enter calories.'); return; }
+  const item = {
+    id: genItemId(), name,
+    qty: parseFloat(document.getElementById('manualQty')?.value) || 1,
+    unit: document.getElementById('manualUnit')?.value || 'serving',
+    calories: cals,
+    protein: parseFloat(document.getElementById('manualProtein')?.value) || 0,
+    fiber: parseFloat(document.getElementById('manualFiber')?.value) || 0,
+    carbs: parseFloat(document.getElementById('manualCarbs')?.value) || 0,
+    fat: parseFloat(document.getElementById('manualFat')?.value) || 0,
+    isEstimate: false, isWater: false,
+  };
+  if (_mealLoggerState) { _mealLoggerState.items.push(item); renderMealLoggerItems(); }
+  // Clear manual form
+  ['manualName','manualCalories','manualProtein','manualFiber','manualCarbs','manualFat'].forEach(id => { const el = document.getElementById(id); if (el) el.value = id.includes('Calories') || id.includes('Protein') || id.includes('Fiber') || id.includes('Carbs') || id.includes('Fat') ? '0' : ''; });
+  document.getElementById('manualQty').value = '1';
+}
+
+function saveMealLogger() {
+  if (!_mealLoggerState || !_mealLoggerState.items.length) { showToast('Add at least one item.'); return; }
+  const card = {
+    id: genMealId(), type: _mealLoggerState.type,
+    time: _mealLoggerState.time, date: nutritionDate,
+    items: _mealLoggerState.items,
+    totalCalories: 0, totalProtein: 0, totalFiber: 0, totalCarbs: 0, totalFat: 0,
+  };
+  recalcMealTotals(card);
+  saveMealCard(card);
+  _mealLoggerState = null;
+  closeFoodSearchModal();
+  renderNutritionToday(nutritionDate);
+  showToast('Meal saved.');
 }
 
 // ─── HISTORY VIEW ─────────────────────────────────────────────────
@@ -5039,7 +5506,7 @@ function showHistoryDayDetail(date) {
       <div class="nut-day-detail-cals">${consumed.toLocaleString()} cal</div>
     </div>
     ${buildMacroRow(summary, goals.protein||0, goals.carbs||0, goals.fat||0)}
-    ${buildMealSections(entries)}
+    ${buildMealCards(entries)}
   `;
 }
 
@@ -5338,6 +5805,124 @@ function calcProjectedDate(g, tdee) {
   const projDt = new Date();
   projDt.setDate(projDt.getDate() + daysNeeded);
   return projDt.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+}
+
+// ─── SETTINGS VIEW ────────────────────────────────────────────────
+
+function renderNutritionSettings() {
+  const el = document.getElementById('nutrition-settings-view');
+  if (!el) return;
+  const cs = getNutCardSettings();
+  const goals = DB_CACHE.nutrition_goals || {};
+  const r = goals.waterReminder || {};
+  const waterUnit = goals.waterUnit || 'oz';
+
+  el.innerHTML = `
+    <div class="nut-goals-section">
+      <div class="nut-goals-section-title">Metric Cards</div>
+      <div class="nut-settings-row">
+        <span class="nut-settings-label">Water card</span>
+        <button class="nut-toggle-btn${cs.showWater ? ' on' : ''}" onclick="toggleNutCard('water')" id="cardWaterToggle">${cs.showWater ? 'On' : 'Off'}</button>
+      </div>
+      <div class="nut-settings-row">
+        <span class="nut-settings-label">Protein card</span>
+        <button class="nut-toggle-btn${cs.showProtein ? ' on' : ''}" onclick="toggleNutCard('protein')" id="cardProteinToggle">${cs.showProtein ? 'On' : 'Off'}</button>
+      </div>
+      <div class="nut-settings-row">
+        <span class="nut-settings-label">Fiber card</span>
+        <button class="nut-toggle-btn${cs.showFiber ? ' on' : ''}" onclick="toggleNutCard('fiber')" id="cardFiberToggle">${cs.showFiber ? 'On' : 'Off'}</button>
+      </div>
+    </div>
+
+    <div class="nut-goals-section">
+      <div class="nut-goals-section-title">Units</div>
+      <div class="nut-settings-row">
+        <span class="nut-settings-label">Water tracking unit</span>
+        <div style="display:flex;gap:6px">
+          <button class="nut-unit-btn${waterUnit === 'oz' ? ' active' : ''}" onclick="setWaterUnit('oz')">oz</button>
+          <button class="nut-unit-btn${waterUnit === 'ml' ? ' active' : ''}" onclick="setWaterUnit('ml')">ml</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="nut-goals-section">
+      <div class="nut-goals-section-title">Water Reminders</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Reminders only work while the app is open.</div>
+      <div class="nut-settings-row">
+        <span class="nut-settings-label">Enable reminders</span>
+        <button class="nut-toggle-btn${r.enabled ? ' on' : ''}" id="waterReminderToggle" onclick="toggleWaterReminder()">${r.enabled ? 'On' : 'Off'}</button>
+      </div>
+      <div class="nut-settings-row">
+        <span class="nut-settings-label">Interval</span>
+        <select class="form-select" id="waterReminderInterval" style="width:auto" onchange="updateWaterReminderField('intervalMin', this.value === 'custom' ? null : parseInt(this.value)); document.getElementById('customIntervalRow').classList.toggle('hidden', this.value !== 'custom')">
+          <option value="30"${(r.intervalMin||60) === 30 ? ' selected' : ''}>Every 30 min</option>
+          <option value="60"${(r.intervalMin||60) === 60 ? ' selected' : ''}>Every 1 hr</option>
+          <option value="120"${(r.intervalMin||60) === 120 ? ' selected' : ''}>Every 2 hrs</option>
+          <option value="custom"${![30,60,120].includes(r.intervalMin||60) ? ' selected' : ''}>Custom</option>
+        </select>
+      </div>
+      <div class="nut-settings-row${[30,60,120].includes(r.intervalMin||60) ? ' hidden' : ''}" id="customIntervalRow">
+        <span class="nut-settings-label">Custom (minutes)</span>
+        <input class="form-input" type="number" min="5" style="width:80px" value="${r.intervalMin || 60}" onchange="updateWaterReminderField('intervalMin', parseInt(this.value)||60)">
+      </div>
+      <div class="nut-settings-row">
+        <span class="nut-settings-label">Active from</span>
+        <input class="form-input" type="time" style="width:120px" value="${r.startTime || '08:00'}" onchange="updateWaterReminderField('startTime', this.value)">
+      </div>
+      <div class="nut-settings-row">
+        <span class="nut-settings-label">Active until</span>
+        <input class="form-input" type="time" style="width:120px" value="${r.endTime || '22:00'}" onchange="updateWaterReminderField('endTime', this.value)">
+      </div>
+      <div class="nut-settings-row" style="flex-direction:column;align-items:flex-start;gap:4px">
+        <span class="nut-settings-label">Reminder message</span>
+        <input class="form-input" type="text" maxlength="100" style="width:100%" placeholder="Time to drink some water!" value="${escHtml(r.message || '')}" onchange="updateWaterReminderField('message', this.value)">
+      </div>
+      <button class="modal-save-btn" style="width:100%;margin-top:12px" onclick="saveWaterReminderSettings()">Save Reminder Settings</button>
+    </div>
+  `;
+}
+
+function toggleNutCard(card) {
+  const cs = getNutCardSettings();
+  const key = 'show' + card.charAt(0).toUpperCase() + card.slice(1);
+  cs[key] = !cs[key];
+  saveNutCardSettings(cs);
+  const btn = document.getElementById('card' + card.charAt(0).toUpperCase() + card.slice(1) + 'Toggle');
+  if (btn) { btn.classList.toggle('on', cs[key]); btn.textContent = cs[key] ? 'On' : 'Off'; }
+  if (nutritionView === 'today') renderNutritionToday(nutritionDate);
+}
+
+function setWaterUnit(unit) {
+  saveNutritionGoals({ waterUnit: unit });
+  renderNutritionSettings();
+}
+
+let _pendingWaterReminder = {};
+function updateWaterReminderField(field, value) {
+  _pendingWaterReminder[field] = value;
+}
+
+function toggleWaterReminder() {
+  const r = (DB_CACHE.nutrition_goals || {}).waterReminder || {};
+  _pendingWaterReminder.enabled = !r.enabled;
+  saveWaterReminderSettings();
+}
+
+function saveWaterReminderSettings() {
+  const r = (DB_CACHE.nutrition_goals || {}).waterReminder || {};
+  const updated = Object.assign({}, r, _pendingWaterReminder);
+  // Also read current form values
+  const intervalSel = document.getElementById('waterReminderInterval');
+  if (intervalSel && intervalSel.value !== 'custom') updated.intervalMin = parseInt(intervalSel.value);
+  const startEl = document.querySelector('#nutrition-settings-view input[type=time]');
+  if (startEl) updated.startTime = startEl.value;
+  const msgEl = document.querySelector('#nutrition-settings-view input[maxlength="100"]');
+  if (msgEl) updated.message = msgEl.value;
+  saveNutritionGoals({ waterReminder: updated });
+  _pendingWaterReminder = {};
+  setupWaterReminders();
+  renderNutritionSettings();
+  showToast('Reminder settings saved.');
 }
 
 // ─── WEIGHT VIEW ──────────────────────────────────────────────────
@@ -6345,7 +6930,7 @@ function applyDefaultTab() {
   switchMainTab(tab);
 }
 
-Promise.all([initDB(), initPhotos()]).then(() => { renderAll(); applyDefaultTab(); }).catch(renderAll);
+Promise.all([initDB(), initPhotos()]).then(() => { renderAll(); applyDefaultTab(); setupWaterReminders(); }).catch(renderAll);
 
 // ─── SERVICE WORKER ─────────────────────────────────────────────────────────
 

@@ -182,11 +182,13 @@
     <button class="nutrition-subnav-btn" id="nnHistory" onclick="switchNutritionView('history')">History</button>
     <button class="nutrition-subnav-btn" id="nnGoals" onclick="switchNutritionView('goals')">Goals</button>
     <button class="nutrition-subnav-btn" id="nnWeight" onclick="switchNutritionView('weight')">Weight</button>
+    <button class="nutrition-subnav-btn" id="nnSettings" onclick="switchNutritionView('settings')">Settings</button>
   </div>
   <div id="nutrition-today-view" class="nutrition-view-panel"></div>
   <div id="nutrition-history-view" class="nutrition-view-panel hidden"></div>
   <div id="nutrition-goals-view" class="nutrition-view-panel hidden"></div>
   <div id="nutrition-weight-view" class="nutrition-view-panel hidden"></div>
+  <div id="nutrition-settings-view" class="nutrition-view-panel hidden"></div>
   <button class="add-nutrition-fab hidden" id="addNutritionFab" onclick="openFoodSearchModal()">+ Log Food</button>
 </div>
 
@@ -376,6 +378,34 @@
     <div class="modal-footer">
       <button class="modal-cancel-btn" onclick="closeFoodSearchModal()">Cancel</button>
       <button class="modal-save-btn" id="foodLogSaveBtn" onclick="saveFoodLogEntry()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MEAL CARD EDITOR MODAL ── -->
+<div id="mealCardEditModal" class="modal-overlay hidden" onclick="if(event.target===this)closeMealCardEdit()">
+  <div class="modal-container" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title">Edit Meal</div>
+      <button class="modal-close" onclick="closeMealCardEdit()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="meal-edit-header-row">
+        <select class="form-select" id="mealEditType">
+          <option value="Breakfast">Breakfast</option>
+          <option value="Lunch">Lunch</option>
+          <option value="Dinner">Dinner</option>
+          <option value="Snack">Snack</option>
+          <option value="Drink">Drink</option>
+        </select>
+        <input class="form-input" type="time" id="mealEditTime" style="width:130px">
+      </div>
+      <div id="mealEditItems" class="meal-edit-items-list"></div>
+      <button class="nut-manual-toggle" style="margin-top:8px" onclick="addItemRowToMealEdit()">+ Add Item</button>
+    </div>
+    <div class="modal-footer" style="gap:8px">
+      <button class="modal-cancel-btn" onclick="closeMealCardEdit()">Cancel</button>
+      <button class="modal-save-btn" onclick="saveMealCardEdit()">Save</button>
     </div>
   </div>
 </div>
