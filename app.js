@@ -4899,7 +4899,6 @@ function _renderMealEditAiSearch() {
       <input class="form-input" id="mealEditAiInput" type="text"
         placeholder="e.g. 2 Oreo cookies, chicken breast..."
         autocomplete="off"
-        oninput="scheduleMealEditAiLookup()"
         onkeydown="if(event.key==='Enter'){event.preventDefault();triggerMealEditAiLookup()}">
       <button class="modal-save-btn" onclick="triggerMealEditAiLookup()" style="flex:0 0 auto;padding:8px 12px;font-size:13px;white-space:nowrap">Look up</button>
     </div>
@@ -5572,7 +5571,6 @@ function startMealLogger(type) {
           <input class="form-input" id="manualAiInput" type="text"
             placeholder="e.g. 2 Oreo cookies, chicken breast..."
             autocomplete="off"
-            oninput="scheduleManualAiLookup()"
             onkeydown="if(event.key==='Enter'){event.preventDefault();triggerManualAiLookup()}">
           <button class="modal-save-btn" onclick="triggerManualAiLookup()" style="flex:0 0 auto;padding:8px 12px;font-size:13px;white-space:nowrap">Look up</button>
         </div>
