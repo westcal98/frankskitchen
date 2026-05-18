@@ -988,9 +988,13 @@ let expandedCard = null;
 let activeTab = {};
 
 // ── Nutrition state ─────────────────────────────────────────────────────────
+function localDateStr(dt) {
+  const d = dt || new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 let nutritionView = 'today';
-let nutritionDate = new Date().toISOString().slice(0, 10);
-let nutritionHistoryMonth = new Date().toISOString().slice(0, 7);
+let nutritionDate = localDateStr();
+let nutritionHistoryMonth = localDateStr().slice(0, 7);
 let nutritionHistoryDayDetail = null; // date string when viewing a specific day from history
 let _nutRecognition = null;
 let _nutRecording = false;
@@ -2290,7 +2294,7 @@ function migrate_1_to_2() {
       id: 'meal-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
       type: type || 'Snack',
       time,
-      date: date || new Date().toISOString().slice(0, 10),
+      date: date || localDateStr(),
       items,
       totalCalories: 0, totalProtein: 0, totalFiber: 0, totalCarbs: 0, totalFat: 0,
     };
@@ -4593,7 +4597,7 @@ function formatNutritionDate(dateStr) {
 function changeNutritionDate(delta) {
   const [y, m, d] = nutritionDate.split('-').map(Number);
   const dt = new Date(y, m - 1, d + delta);
-  nutritionDate = dt.toISOString().slice(0, 10);
+  nutritionDate = localDateStr(dt);
   renderNutritionToday(nutritionDate);
 }
 
@@ -5461,7 +5465,7 @@ function renderNutritionHistory() {
 function changeHistoryMonth(delta) {
   const [y, m] = nutritionHistoryMonth.split('-').map(Number);
   const dt = new Date(y, m - 1 + delta, 1);
-  nutritionHistoryMonth = dt.toISOString().slice(0, 7);
+  nutritionHistoryMonth = localDateStr(dt).slice(0, 7);
   renderNutritionHistory();
 }
 
@@ -5470,7 +5474,7 @@ function buildCalendarGrid(year, month) {
   const calGoal = goals.calories || 2000;
   const firstDay = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
 
   const dayLabels = ['Su','Mo','Tu','We','Th','Fr','Sa'].map(d =>
     `<div class="cal-day-label">${d}</div>`).join('');
@@ -5505,7 +5509,7 @@ function buildWeekSummary() {
   const weekDates = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
-    weekDates.push(d.toISOString().slice(0, 10));
+    weekDates.push(localDateStr(d));
   }
   const goals = DB_CACHE.nutrition_goals || {};
   const calGoal = goals.calories || 2000;
@@ -6154,7 +6158,7 @@ function quickLogWeight() {
   const val = parseFloat(document.getElementById('weightQuickInput')?.value);
   if (!val || val <= 0) { showToast('Enter a valid weight.'); return; }
   const units = getNutritionUnits();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
   addWeightEntry({ id: 'wt-' + Date.now(), date: today, weight: val, unit: units === 'metric' ? 'kg' : 'lbs', note: '' });
   renderNutritionWeight();
   showToast('Weight logged.');
@@ -6168,7 +6172,7 @@ function openWeightEditModal(id) {
   document.getElementById('weightEditId').value = id || '';
   document.getElementById('weightModalTitle').textContent = isNew ? 'Log Weight' : 'Edit Weight';
   document.getElementById('weightInput').value = entry ? entry.weight : '';
-  document.getElementById('weightDate').value = entry ? entry.date : new Date().toISOString().slice(0, 10);
+  document.getElementById('weightDate').value = entry ? entry.date : localDateStr();
   document.getElementById('weightNote').value = entry ? (entry.note || '') : '';
   const delBtn = document.getElementById('weightDeleteBtn');
   if (delBtn) delBtn.style.display = isNew ? 'none' : '';
