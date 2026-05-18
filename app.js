@@ -4640,16 +4640,20 @@ function formatNutritionDate(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
   const today = new Date(); today.setHours(0,0,0,0);
-  if (dt.getTime() === today.getTime()) return 'Today';
-  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-  if (dt.getTime() === yesterday.getTime()) return 'Yesterday';
-  return dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+  const monthDay = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (dt.getTime() === today.getTime()) return `Today · ${monthDay}`;
+  return monthDay;
 }
 
 function changeNutritionDate(delta) {
   const [y, m, d] = nutritionDate.split('-').map(Number);
   const dt = new Date(y, m - 1, d + delta);
   nutritionDate = localDateStr(dt);
+  renderNutritionToday(nutritionDate);
+}
+
+function jumpNutritionToToday() {
+  nutritionDate = localDateStr();
   renderNutritionToday(nutritionDate);
 }
 
@@ -4687,12 +4691,15 @@ function renderNutritionToday(date) {
   const macroHtml = buildMacroRow(summary, prGoal, crGoal, ftGoal);
   const mealHtml  = buildMealCards(entries);
 
+  const todayStr = localDateStr();
+  const isViewingToday = date === todayStr;
   el.innerHTML = `
     <div class="nut-date-header">
       <button class="nut-date-arrow" onclick="changeNutritionDate(-1)">‹</button>
       <div class="nut-date-label" onclick="openNutritionDatePicker()">${formatNutritionDate(date)}</div>
       <button class="nut-date-arrow" onclick="changeNutritionDate(1)">›</button>
       <input type="date" id="nutDatePickerInput" class="nut-date-input-hidden" value="${date}" onchange="pickNutritionDate(this.value)">
+      ${isViewingToday ? '' : `<button class="nut-jump-today" onclick="jumpNutritionToToday()">Today</button>`}
     </div>
     <div class="metric-carousel">
       <div class="metric-cards-track" id="metricCardsTrack">${cards.join('')}</div>

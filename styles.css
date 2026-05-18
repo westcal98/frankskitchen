@@ -3020,6 +3020,19 @@ body::before {
 }
 .nut-date-label:hover { background: var(--card); }
 .nut-date-input-hidden { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; }
+.nut-jump-today {
+  background: var(--gold);
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.nut-jump-today:hover { opacity: 0.85; }
 
 /* ── Calorie card ── */
 .calorie-card {
