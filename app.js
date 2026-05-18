@@ -4433,16 +4433,18 @@ function buildCalorieCard(consumed, calGoal, pct, ringColor) {
   const offset = CIRC * (1 - pct);
   const remaining = calGoal - consumed;
   return `<div class="metric-card">
-    <div class="calorie-ring-wrap">
-      <svg viewBox="0 0 110 110" width="110" height="110">
-        <circle class="calorie-ring-bg" cx="55" cy="55" r="${R}"/>
-        <circle class="calorie-ring-fill" cx="55" cy="55" r="${R}"
-          stroke="${ringColor}" stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"/>
-      </svg>
-      <div class="calorie-ring-text">
-        <div class="calorie-ring-num">${consumed.toLocaleString()}</div>
-        <div class="calorie-ring-label">cal</div>
+    <div class="ring-col">
+      <div class="calorie-ring-wrap">
+        <svg viewBox="0 0 110 110" width="110" height="110">
+          <circle class="calorie-ring-bg" cx="55" cy="55" r="${R}"/>
+          <circle class="calorie-ring-fill" cx="55" cy="55" r="${R}"
+            stroke="${ringColor}" stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"/>
+        </svg>
+        <div class="calorie-ring-text">
+          <div class="calorie-ring-num">${consumed.toLocaleString()}</div>
+        </div>
       </div>
+      <div class="metric-card-title">Calories</div>
     </div>
     <div class="calorie-card-info">
       <div class="calorie-total-line">${consumed.toLocaleString()} / ${calGoal.toLocaleString()}</div>
@@ -4459,11 +4461,14 @@ function buildWaterCard(waterOz, waterGoal) {
   const remaining = Math.round(waterGoal - waterOz);
   const fillH = Math.round(pct * 100);
   return `<div class="metric-card water-metric-card">
-    <div class="water-gauge-wrap">
-      <div class="water-gauge-bg">
-        <div class="water-gauge-fill" style="height:${fillH}%"></div>
+    <div class="ring-col">
+      <div class="water-gauge-wrap">
+        <div class="water-gauge-bg">
+          <div class="water-gauge-fill" style="height:${fillH}%"></div>
+        </div>
+        <div class="water-gauge-icon">💧</div>
       </div>
-      <div class="water-gauge-icon">💧</div>
+      <div class="metric-card-title" style="color:#3b82f6">Water</div>
     </div>
     <div class="calorie-card-info">
       <div class="calorie-total-line" style="color:#3b82f6">${Math.round(waterOz)} / ${waterGoal} oz</div>
@@ -4591,16 +4596,18 @@ function buildProteinCard(proteinG, protGoal) {
   const offset = CIRC * (1 - pct);
   const remaining = Math.round(protGoal - proteinG);
   return `<div class="metric-card protein-metric-card">
-    <div class="calorie-ring-wrap">
-      <svg viewBox="0 0 110 110" width="110" height="110">
-        <circle class="calorie-ring-bg" cx="55" cy="55" r="${R}"/>
-        <circle class="calorie-ring-fill" cx="55" cy="55" r="${R}"
-          stroke="#14b8a6" stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"/>
-      </svg>
-      <div class="calorie-ring-text">
-        <div class="calorie-ring-num" style="font-size:18px">${Math.round(proteinG)}g</div>
-        <div class="calorie-ring-label">protein</div>
+    <div class="ring-col">
+      <div class="calorie-ring-wrap">
+        <svg viewBox="0 0 110 110" width="110" height="110">
+          <circle class="calorie-ring-bg" cx="55" cy="55" r="${R}"/>
+          <circle class="calorie-ring-fill" cx="55" cy="55" r="${R}"
+            stroke="#14b8a6" stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"/>
+        </svg>
+        <div class="calorie-ring-text">
+          <div class="calorie-ring-num">${Math.round(proteinG)}g</div>
+        </div>
       </div>
+      <div class="metric-card-title" style="color:#14b8a6">Protein</div>
     </div>
     <div class="calorie-card-info">
       <div class="calorie-total-line" style="color:#14b8a6;font-size:18px">${Math.round(proteinG)}g${protGoal > 0 ? ` / ${protGoal}g` : ''}</div>
@@ -4688,7 +4695,7 @@ function renderNutritionToday(date) {
     ? `<div class="metric-dots">${cards.map((_, i) => `<span class="metric-dot${i === 0 ? ' active' : ''}" onclick="goToCard(${i})"></span>`).join('')}</div>`
     : '';
 
-  const macroHtml = buildMacroRow(summary, prGoal, crGoal, ftGoal);
+  const macroHtml = buildMacroRow(summary, prGoal, crGoal, ftGoal, goals.waterGoal || 64);
   const mealHtml  = buildMealCards(entries);
 
   const todayStr = localDateStr();
@@ -4735,19 +4742,19 @@ function pickNutritionDate(val) {
   renderNutritionToday(val);
 }
 
-function buildMacroRow(summary, prGoal, crGoal, ftGoal) {
-  const hasGoals = prGoal > 0 || crGoal > 0 || ftGoal > 0;
+function buildMacroRow(summary, prGoal, crGoal, ftGoal, waterGoal) {
   const macros = [
-    { label:'Protein', val: Math.round(summary.protein), goal: prGoal, color: 'var(--macro-protein)', cls:'protein' },
-    { label:'Carbs',   val: Math.round(summary.carbs),   goal: crGoal, color: 'var(--macro-carbs)',   cls:'carbs' },
-    { label:'Fat',     val: Math.round(summary.fat),     goal: ftGoal, color: 'var(--macro-fat)',     cls:'fat' },
+    { label:'Protein', val: Math.round(summary.protein), goal: prGoal,        color: 'var(--macro-protein)', unit:'g'  },
+    { label:'Carbs',   val: Math.round(summary.carbs),   goal: crGoal,        color: 'var(--macro-carbs)',   unit:'g'  },
+    { label:'Fat',     val: Math.round(summary.fat),     goal: ftGoal,        color: 'var(--macro-fat)',     unit:'g'  },
+    { label:'Water',   val: Math.round(summary.water||0),goal: waterGoal||0,  color: '#3b82f6',              unit:'oz' },
   ];
   return `<div class="macro-row">${macros.map(m => {
     const pct = m.goal > 0 ? Math.min(m.val / m.goal * 100, 100) : 0;
-    const valStr = m.goal > 0 ? `${m.val}g / ${m.goal}g` : `${m.val}g`;
+    const valStr = m.goal > 0 ? `${m.val}${m.unit} / ${m.goal}${m.unit}` : `${m.val}${m.unit}`;
     return `<div class="macro-pill">
       <div class="macro-pill-label">${m.label}</div>
-      <div class="macro-pill-val${!hasGoals ? ' no-goal' : ''}">${valStr}</div>
+      <div class="macro-pill-val${m.goal === 0 ? ' no-goal' : ''}">${valStr}</div>
       <div class="macro-pill-bar"><div class="macro-pill-fill" style="width:${pct}%;background:${m.color}"></div></div>
     </div>`;
   }).join('')}</div>`;
