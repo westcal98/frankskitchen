@@ -3927,6 +3927,68 @@ body::before {
 }
 .add-nutrition-fab:hover { background: var(--gold2); transform: translateY(-1px); }
 
+/* ── Meal clipboard indicator ── */
+.clipboard-indicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  z-index: 200;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+  transition: border-color 0.15s;
+}
+.clipboard-indicator:hover { border-color: var(--gold); }
+.clipboard-popup {
+  position: fixed;
+  bottom: 64px;
+  right: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  max-width: 260px;
+  z-index: 201;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.clipboard-popup-content { font-size: 13px; color: var(--text); margin-bottom: 10px; }
+.clipboard-popup-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ── Meal paste banner (in food logger) ── */
+.meal-paste-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(200, 146, 42, 0.10);
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+}
+.meal-paste-info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); flex: 1; min-width: 0; }
+.meal-paste-btn {
+  flex: 0 0 auto;
+  background: var(--gold);
+  color: #0d0b08;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+
 /* ── USDA / food search ── */
 .usda-results { margin-top: 8px; max-height: 220px; overflow-y: auto; }
 .usda-result-item {

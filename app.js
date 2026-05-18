@@ -1002,6 +1002,57 @@ let _pendingNutritionEntries = [];
 let _carouselIdx = 0;
 let _usdaSelectedFood = null; // { fdcId, name, nutrients, servings }
 
+// ── Meal clipboard ────────────────────────────────────────────────────────────
+function getMealClipboard() {
+  try { return JSON.parse(localStorage.getItem('fk_meal_clipboard')) || null; } catch(e) { return null; }
+}
+function setMealClipboard(data) {
+  localStorage.setItem('fk_meal_clipboard', JSON.stringify(data));
+  renderClipboardIndicator();
+}
+function clearMealClipboard() {
+  localStorage.removeItem('fk_meal_clipboard');
+  hideClipboardPopup();
+  renderClipboardIndicator();
+  showToast('Clipboard cleared.');
+}
+function renderClipboardIndicator() {
+  const el = document.getElementById('clipboardIndicator');
+  if (!el) return;
+  const cb = getMealClipboard();
+  const onNutrition = !document.getElementById('view-nutrition')?.classList.contains('hidden');
+  el.classList.toggle('hidden', !onNutrition || !cb);
+  if (cb) document.getElementById('cbItemCount').textContent = cb.items.length;
+}
+function showClipboardPopup() {
+  const cb = getMealClipboard();
+  if (!cb) return;
+  const popup = document.getElementById('clipboardPopup');
+  const content = document.getElementById('clipboardPopupContent');
+  if (!popup || !content) return;
+  const total = Math.round(cb.totalCalories || cb.items.reduce((s, i) => s + (i.calories || 0), 0));
+  content.textContent = `${cb.type} · ${cb.items.length} item${cb.items.length !== 1 ? 's' : ''} · ${total} cal`;
+  popup.classList.remove('hidden');
+}
+function hideClipboardPopup() {
+  document.getElementById('clipboardPopup')?.classList.add('hidden');
+}
+function copyMealCard(id) {
+  const card = DB_CACHE.nutrition_log.find(c => c.id === id);
+  if (!card) return;
+  const totalCalories = card.totalCalories || card.items.reduce((s, i) => s + (i.calories || 0), 0);
+  setMealClipboard({ type: card.type, items: card.items.map(i => ({ ...i })), totalCalories });
+  showToast('Meal copied — tap Paste when logging to use it');
+}
+function pasteMealFromClipboard() {
+  const clip = getMealClipboard();
+  if (!clip || !_mealLoggerState) return;
+  clip.items.forEach(item => _mealLoggerState.items.push({ ...item, id: genItemId() }));
+  renderMealLoggerItems();
+  document.getElementById('mealPasteBanner')?.remove();
+  showToast(`${clip.items.length} item${clip.items.length !== 1 ? 's' : ''} pasted.`);
+}
+
 // In-memory cache for all persisted data — loaded from IndexedDB at startup.
 // All reads are synchronous (from cache); writes update cache + fire async IDB write.
 const DB_CACHE = {
@@ -1924,6 +1975,7 @@ function switchMainTab(tab) {
     showRecoveryBanner();
   }
   if (tab === 'nutrition') renderNutritionTab();
+  renderClipboardIndicator();
 }
 
 function showRecoveryBanner() {
@@ -4721,6 +4773,7 @@ function buildMealCard(card) {
       </div>
       <div class="meal-card-hdr-right">
         <span class="meal-card-total-cals">${Math.round(card.totalCalories)} cal</span>
+        <button class="meal-card-btn" onclick="copyMealCard('${escHtml(card.id)}')" title="Copy meal">📋</button>
         <button class="meal-card-btn" onclick="openMealCardEdit('${escHtml(card.id)}')" title="Edit">✏️</button>
         <button class="meal-card-btn delete" onclick="confirmDeleteMealCard('${escHtml(card.id)}')" title="Delete">🗑</button>
       </div>
@@ -4792,6 +4845,7 @@ function openMealCardEdit(id) {
   _editingMealItems = card.items.map(i => ({ ...i }));
   document.getElementById('mealEditType').value = card.type || 'Snack';
   document.getElementById('mealEditTime').value = card.time || new Date().toTimeString().slice(0, 5);
+  document.getElementById('mealEditDate').value = card.date || nutritionDate;
   renderMealEditItems();
   document.getElementById('mealCardEditModal').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
@@ -4840,11 +4894,16 @@ function saveMealCardEdit() {
   if (!_editingMealCardId) return;
   const type = document.getElementById('mealEditType')?.value || 'Snack';
   const time = document.getElementById('mealEditTime')?.value || new Date().toTimeString().slice(0, 5);
+  const date = document.getElementById('mealEditDate')?.value || nutritionDate;
   const items = _editingMealItems.filter(i => i.name && i.name.trim());
   if (!items.length) { showToast('Add at least one item.'); return; }
-  updateMealCard(_editingMealCardId, { type, time, items });
+  const oldCard = DB_CACHE.nutrition_log.find(c => c.id === _editingMealCardId);
+  const dateChanged = oldCard && oldCard.date !== date;
+  updateMealCard(_editingMealCardId, { type, time, date, items });
   closeMealCardEdit();
-  renderNutritionToday(nutritionDate);
+  if (nutritionView === 'history' && nutritionHistoryDayDetail) showHistoryDayDetail(nutritionHistoryDayDetail);
+  else renderNutritionToday(nutritionDate);
+  if (dateChanged) showToast(`Meal moved to ${date === localDateStr() ? 'today' : date}.`);
 }
 
 function closeMealCardEdit() {
@@ -5313,11 +5372,21 @@ function startMealLogger(type) {
   document.getElementById('foodLogSaveBtn').style.display = '';
   document.getElementById('foodLogSaveBtn').textContent = 'Save Meal';
   document.getElementById('foodLogSaveBtn').onclick = saveMealLogger;
+  const clip = getMealClipboard();
+  const pasteBannerHtml = clip ? `
+    <div id="mealPasteBanner" class="meal-paste-banner">
+      <div class="meal-paste-info">
+        <span>📋</span>
+        <span>Paste: <strong>${escHtml(clip.type)}</strong> · ${clip.items.length} item${clip.items.length !== 1 ? 's' : ''} · ${Math.round(clip.totalCalories)} cal</span>
+      </div>
+      <button class="meal-paste-btn" onclick="pasteMealFromClipboard()">Paste</button>
+    </div>` : '';
   body.innerHTML = `
     <div id="mealLoggerItemsWrap">
       <div class="meal-logger-meal-hdr">${MEAL_ICONS[type] || '🍽'} <strong>${type}</strong> · ${fmt12hr(time)}</div>
       <div id="mealLoggerItems" class="meal-logger-items"></div>
     </div>
+    ${pasteBannerHtml}
     <div id="foodSearchTab">
       <div class="form-group">
         <label class="form-label">Add item — search food database</label>

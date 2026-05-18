@@ -190,6 +190,16 @@
   <div id="nutrition-weight-view" class="nutrition-view-panel hidden"></div>
   <div id="nutrition-settings-view" class="nutrition-view-panel hidden"></div>
   <button class="add-nutrition-fab hidden" id="addNutritionFab" onclick="openFoodSearchModal()">+ Log Food</button>
+  <div class="clipboard-indicator hidden" id="clipboardIndicator" onclick="showClipboardPopup()">
+    📋 <span id="cbItemCount">0</span>
+  </div>
+  <div class="clipboard-popup hidden" id="clipboardPopup">
+    <div class="clipboard-popup-content" id="clipboardPopupContent"></div>
+    <div class="clipboard-popup-actions">
+      <button class="modal-cancel-btn" onclick="hideClipboardPopup()">Dismiss</button>
+      <button class="modal-cancel-btn" style="color:var(--red2)" onclick="clearMealClipboard()">Clear</button>
+    </div>
+  </div>
 </div>
 
 <!-- ── NUTRITION CONFIRM MODAL ── -->
@@ -399,6 +409,10 @@
           <option value="Drink">Drink</option>
         </select>
         <input class="form-input" type="time" id="mealEditTime" style="width:130px">
+      </div>
+      <div style="margin-top:8px">
+        <label class="form-label">Date</label>
+        <input class="form-input" type="date" id="mealEditDate" style="width:100%">
       </div>
       <div id="mealEditItems" class="meal-edit-items-list"></div>
       <button class="nut-manual-toggle" style="margin-top:8px" onclick="addItemRowToMealEdit()">+ Add Item</button>
