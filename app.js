@@ -4209,6 +4209,16 @@ function getMealCardsForDate(date) {
 // Keep alias for callers that haven't been updated
 function getEntriesForDate(date) { return getMealCardsForDate(date); }
 
+function parseWaterOz(item) {
+  if (!item.isWater && !/water/i.test(item.name || '')) return 0;
+  const qty = item.qty || 0;
+  const unit = (item.unit || 'oz').toLowerCase().trim();
+  if (unit === 'ml')                                    return qty / 29.5735;
+  if (unit === 'cup' || unit === 'cups')                return qty * 8;
+  if (unit === 'l' || unit === 'liter' || unit === 'liters') return qty * 33.814;
+  return qty; // oz, fl oz, or unitless → treat as oz
+}
+
 function getNutritionSummary(date) {
   const cards = getMealCardsForDate(date);
   return cards.reduce((s, c) => {
@@ -4217,9 +4227,7 @@ function getNutritionSummary(date) {
     s.carbs    += c.totalCarbs    || 0;
     s.fat      += c.totalFat      || 0;
     s.fiber    += c.totalFiber    || 0;
-    if (c.type === 'Drink') {
-      s.water += c.items.filter(i => i.isWater).reduce((w, i) => w + (i.qty || 0), 0);
-    }
+    s.water    += c.items.reduce((w, i) => w + parseWaterOz(i), 0);
     return s;
   }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, water: 0 });
 }
