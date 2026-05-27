@@ -2564,8 +2564,26 @@ function addShopItem(nameOverride) {
   const name = (nameOverride || input.value).trim();
   if (!name) return;
   const items = getShopItems();
-  // Check if already exists
   const existing = items.find(i => i.name.toLowerCase() === name.toLowerCase());
+
+  if (shopView === 'next') {
+    if (existing) {
+      existing.nextRun = true;
+      existing.bought = false;
+    } else {
+      items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, isNew: true, addedAt: Date.now() });
+      saveToMemory(name);
+    }
+    saveShopItems(items);
+    input.value = '';
+    hideSuggestions();
+    collapseShopAdd();
+    renderShopList();
+    updateShopStats();
+    return;
+  }
+
+  // Full list
   if (existing) {
     existing.qty = (existing.qty || 1) + 1;
     saveShopItems(items);
@@ -2576,14 +2594,7 @@ function addShopItem(nameOverride) {
     updateShopStats();
     return;
   }
-  items.push({
-    id: Date.now(),
-    name,
-    qty: 1,
-    bought: false,
-    category: resolveCategory(name),
-    addedAt: Date.now()
-  });
+  items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), isNew: true, addedAt: Date.now() });
   saveShopItems(items);
   saveToMemory(name);
   input.value = '';
@@ -2648,6 +2659,13 @@ function clearNext() {
   saveShopItems(items);
   renderShopList();
   updateShopStats();
+}
+
+function clearNew() {
+  const items = getShopItems();
+  items.forEach(i => { delete i.isNew; });
+  saveShopItems(items);
+  renderShopList();
 }
 
 function removeNext() {
@@ -2731,6 +2749,8 @@ function setShopView(view) {
   document.getElementById('shopViewNext').classList.toggle('active', view === 'next');
   document.getElementById('shopActionsFull').classList.toggle('hidden', view === 'next');
   document.getElementById('shopActionsNext').classList.toggle('hidden', view === 'full');
+  const input = document.getElementById('shopInput');
+  if (input) input.placeholder = view === 'next' ? 'Add to Next Run…' : 'Add item…';
   renderShopList();
 }
 
@@ -3238,7 +3258,11 @@ function renderShopList() {
         <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}">
           <div class="shop-item-cb" onclick="toggleBought(${item.id})"></div>
           <div class="shop-item-name">${item.name}</div>
-          ${(item.qty || 1) > 1 ? `<span class="shop-qty-num">${item.qty}</span>` : ''}
+          <div class="shop-qty">
+            <button class="shop-qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
+            <span class="shop-qty-num">${item.qty || 1}</span>
+            <button class="shop-qty-btn" onclick="changeQty(${item.id}, 1)">+</button>
+          </div>
           <button class="shop-cat-edit-btn" onclick="event.stopPropagation();toggleCatPicker(${item.id})" title="Change category">🏷️</button>
           <button class="shop-nextrun-btn active" onclick="toggleNextRun(${item.id})" title="Remove from Next Run">🛒</button>
         </div>
@@ -3307,6 +3331,11 @@ function renderShopList() {
   };
 
   let html = '';
+  const newItems = items.filter(i => i.isNew);
+  if (newItems.length) {
+    newItems.sort((a, b) => (a.bought ? 1 : 0) - (b.bought ? 1 : 0));
+    html += sectionHtml('__new', '✨ Newly Added', newItems);
+  }
   cats.forEach(cat => {
     if (grouped[cat.key] && grouped[cat.key].length) {
       html += sectionHtml(cat.key, cat.label, grouped[cat.key]);

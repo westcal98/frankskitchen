@@ -1580,6 +1580,7 @@ body::before {
 /* ── SHOP ACTION ROW ── */
 .shop-action-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 0 0 10px;
 }

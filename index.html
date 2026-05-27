@@ -146,6 +146,7 @@
     <div class="shop-action-row" id="shopActionsFull">
       <button class="shop-action-btn" onclick="viewBought()">View Bought</button>
       <button class="shop-action-btn" onclick="removeBought()">Remove Bought</button>
+      <button class="shop-action-btn" onclick="clearNew()">Clear New</button>
       <button class="shop-action-btn" onclick="clearFull()">Clear Full</button>
     </div>
     <div class="shop-action-row hidden" id="shopActionsNext">
@@ -154,7 +155,7 @@
     </div>
     <div class="shop-add-panel hidden" id="shopAddPanel">
       <div class="shop-add-row">
-        <input class="shop-input" id="shopInput" type="text" placeholder="Add item..."
+        <input class="shop-input" id="shopInput" type="text" placeholder="Add item…"
           oninput="handleShopInput()"
           onkeydown="if(event.key==='Enter')addShopItem();else if(event.key==='Escape')collapseShopAdd()"
           autocomplete="off">
@@ -645,6 +646,7 @@
           <div class="acc-section-title">Shopping List Actions</div>
           <ul class="acc-list">
             <li>Remove Bought — deletes all checked items from Full List</li>
+            <li>Clear New — removes the Newly Added badge from all items</li>
             <li>Clear Full — unchecks all items in Full List</li>
             <li>Clear Next — unchecks all items in Next Run view only</li>
             <li>Remove Next — removes all cart flags, clears Next Run list while keeping items in Full List</li>
