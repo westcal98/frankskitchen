@@ -2737,7 +2737,7 @@ function setShopView(view) {
 function toggleNextRun(id) {
   const items = getShopItems();
   const item = items.find(i => i.id === id);
-  if (item) { item.nextRun = !item.nextRun; saveShopItems(items); renderShopList(); }
+  if (item) { item.nextRun = !item.nextRun; if (item.nextRun) item.bought = false; saveShopItems(items); renderShopList(); }
 }
 
 function toggleIngredientNextRun(recipeId, index) {
@@ -2760,6 +2760,7 @@ function toggleIngredientNextRun(recipeId, index) {
     }
     if (existing) {
       existing.nextRun = true;
+      existing.bought = false;
     } else {
       items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: Date.now() });
       saveToMemory(name);
@@ -2800,7 +2801,7 @@ function toggleIngredientNextRun(recipeId, index) {
     const now = Date.now();
     singleParts.forEach((name, i) => {
       const ex = items.find(item => item.name.toLowerCase() === name.toLowerCase());
-      if (ex) { ex.nextRun = true; }
+      if (ex) { ex.nextRun = true; ex.bought = false; }
       else { items.push({ id: now + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: now }); saveToMemory(name); }
     });
     saveShopItems(items);
@@ -2809,7 +2810,7 @@ function toggleIngredientNextRun(recipeId, index) {
   choiceParts.slice(1).forEach((alts, i) => {
     const name = alts[0];
     const ex = items.find(item => item.name.toLowerCase() === name.toLowerCase());
-    if (ex) { ex.nextRun = true; }
+    if (ex) { ex.nextRun = true; ex.bought = false; }
     else { items.push({ id: Date.now() + 200 + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: Date.now() }); saveToMemory(name); }
   });
   if (choiceParts.slice(1).length > 0) { saveShopItems(items); renderAll(); }
@@ -3008,7 +3009,7 @@ function _bulkAddToNextRun(names, itemsRef) {
   const now = Date.now();
   names.forEach((name, i) => {
     const ex = items.find(item => item.name.toLowerCase() === name.toLowerCase());
-    if (ex) { ex.nextRun = true; }
+    if (ex) { ex.nextRun = true; ex.bought = false; }
     else { items.push({ id: now + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: now }); saveToMemory(name); }
   });
   saveShopItems(items);
@@ -3069,6 +3070,7 @@ function showIngredientPicker(alternatives) {
       const ex = items.find(item => item.name.toLowerCase() === cleanName.toLowerCase());
       if (ex) {
         ex.nextRun = true;
+        ex.bought = false;
       } else {
         items.push({ id: now + i, name: cleanName, qty: 1, bought: false, category: resolveCategory(cleanName), nextRun: true, addedAt: now });
         saveToMemory(cleanName);
