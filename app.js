@@ -2032,9 +2032,11 @@ function renderShopFilterBar() {
   if (shopFilterBought) tags.push({ label: '✓ Bought', key: '__bought' });
   const hasFilters = tags.length > 0;
   const isNextRun = shopView === 'next';
+  const editOpen = !document.getElementById('shopEditPanel')?.classList.contains('hidden');
   bar.innerHTML =
     (isNextRun ? '' : `<button class="filter-by-btn${hasFilters ? ' has-filters' : ''}" onclick="openFilterDropdown('shop')">Filter by ▾</button>`) +
     (isNextRun ? '' : `<div class="filter-active-tags">${renderTagsHtml(tags, 'shop')}</div>`) +
+    `<button class="filter-by-btn shop-edit-btn${editOpen ? ' active' : ''}" id="shopEditBtn" onclick="toggleShopEdit()">Edit ▾</button>` +
     `<button class="shop-tb-search${shopSearchTerm ? ' active' : ''}" id="shopSearchBtn" onclick="toggleShopSearch()" title="Search">🔍</button>`;
 }
 
@@ -2632,12 +2634,14 @@ function deleteShopItem(id) {
 }
 
 function viewBought() {
+  collapseShopEdit();
   shopFilterBought = true;
   renderShopFilterBar();
   renderShopList();
 }
 
 function removeBought() {
+  collapseShopEdit();
   let items = getShopItems();
   items = items.filter(i => !i.bought);
   saveShopItems(items);
@@ -2646,6 +2650,7 @@ function removeBought() {
 }
 
 function clearFull() {
+  collapseShopEdit();
   const items = getShopItems();
   items.forEach(i => i.bought = false);
   saveShopItems(items);
@@ -2654,6 +2659,7 @@ function clearFull() {
 }
 
 function clearNext() {
+  collapseShopEdit();
   const items = getShopItems();
   items.filter(i => i.nextRun).forEach(i => i.bought = false);
   saveShopItems(items);
@@ -2662,6 +2668,7 @@ function clearNext() {
 }
 
 function clearNew() {
+  collapseShopEdit();
   const items = getShopItems();
   items.forEach(i => { delete i.isNew; });
   saveShopItems(items);
@@ -2669,6 +2676,7 @@ function clearNew() {
 }
 
 function removeNext() {
+  collapseShopEdit();
   const items = getShopItems();
   items.forEach(i => i.nextRun = false);
   saveShopItems(items);
@@ -2737,6 +2745,10 @@ document.addEventListener('click', (e) => {
   }
   // Hide suggestions when clicking outside the add panel
   if (!e.target.closest('#shopAddPanel')) hideSuggestions();
+  // Collapse edit panel when clicking outside it (but not the Edit button itself)
+  if (!e.target.closest('#shopEditPanel') && !e.target.closest('#shopEditBtn')) {
+    collapseShopEdit();
+  }
   // Close cat pickers
   if (!e.target.closest('.shop-cat-picker') && !e.target.closest('.shop-cat-edit-btn')) {
     document.querySelectorAll('.shop-cat-picker').forEach(el => el.classList.add('hidden'));
@@ -2749,6 +2761,7 @@ function setShopView(view) {
   document.getElementById('shopViewNext').classList.toggle('active', view === 'next');
   document.getElementById('shopActionsFull').classList.toggle('hidden', view === 'next');
   document.getElementById('shopActionsNext').classList.toggle('hidden', view === 'full');
+  collapseShopEdit();
   const input = document.getElementById('shopInput');
   if (input) input.placeholder = view === 'next' ? 'Add to Next Run…' : 'Add item…';
   renderShopList();
@@ -3160,6 +3173,21 @@ function clearShopSearch() {
   if (panel) panel.classList.add('hidden');
   if (btn)   btn.classList.remove('active');
   renderShopList();
+}
+
+function toggleShopEdit() {
+  const panel = document.getElementById('shopEditPanel');
+  if (!panel) return;
+  panel.classList.toggle('hidden');
+  renderShopFilterBar();
+}
+
+function collapseShopEdit() {
+  const panel = document.getElementById('shopEditPanel');
+  if (panel && !panel.classList.contains('hidden')) {
+    panel.classList.add('hidden');
+    renderShopFilterBar();
+  }
 }
 
 function toggleShopAdd() {

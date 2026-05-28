@@ -143,15 +143,17 @@
     <div class="filter-bar" id="shopFilterBar">
       <!-- populated by renderShopFilterBar() -->
     </div>
-    <div class="shop-action-row" id="shopActionsFull">
-      <button class="shop-action-btn" onclick="viewBought()">View Bought</button>
-      <button class="shop-action-btn" onclick="removeBought()">Remove Bought</button>
-      <button class="shop-action-btn" onclick="clearNew()">Clear New</button>
-      <button class="shop-action-btn" onclick="clearFull()">Clear Full</button>
-    </div>
-    <div class="shop-action-row hidden" id="shopActionsNext">
-      <button class="shop-action-btn danger" onclick="removeNext()">Remove Next</button>
-      <button class="shop-action-btn" onclick="clearNext()">Clear Next</button>
+    <div class="shop-edit-panel hidden" id="shopEditPanel">
+      <div class="shop-action-row" id="shopActionsFull">
+        <button class="shop-action-btn" onclick="viewBought()">View Bought</button>
+        <button class="shop-action-btn" onclick="removeBought()">Remove Bought</button>
+        <button class="shop-action-btn" onclick="clearNew()">Clear New</button>
+        <button class="shop-action-btn" onclick="clearFull()">Clear Full</button>
+      </div>
+      <div class="shop-action-row hidden" id="shopActionsNext">
+        <button class="shop-action-btn danger" onclick="removeNext()">Remove Next</button>
+        <button class="shop-action-btn" onclick="clearNext()">Clear Next</button>
+      </div>
     </div>
     <div class="shop-add-panel hidden" id="shopAddPanel">
       <div class="shop-add-row">

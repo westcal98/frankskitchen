@@ -1578,11 +1578,19 @@ body::before {
 }
 
 /* ── SHOP ACTION ROW ── */
+.shop-edit-panel {
+  padding: 8px 0 2px;
+  border-top: 1px solid var(--border2);
+  margin-bottom: 4px;
+}
+
+.shop-edit-btn.active { border-color: var(--gold); color: var(--gold); }
+
 .shop-action-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 0 0 10px;
+  padding: 0 0 8px;
 }
 
 .shop-toolbar .shop-stats {
