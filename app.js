@@ -101,6 +101,30 @@ const RECIPES = [
     ],
     notes: 'Pop-Tarts at 350°F for 3 minutes are significantly better than the toaster — evenly cooked with no cold spots. This is a tested and confirmed method.'
   },
+  {
+    id: 'pc-oatmeal',
+    name: 'Old Fashioned Oatmeal (Pressure Cooker)',
+    emoji: '🥣',
+    category: 'breakfast',
+    appliance: 'pc',
+    time: '20 min',
+    difficulty: 'Easy',
+    description: 'Creamy old fashioned oats cooked fast under pressure, then finished with a natural release for a perfectly thick consistency. A simple no-fuss breakfast base for any toppings.',
+    ingredients: [
+      { name: 'Old fashioned oats', qty: 1, unit: 'cups' },
+      { name: 'Water', qty: 1.5, unit: 'cups' },
+      { name: 'Milk or water (extra)', qty: 0.5, unit: 'cups' },
+      { name: 'Salt', qty: null, unit: 'pinch' },
+    ],
+    steps: [
+      'Add the oats, water, milk, and salt to the inner pot. Quick stir — do not seal yet.',
+      'Seal the lid and set to HIGH pressure for 3 minutes.',
+      'Natural release for 10 minutes. Do NOT quick release — the oatmeal will splatter through the vent.',
+      'Carefully release any remaining pressure. Open and stir well — it looks watery at first but thickens as you stir.',
+      'Let sit 2-3 minutes to reach your preferred consistency. Add toppings and serve.',
+    ],
+    notes: 'Add butter, jam, or any toppings after cooking, not before. Ratio is 1 cup oats to 1.5-2 cups liquid depending on desired thickness.'
+  },
 
   // ── LUNCH ──
   {
@@ -757,6 +781,41 @@ const RECIPES = [
     notes: 'Cook at 350°F not 370°F — honey burns fast. Check at 8 minutes on the second side. Dark soy and honey together create a beautiful glaze. This was originally developed as a substitute for Korean BBQ sauce.'
   },
   {
+    id: 'hot-honey-bbq-thighs',
+    name: 'Hot Honey BBQ Chicken Thighs (Overnight Marinade)',
+    emoji: '🍗',
+    category: 'dinner',
+    appliance: 'af',
+    time: '8-12 hrs marinate + 20 min cook',
+    difficulty: 'Easy',
+    description: 'Boneless chicken thighs marinated overnight in a sweet-savory hot honey BBQ blend, then air fried and double-glazed for a sticky caramelized crust. Served with crisp-tender snap peas and Mexican rice.',
+    ingredients: [
+      { name: 'Boneless skinless chicken thighs', qty: 4, unit: '' },
+      { name: 'Hot honey BBQ sauce (for marinade)', qty: 3, unit: 'tbsp' },
+      { name: 'Soy sauce', qty: 2, unit: 'tbsp' },
+      { name: 'Worcestershire sauce', qty: 1, unit: 'tbsp' },
+      { name: 'Olive oil', qty: 1, unit: 'tbsp' },
+      { name: 'Garlic powder', qty: 1, unit: 'tsp' },
+      { name: 'Onion powder', qty: 0.5, unit: 'tsp' },
+      { name: 'Black pepper', qty: 0.5, unit: 'tsp' },
+      { name: 'Hot honey BBQ sauce (for glazing)', qty: 2, unit: 'tbsp' },
+      { name: 'Sugar snap peas', qty: 2, unit: 'cups' },
+      { name: 'Cooked Mexican rice', qty: 1, unit: 'cups' },
+    ],
+    steps: [
+      'Make the marinade — whisk together hot honey BBQ sauce, soy sauce, Worcestershire, olive oil, garlic powder, onion powder, and black pepper until combined.',
+      'Marinate overnight — pat thighs dry, add to the marinade, and fully coat. Seal and refrigerate 8-12 hours minimum, flipping the bag once if possible.',
+      'Preheat Ninja AF to 350°F for 3 minutes. Pull the thighs from the fridge while it preheats.',
+      'Load the basket — remove thighs from the marinade, let excess drip off, and place smooth side down in a single layer. Discard the remaining marinade.',
+      'Air fry at 350°F for 8 minutes.',
+      'Flip and glaze — flip each thigh and brush hot honey BBQ sauce generously over the top side.',
+      'Air fry another 6 minutes at 350°F until the glaze is caramelized and internal temp hits 165-175°F. Watch the last 2 minutes.',
+      'Rest and glaze again — pull the thighs, rest 3 minutes, then hit with one final light coat of hot honey BBQ sauce while hot.',
+      'Snap peas — toss in the basket at 350°F for 4-5 minutes until crisp-tender. Finish with a pinch of salt.',
+    ],
+    notes: 'No need to add salt — soy sauce covers it. Thighs are juiciest at 170-175°F. Double glaze is key: the first coat caramelizes in, the second stays glossy on top.'
+  },
+  {
     id: 'brownies',
     name: 'Double Chocolate Brownies (Mayo Method)',
     emoji: '🍫',
@@ -968,6 +1027,8 @@ const RECIPE_SERVINGS = {
   'donuts': 6,
   'cinnamon-roll-bites': 10,
   'funnel-cake': 4,
+  'pc-oatmeal': 2,
+  'hot-honey-bbq-thighs': 2,
 };
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
@@ -1144,7 +1205,7 @@ function toggleFavorite(id) {
 let _db = null;
 const _DB_NAME = 'fk_store';
 const _DB_VER  = 1;
-const APP_SCHEMA_VERSION = 2;
+const APP_SCHEMA_VERSION = 3;
 
 function _openDB() {
   return new Promise((resolve, reject) => {
@@ -2301,12 +2362,34 @@ function migrate_0_to_1() {
   }
 }
 
+// New built-in recipes added after initial seed — appended to seeded_recipes
+// for existing users without touching anything else they already have.
+const NEW_SEEDED_RECIPE_IDS = ['pc-oatmeal', 'hot-honey-bbq-thighs'];
+
+async function migrate_2_to_3() {
+  // Fresh installs get the new recipes via the normal RECIPES seed below —
+  // only existing installs (seed already completed) need them appended here.
+  const seedComplete = await _idbGet('kv', 'fk_initial_seed_complete');
+  if (!seedComplete) return;
+  const stored = await _idbGet('kv', 'fk_seeded_recipes');
+  const current = Array.isArray(stored) ? stored : DB_CACHE.seeded_recipes;
+  const existingIds = new Set(current.map(r => r.id));
+  const toAdd = RECIPES.filter(r => NEW_SEEDED_RECIPE_IDS.includes(r.id) && !existingIds.has(r.id))
+    .map(r => ({ ...r }));
+  if (!toAdd.length) return;
+  const updated = [...current, ...toAdd];
+  DB_CACHE.seeded_recipes = updated;
+  _idbPut('kv', 'fk_seeded_recipes', updated);
+  console.log(`[FK] migration 2→3: added ${toAdd.length} new built-in recipe(s) — ${toAdd.map(r => r.id).join(', ')}`);
+}
+
 async function runMigrations(storedVersion) {
   const from = typeof storedVersion === 'number' ? storedVersion : 0;
   if (from >= APP_SCHEMA_VERSION) return;
   console.log(`[FK] Running migrations v${from}→v${APP_SCHEMA_VERSION}`);
   if (from < 1) migrate_0_to_1();
   if (from < 2) migrate_1_to_2();
+  if (from < 3) await migrate_2_to_3();
   _idbPut('kv', 'schema_version', APP_SCHEMA_VERSION);
   console.log(`[FK] Schema updated to v${APP_SCHEMA_VERSION}`);
 }
