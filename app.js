@@ -2047,6 +2047,7 @@ function switchMainTab(tab) {
   document.getElementById('nav-nutrition').classList.toggle('active', tab === 'nutrition');
   document.getElementById('addRecipeFab').classList.toggle('hidden', tab !== 'recipes');
   document.getElementById('shopFabWrap').classList.toggle('hidden', tab !== 'shop' || shopView !== 'full');
+  document.getElementById('shopNextRunFab').classList.toggle('hidden', tab !== 'shop' || shopView !== 'next');
   if (tab !== 'shop') closeShopSpeedDial();
   document.getElementById('addNutritionFab').classList.toggle('hidden', tab !== 'nutrition');
   if (tab === 'shop') {
@@ -2967,6 +2968,7 @@ function setShopView(view) {
   document.getElementById('shopActionsFull').classList.toggle('hidden', view === 'next');
   document.getElementById('shopActionsNext').classList.toggle('hidden', view === 'full');
   document.getElementById('shopFabWrap').classList.toggle('hidden', view !== 'full');
+  document.getElementById('shopNextRunFab').classList.toggle('hidden', view !== 'next');
   closeShopSpeedDial();
   collapseShopEdit();
   const input = document.getElementById('shopInput');
