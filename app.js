@@ -2266,6 +2266,24 @@ const DEFAULT_SHOP_CATEGORIES = [
   { key: 'other',     label: '📦 Other' },
 ];
 
+// Store name → accent color for the shopping list row's left border.
+// Add new stores here as they come up.
+const STORE_COLORS = {
+  'Aldi':           '#49A8DC',
+  'Walmart':        '#0071CE',
+  'Dollar General': '#FFD700',
+  'Target':         '#CC0000',
+  'Kroger':         '#004B8D',
+  "Sam's Club":     '#00558C',
+};
+const STORE_COLOR_DEFAULT = '#444444';
+
+function getStoreColor(item) {
+  const sel = getSelectedPriceEntry(item.name);
+  if (sel && sel.store && STORE_COLORS[sel.store]) return STORE_COLORS[sel.store];
+  return STORE_COLOR_DEFAULT;
+}
+
 const CATEGORY_EMOJI_MAP = [
   { keywords: ['fruit'], emoji: '🍎' },
   { keywords: ['produce', 'vegetable', 'veggie', 'fresh'], emoji: '🥦' },
@@ -2934,7 +2952,7 @@ document.addEventListener('click', (e) => {
     collapseShopEdit();
   }
   // Close cat pickers
-  if (!e.target.closest('.shop-cat-picker') && !e.target.closest('.shop-cat-edit-btn')) {
+  if (!e.target.closest('.shop-cat-picker') && !e.target.closest('.shop-item-main')) {
     document.querySelectorAll('.shop-cat-picker').forEach(el => el.classList.add('hidden'));
   }
 });
@@ -2955,6 +2973,91 @@ function toggleNextRun(id) {
   const items = getShopItems();
   const item = items.find(i => i.id === id);
   if (item) { item.nextRun = !item.nextRun; if (item.nextRun) item.bought = false; saveShopItems(items); renderShopList(); }
+}
+
+// ─── SHOPPING LIST: SWIPE GESTURES + LONG PRESS ─────────────────────────────
+
+const SHOP_SWIPE_THRESHOLD_RATIO = 0.4;
+const SHOP_DRAG_LOCK_PX = 10;
+const SHOP_LONG_PRESS_MS = 500;
+
+function setupShopSwipeHandlers() {
+  const container = document.getElementById('shopList');
+  if (!container) return;
+
+  let drag = null;
+  let longPressTimer = null;
+
+  container.addEventListener('touchstart', (e) => {
+    const wrap = e.target.closest('.shop-item-wrap');
+    if (!wrap) return;
+    const row = wrap.querySelector('.shop-item');
+    const touch = e.touches[0];
+    drag = {
+      wrap, row,
+      id: parseInt(row.dataset.id, 10),
+      startX: touch.clientX,
+      startY: touch.clientY,
+      dx: 0,
+      axis: null,
+      allowLeft: !!wrap.querySelector('.shop-swipe-bg-left'),
+    };
+
+    if (e.target.closest('.shop-item-name')) {
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null;
+        if (drag && drag.axis === 'x') return;
+        row.classList.add('long-press-pulse');
+        toggleCatPicker(drag.id);
+        setTimeout(() => row.classList.remove('long-press-pulse'), 300);
+      }, SHOP_LONG_PRESS_MS);
+    }
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    if (!drag) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - drag.startX;
+    const dy = touch.clientY - drag.startY;
+
+    if (drag.axis === null) {
+      if (Math.abs(dx) < SHOP_DRAG_LOCK_PX && Math.abs(dy) < SHOP_DRAG_LOCK_PX) return;
+      drag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (drag.axis === 'x' && longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    }
+    if (drag.axis !== 'x') return;
+
+    const clamped = (dx < 0 && !drag.allowLeft) ? 0 : dx;
+    drag.dx = clamped;
+    drag.row.style.transition = 'none';
+    drag.row.style.transform = `translateX(${clamped}px)`;
+    drag.wrap.classList.toggle('swiping-right', clamped > 0);
+    drag.wrap.classList.toggle('swiping-left', clamped < 0);
+    e.preventDefault();
+  }, { passive: false });
+
+  const endDrag = () => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    if (!drag) return;
+    const { row, wrap, dx, id, allowLeft } = drag;
+    const threshold = (row.offsetWidth || 1) * SHOP_SWIPE_THRESHOLD_RATIO;
+    row.style.transition = `transform 0.2s ease-out`;
+
+    if (dx > threshold) {
+      row.style.transform = `translateX(${row.offsetWidth}px)`;
+      setTimeout(() => toggleBought(id), 150);
+    } else if (allowLeft && dx < -threshold) {
+      row.style.transform = `translateX(-${row.offsetWidth}px)`;
+      setTimeout(() => toggleNextRun(id), 150);
+    } else {
+      row.style.transform = 'translateX(0)';
+      wrap.classList.remove('swiping-right', 'swiping-left');
+    }
+    drag = null;
+  };
+
+  container.addEventListener('touchend', endDrag);
+  container.addEventListener('touchcancel', endDrag);
 }
 
 function toggleIngredientNextRun(recipeId, index) {
@@ -3625,8 +3728,30 @@ function renderShopList() {
   const cats = getShopCategories();
   const catPickerHtml = (item) =>
     `<div class="shop-cat-picker hidden" id="catpicker-${item.id}">
+      <button class="cat-pick-btn${item.nextRun ? ' active' : ''}" onclick="toggleNextRun(${item.id})">${item.nextRun ? '🛒 In Next Run' : '🛒 Add to Next Run'}</button>
       ${cats.map(cat => `<button class="cat-pick-btn${item.category === cat.key ? ' active' : ''}" onclick="changeItemCategory(${item.id},'${cat.key}')">${cat.label}</button>`).join('')}
     </div>`;
+
+  const renderItemRow = (item) => {
+    const allowLeftSwipe = shopView === 'next';
+    return `
+    <div class="shop-item-wrap" id="shopwrap-${item.id}">
+      <div class="shop-swipe-bg shop-swipe-bg-right"><span>${item.bought ? 'Undo' : '✓ Bought'}</span></div>
+      ${allowLeftSwipe ? `<div class="shop-swipe-bg shop-swipe-bg-left"><span>✗ Remove</span></div>` : ''}
+      <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}" data-id="${item.id}" style="border-left-color:${getStoreColor(item)}">
+        <div class="shop-item-main">
+          <div class="shop-item-name">${item.name}</div>
+          ${renderPriceInfo(item)}
+        </div>
+        <div class="shop-qty">
+          <button class="shop-qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
+          <span class="shop-qty-num">${item.qty || 1}</span>
+          <button class="shop-qty-btn" onclick="changeQty(${item.id}, 1)">+</button>
+        </div>
+      </div>
+    </div>
+    ${catPickerHtml(item)}`;
+  };
 
   if (shopView === 'next') {
     const flagged = items.filter(i => i.nextRun);
@@ -3634,27 +3759,12 @@ function renderShopList() {
     if (flagged.length === 0) {
       container.innerHTML = shopSearchTerm
         ? `<div class="shop-nextrun-empty"><div class="shop-nextrun-empty-icon">🔍</div><p>No Next Run items match "${shopSearchTerm}".</p></div>`
-        : `<div class="shop-nextrun-empty"><div class="shop-nextrun-empty-icon">🛒</div><p>No items flagged for next run.<br>Tap 🛒 on any item in <strong>Full List</strong> to add it here.</p></div>`;
+        : `<div class="shop-nextrun-empty"><div class="shop-nextrun-empty-icon">🛒</div><p>No items flagged for next run.<br>Long-press an item in <strong>Full List</strong> and tap "Add to Next Run".</p></div>`;
       return;
     }
     flagged.sort((a, b) => (a.bought ? 1 : 0) - (b.bought ? 1 : 0));
     container.innerHTML = `<div class="shop-nextrun-list">
-      ${flagged.map(item => `
-        <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}">
-          <div class="shop-item-cb" onclick="toggleBought(${item.id})"></div>
-          <div class="shop-item-main">
-            <div class="shop-item-name">${item.name}</div>
-            ${renderPriceInfo(item)}
-          </div>
-          <div class="shop-qty">
-            <button class="shop-qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
-            <span class="shop-qty-num">${item.qty || 1}</span>
-            <button class="shop-qty-btn" onclick="changeQty(${item.id}, 1)">+</button>
-          </div>
-          <button class="shop-cat-edit-btn" onclick="event.stopPropagation();toggleCatPicker(${item.id})" title="Change category">🏷️</button>
-          <button class="shop-nextrun-btn active" onclick="toggleNextRun(${item.id})" title="Remove from Next Run">🛒</button>
-        </div>
-        ${catPickerHtml(item)}`).join('')}
+      ${flagged.map(renderItemRow).join('')}
     </div>`;
     return;
   }
@@ -3664,7 +3774,7 @@ function renderShopList() {
   // FULL VIEW
   if (items.length === 0) {
     const emptyMsg = shopFilterBought
-      ? `<div class="empty-state"><div class="emoji">✓</div><p>No bought items yet.<br>Tap a checkbox to mark something as bought.</p></div>`
+      ? `<div class="empty-state"><div class="emoji">✓</div><p>No bought items yet.<br>Swipe right on an item to mark it as bought.</p></div>`
       : shopSearchTerm
         ? `<div class="empty-state"><div class="emoji">🔍</div><p>No items match "${shopSearchTerm}".</p></div>`
         : `<div class="empty-state"><div class="emoji">🛒</div><p>Your shopping list is empty.<br>Add items above.</p></div>`;
@@ -3674,23 +3784,7 @@ function renderShopList() {
 
   const catKeys = new Set(cats.map(c => c.key));
 
-  const renderItemRows = (catItems) => catItems.map(item => `
-    <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}">
-      <div class="shop-item-cb" onclick="toggleBought(${item.id})"></div>
-      <div class="shop-item-main">
-        <div class="shop-item-name">${item.name}</div>
-        ${renderPriceInfo(item)}
-      </div>
-      <div class="shop-qty">
-        <button class="shop-qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
-        <span class="shop-qty-num">${item.qty || 1}</span>
-        <button class="shop-qty-btn" onclick="changeQty(${item.id}, 1)">+</button>
-      </div>
-      <button class="shop-cat-edit-btn" onclick="event.stopPropagation();toggleCatPicker(${item.id})" title="Change category">🏷️</button>
-      <button class="shop-nextrun-btn ${item.nextRun ? 'active' : ''}" onclick="toggleNextRun(${item.id})" title="${item.nextRun ? 'Remove from Next Run' : 'Add to Next Run'}">🛒</button>
-      <button class="shop-delete-btn" onclick="deleteShopItem(${item.id})">🗑</button>
-    </div>
-    ${catPickerHtml(item)}`).join('');
+  const renderItemRows = (catItems) => catItems.map(renderItemRow).join('');
 
   // Bought filter — flat list, no category headers
   if (shopFilterBought) {
@@ -7727,7 +7821,7 @@ function applyDefaultTab() {
   switchMainTab(tab);
 }
 
-Promise.all([initDB(), initPhotos()]).then(() => { renderAll(); applyDefaultTab(); setupWaterReminders(); }).catch(renderAll);
+Promise.all([initDB(), initPhotos()]).then(() => { renderAll(); applyDefaultTab(); setupWaterReminders(); setupShopSwipeHandlers(); }).catch(renderAll);
 
 // ─── SERVICE WORKER ─────────────────────────────────────────────────────────
 

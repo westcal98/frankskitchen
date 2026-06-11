@@ -1256,50 +1256,64 @@ body::before {
 .shop-section.collapsed .shop-section-chevron { transform: rotate(-90deg); }
 .shop-section.collapsed .shop-items { display: none; }
 
+.shop-item-wrap {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.shop-swipe-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  padding: 0 22px;
+}
+
+.shop-swipe-bg-right {
+  background: var(--green);
+  justify-content: flex-start;
+}
+
+.shop-swipe-bg-left {
+  background: var(--red2);
+  justify-content: flex-end;
+}
+
 .shop-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
   background: var(--card);
   border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-left-style: solid;
   border-radius: 8px;
-  margin-bottom: 6px;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, transform 0.2s ease-out;
+  touch-action: pan-y;
 }
 
 .shop-item.bought {
-  opacity: 0.45;
+  opacity: 0.5;
 }
 
-.shop-item-cb {
-  width: 22px;
-  height: 22px;
-  border: 2px solid var(--border2);
-  border-radius: 5px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s;
-  background: var(--surface);
+@keyframes shopLongPressPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(200,146,42,0.6); }
+  100% { box-shadow: 0 0 0 8px rgba(200,146,42,0); }
 }
 
-.shop-item.bought .shop-item-cb {
-  background: var(--green);
-  border-color: var(--green);
+.shop-item.long-press-pulse {
+  animation: shopLongPressPulse 0.3s ease-out;
 }
-
-.shop-item-cb::after {
-  content: '✓';
-  font-size: 13px;
-  color: white;
-  display: none;
-  font-weight: 700;
-}
-
-.shop-item.bought .shop-item-cb::after { display: block; }
 
 .shop-item-main {
   flex: 1;
@@ -1314,9 +1328,8 @@ body::before {
   font-size: 14px;
   color: var(--text2);
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .shop-item.bought .shop-item-name { text-decoration: line-through; color: var(--muted); }
@@ -1389,23 +1402,6 @@ body::before {
   text-align: center;
 }
 
-.shop-delete-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border2);
-  background: transparent;
-  color: var(--muted);
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.shop-delete-btn:hover { border-color: var(--red2); color: var(--red2); background: rgba(185,50,50,0.1); }
 
 /* ── RECIPE SEARCH TOOLBAR ── */
 .recipe-search-panel {
@@ -1764,29 +1760,6 @@ body::before {
   color: var(--text);
   box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
-
-/* ── NEXT RUN CART BUTTON ── */
-.shop-nextrun-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border2);
-  background: transparent;
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  opacity: 0.35;
-  transition: all 0.15s;
-}
-.shop-nextrun-btn.active {
-  opacity: 1;
-  border-color: var(--gold);
-  background: rgba(200,146,42,0.12);
-}
-.shop-nextrun-btn:hover { opacity: 0.8; }
 
 /* ── NEXT RUN ESTIMATOR ── */
 .nextrun-estimator {
@@ -2177,24 +2150,7 @@ body::before {
   background: rgba(185,50,50,0.07);
 }
 
-/* ── SHOP CATEGORY EDIT ── */
-.shop-cat-edit-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: transparent;
-  font-size: 13px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  opacity: 0.4;
-  transition: opacity 0.15s;
-}
-.shop-cat-edit-btn:hover { opacity: 1; }
-
+/* ── SHOP CATEGORY PICKER ── */
 .shop-cat-picker {
   display: flex;
   flex-wrap: wrap;
