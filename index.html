@@ -177,7 +177,13 @@
     <div class="nextrun-estimator hidden" id="nextRunEstimator"></div>
     <div id="shopList"></div>
   </div>
-  <button class="add-shop-fab hidden" id="addShopFab" onclick="toggleShopAdd()">+ Add Item</button>
+  <div class="shop-fab-wrap hidden" id="shopFabWrap">
+    <div class="shop-speed-dial" id="shopSpeedDial">
+      <button class="shop-speed-dial-btn" id="shopSpeedDialItem" onclick="speedDialAddItem()">➕ Item</button>
+      <button class="shop-speed-dial-btn" id="shopSpeedDialScan" onclick="speedDialScan()">📷 Scan</button>
+    </div>
+    <button class="add-shop-fab" id="addShopFab" onclick="toggleShopSpeedDial()"><span class="shop-fab-icon" id="shopFabIcon">+</span></button>
+  </div>
 </div>
 <!-- ── NUTRITION VIEW ── -->
 <div id="view-nutrition" class="hidden">
@@ -643,7 +649,7 @@
           <div class="acc-section-title">Step Timers</div>
           <p class="acc-text">Inside any recipe, steps that have a time associated with them show a Preset timer button and a Custom timer button side by side. Tap Preset to start the suggested time. Tap Custom to enter your own time. Multiple timers can run simultaneously across different steps. When a timer hits zero it will alert based on your Ding Settings. Tap "I Got It" to dismiss.</p>
           <div class="acc-section-title">Shopping List</div>
-          <p class="acc-text">Tap the "+ Add Item" button at the bottom left of the Shopping tab to add a new item. Assign it a category when adding. Tap an item to check it off as bought — it will appear struck through. Use the category filter pills to browse by category. Use the search icon to find a specific item quickly.</p>
+          <p class="acc-text">Tap the "+" button at the bottom left of the Shopping tab (Full List view) to open the speed dial, then tap "Item" to add a new item. Assign it a category when adding. Swipe right on an item to mark it as bought — it will appear struck through. Use the category filter pills to browse by category. Use the search icon to find a specific item quickly.</p>
           <div class="acc-section-title">Next Run Mode</div>
           <p class="acc-text">Tap the cart icon on any shopping list item to flag it for your next shopping run. Toggle between Full List and Next Run views using the button at the top of the Shopping tab. Next Run view shows only your flagged items in a clean flat list — perfect for in-store use. Checking an item in Next Run also checks it in Full List.</p>
           <div class="acc-section-title">Shopping List Actions</div>

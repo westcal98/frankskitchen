@@ -2046,7 +2046,8 @@ function switchMainTab(tab) {
   document.getElementById('nav-shop').classList.toggle('active', tab === 'shop');
   document.getElementById('nav-nutrition').classList.toggle('active', tab === 'nutrition');
   document.getElementById('addRecipeFab').classList.toggle('hidden', tab !== 'recipes');
-  document.getElementById('addShopFab').classList.toggle('hidden', tab !== 'shop');
+  document.getElementById('shopFabWrap').classList.toggle('hidden', tab !== 'shop' || shopView !== 'full');
+  if (tab !== 'shop') closeShopSpeedDial();
   document.getElementById('addNutritionFab').classList.toggle('hidden', tab !== 'nutrition');
   if (tab === 'shop') {
     const rsp = document.getElementById('recipeSearchPanel');
@@ -2940,8 +2941,8 @@ function hideSuggestions() {
 }
 
 document.addEventListener('click', (e) => {
-  // Collapse add panel when clicking outside it (but not when clicking the FAB)
-  if (!e.target.closest('#shopAddPanel') && !e.target.closest('#addShopFab')) {
+  // Collapse add panel when clicking outside it (but not when clicking the FAB/speed dial)
+  if (!e.target.closest('#shopAddPanel') && !e.target.closest('#shopFabWrap')) {
     const ap = document.getElementById('shopAddPanel');
     if (ap && !ap.classList.contains('hidden')) collapseShopAdd();
   }
@@ -2955,6 +2956,8 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('.shop-cat-picker') && !e.target.closest('.shop-item-main')) {
     document.querySelectorAll('.shop-cat-picker').forEach(el => el.classList.add('hidden'));
   }
+  // Close speed dial when clicking outside it
+  if (!e.target.closest('#shopFabWrap')) closeShopSpeedDial();
 });
 
 function setShopView(view) {
@@ -2963,6 +2966,8 @@ function setShopView(view) {
   document.getElementById('shopViewNext').classList.toggle('active', view === 'next');
   document.getElementById('shopActionsFull').classList.toggle('hidden', view === 'next');
   document.getElementById('shopActionsNext').classList.toggle('hidden', view === 'full');
+  document.getElementById('shopFabWrap').classList.toggle('hidden', view !== 'full');
+  closeShopSpeedDial();
   collapseShopEdit();
   const input = document.getElementById('shopInput');
   if (input) input.placeholder = view === 'next' ? 'Add to Next Run…' : 'Add item…';
@@ -3643,6 +3648,27 @@ function collapseShopEdit() {
     panel.classList.add('hidden');
     renderShopFilterBar();
   }
+}
+
+function toggleShopSpeedDial() {
+  const wrap = document.getElementById('shopFabWrap');
+  if (!wrap) return;
+  wrap.classList.toggle('open');
+}
+
+function closeShopSpeedDial() {
+  const wrap = document.getElementById('shopFabWrap');
+  if (wrap) wrap.classList.remove('open');
+}
+
+function speedDialAddItem() {
+  closeShopSpeedDial();
+  toggleShopAdd();
+}
+
+function speedDialScan() {
+  closeShopSpeedDial();
+  showToast('Coming soon', { gold: true, duration: 1500 });
 }
 
 function toggleShopAdd() {
