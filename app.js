@@ -1134,6 +1134,7 @@ const DB_CACHE = {
   nutrition_goals:        {},  // { calories, protein, carbs, fat, fiberGoal, waterGoal, age, height, heightIn, weight, activityLevel, goalType, goalRate, targetWeight, customCalories, useCustom, unitSystem }
   nutrition_card_settings: {}, // { showWater, showProtein, showFiber }
   weight_log:             [],  // array of { id, date, weight, unit, note }
+  item_prices:            [],  // array of { id, itemName, brand, detail, size, price, store, dateLogged, selectedForTrip }
 };
 
 function getState(recipeId) {
@@ -1204,8 +1205,8 @@ function toggleFavorite(id) {
 
 let _db = null;
 const _DB_NAME = 'fk_store';
-const _DB_VER  = 1;
-const APP_SCHEMA_VERSION = 3;
+const _DB_VER  = 2;
+const APP_SCHEMA_VERSION = 4;
 
 function _openDB() {
   return new Promise((resolve, reject) => {
@@ -1214,6 +1215,7 @@ function _openDB() {
       const db = e.target.result;
       if (!db.objectStoreNames.contains('kv'))            db.createObjectStore('kv');
       if (!db.objectStoreNames.contains('recipe_states')) db.createObjectStore('recipe_states');
+      if (!db.objectStoreNames.contains('itemPrices'))    db.createObjectStore('itemPrices');
     };
     req.onsuccess = e => resolve(e.target.result);
     req.onerror   = ()  => reject(req.error);
@@ -1267,6 +1269,18 @@ function _idbDel(store, key) {
   try { _db.transaction(store, 'readwrite').objectStore(store).delete(key); } catch(e) {}
 }
 
+// itemPrices entries are individually-keyed records; localStorage backup is
+// handled separately as a single 'fk_item_prices' array (see _persistItemPricesLS).
+function _idbPutItemPrice(entry) {
+  if (!_db) return;
+  try { _db.transaction('itemPrices', 'readwrite').objectStore('itemPrices').put(entry, entry.id); } catch(e) {}
+}
+
+function _idbDelItemPrice(id) {
+  if (!_db) return;
+  try { _db.transaction('itemPrices', 'readwrite').objectStore('itemPrices').delete(id); } catch(e) {}
+}
+
 function _idbGet(store, key) {
   return new Promise(resolve => {
     if (!_db) { resolve(undefined); return; }
@@ -1318,6 +1332,12 @@ async function initDB() {
 
     // ── Load recipe states ──────────────────────────────────────────────────
     await _idbCursor('recipe_states', (key, val) => { DB_CACHE.recipe_states[key] = val; });
+
+    // ── Load item price history ─────────────────────────────────────────────
+    await _idbCursor('itemPrices', (key, val) => { DB_CACHE.item_prices.push(val); });
+    if (!DB_CACHE.item_prices.length) {
+      try { const d = JSON.parse(localStorage.getItem('fk_item_prices')); if (Array.isArray(d) && d.length) DB_CACHE.item_prices = d; } catch(e) {}
+    }
 
     // ── Load kv entries ─────────────────────────────────────────────────────
     const custom = await _idbGet('kv', 'custom_recipes');
@@ -2383,6 +2403,12 @@ async function migrate_2_to_3() {
   console.log(`[FK] migration 2→3: added ${toAdd.length} new built-in recipe(s) — ${toAdd.map(r => r.id).join(', ')}`);
 }
 
+function migrate_3_to_4() {
+  // Adds the "itemPrices" object store (created in _openDB's onupgradeneeded).
+  // No existing data needs to move — nothing further to do here.
+  console.log('[FK] migration 3→4: itemPrices store ready');
+}
+
 async function runMigrations(storedVersion) {
   const from = typeof storedVersion === 'number' ? storedVersion : 0;
   if (from >= APP_SCHEMA_VERSION) return;
@@ -2390,6 +2416,7 @@ async function runMigrations(storedVersion) {
   if (from < 1) migrate_0_to_1();
   if (from < 2) migrate_1_to_2();
   if (from < 3) await migrate_2_to_3();
+  if (from < 4) migrate_3_to_4();
   _idbPut('kv', 'schema_version', APP_SCHEMA_VERSION);
   console.log(`[FK] Schema updated to v${APP_SCHEMA_VERSION}`);
 }
@@ -2500,6 +2527,80 @@ function getShopItems() {
 function saveShopItems(items) {
   DB_CACHE.shoplist = items;
   _idbPut('kv', 'shoplist', items);
+}
+
+// ─── ITEM PRICE HISTORY ─────────────────────────────────────────────────────
+
+function _persistItemPricesLS() {
+  try { localStorage.setItem('fk_item_prices', JSON.stringify(DB_CACHE.item_prices)); } catch(e) {}
+}
+
+function normalizeItemName(name) {
+  return (name || '').trim().toLowerCase();
+}
+
+function getItemPriceEntries(itemName) {
+  const norm = normalizeItemName(itemName);
+  return DB_CACHE.item_prices.filter(p => p.itemName === norm);
+}
+
+function getSelectedPriceEntry(itemName) {
+  return getItemPriceEntries(itemName).find(p => p.selectedForTrip);
+}
+
+function addItemPriceEntry(itemName, data) {
+  const norm = normalizeItemName(itemName);
+  // Deselect any currently-selected entry for this item
+  DB_CACHE.item_prices.forEach(p => {
+    if (p.itemName === norm && p.selectedForTrip) {
+      p.selectedForTrip = false;
+      _idbPutItemPrice(p);
+    }
+  });
+  const entry = {
+    id: Date.now(),
+    itemName: norm,
+    brand: (data.brand || '').trim(),
+    detail: (data.detail || '').trim(),
+    size: (data.size || '').trim(),
+    price: +data.price || 0,
+    store: (data.store || '').trim(),
+    dateLogged: data.dateLogged || localDateStr(),
+    selectedForTrip: true,
+  };
+  DB_CACHE.item_prices.push(entry);
+  _idbPutItemPrice(entry);
+  _persistItemPricesLS();
+  return entry;
+}
+
+function selectItemPriceEntry(id) {
+  const entry = DB_CACHE.item_prices.find(p => p.id === id);
+  if (!entry) return;
+  DB_CACHE.item_prices.forEach(p => {
+    if (p.itemName === entry.itemName && p.id !== id && p.selectedForTrip) {
+      p.selectedForTrip = false;
+      _idbPutItemPrice(p);
+    }
+  });
+  entry.selectedForTrip = true;
+  _idbPutItemPrice(entry);
+  _persistItemPricesLS();
+}
+
+function deleteItemPriceEntry(id) {
+  const idx = DB_CACHE.item_prices.findIndex(p => p.id === id);
+  if (idx === -1) return;
+  const [removed] = DB_CACHE.item_prices.splice(idx, 1);
+  _idbDelItemPrice(id);
+  if (removed.selectedForTrip) {
+    const remaining = getItemPriceEntries(removed.itemName).sort((a, b) => b.dateLogged.localeCompare(a.dateLogged));
+    if (remaining.length) {
+      remaining[0].selectedForTrip = true;
+      _idbPutItemPrice(remaining[0]);
+    }
+  }
+  _persistItemPricesLS();
 }
 
 function stripIngredientToName(ing) {
@@ -3224,6 +3325,146 @@ function closeIngredientPicker() {
   }
 }
 
+// ─── PRICE HISTORY BOTTOM SHEET ─────────────────────────────────────────────
+
+let _priceSheetItemId = null;
+let _priceSheetShowForm = false;
+
+function openPriceSheet(itemId) {
+  _priceSheetItemId = itemId;
+  _priceSheetShowForm = false;
+
+  const existing = document.getElementById('price-sheet-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'price-sheet-overlay';
+  overlay.className = 'price-sheet-overlay';
+  overlay.addEventListener('click', e => { if (e.target === overlay) closePriceSheet(); });
+
+  const sheet = document.createElement('div');
+  sheet.className = 'price-sheet';
+  sheet.id = 'price-sheet';
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+  renderPriceSheetContent();
+  requestAnimationFrame(() => sheet.classList.add('open'));
+}
+
+function closePriceSheet() {
+  const overlay = document.getElementById('price-sheet-overlay');
+  if (!overlay) return;
+  const sheet = overlay.querySelector('.price-sheet');
+  if (sheet) {
+    sheet.classList.remove('open');
+    setTimeout(() => overlay.remove(), 260);
+  } else {
+    overlay.remove();
+  }
+  _priceSheetItemId = null;
+}
+
+function renderPriceSheetContent() {
+  const sheet = document.getElementById('price-sheet');
+  if (!sheet || _priceSheetItemId == null) return;
+  const item = getShopItems().find(i => i.id === _priceSheetItemId);
+  if (!item) { closePriceSheet(); return; }
+  const entries = getItemPriceEntries(item.name).sort((a, b) => b.dateLogged.localeCompare(a.dateLogged));
+
+  let html = `<div class="price-sheet-header">
+    <div>
+      <div class="price-sheet-item-name">${item.name}</div>
+      <div class="price-sheet-title">Price History</div>
+    </div>
+    <button class="price-sheet-close" onclick="closePriceSheet()">✕</button>
+  </div>
+  <div class="price-sheet-body">`;
+
+  if (!entries.length) {
+    html += `<div class="price-sheet-empty">No prices logged yet.</div>`;
+  } else {
+    html += entries.map(e => {
+      const detail = [e.brand, e.detail, e.size].filter(Boolean).join(' · ');
+      return `<div class="price-entry${e.selectedForTrip ? ' selected' : ''}" onclick="selectPriceEntryUI(${e.id})">
+        <div class="price-entry-main">
+          <div class="price-entry-detail">${detail || '—'}</div>
+          <div class="price-entry-sub">$${e.price.toFixed(2)}${e.store ? ' · ' + e.store : ''} · ${e.dateLogged}</div>
+        </div>
+        <div class="price-entry-actions">
+          ${e.selectedForTrip ? '<span class="price-entry-check">✓</span>' : ''}
+          <button class="price-entry-delete" onclick="event.stopPropagation();deletePriceEntryUI(${e.id})" title="Delete">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  html += `</div>`;
+  html += _priceSheetShowForm
+    ? renderPriceEntryForm()
+    : `<button class="price-sheet-add-btn" onclick="togglePriceEntryForm(true)">+ Add Price Entry</button>`;
+
+  sheet.innerHTML = html;
+}
+
+function renderPriceEntryForm() {
+  const today = localDateStr();
+  return `<div class="price-entry-form">
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Brand</label><input class="form-input" id="pe-brand" type="text"></div>
+      <div class="form-group"><label class="form-label">Detail</label><input class="form-input" id="pe-detail" type="text"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Size</label><input class="form-input" id="pe-size" type="text"></div>
+      <div class="form-group"><label class="form-label">Price</label><input class="form-input" id="pe-price" type="number" step="0.01" min="0"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Store</label><input class="form-input" id="pe-store" type="text"></div>
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="pe-date" type="date" value="${today}"></div>
+    </div>
+    <div class="price-entry-form-actions">
+      <button class="modal-cancel-btn" onclick="togglePriceEntryForm(false)">Cancel</button>
+      <button class="modal-save-btn" onclick="savePriceEntryUI()">Save</button>
+    </div>
+  </div>`;
+}
+
+function togglePriceEntryForm(show) {
+  _priceSheetShowForm = show;
+  renderPriceSheetContent();
+}
+
+function selectPriceEntryUI(id) {
+  selectItemPriceEntry(id);
+  renderPriceSheetContent();
+  renderShopList();
+}
+
+function deletePriceEntryUI(id) {
+  deleteItemPriceEntry(id);
+  renderPriceSheetContent();
+  renderShopList();
+}
+
+function savePriceEntryUI() {
+  const item = getShopItems().find(i => i.id === _priceSheetItemId);
+  if (!item) return;
+  const price = parseFloat(document.getElementById('pe-price').value);
+  if (!price || price <= 0) { showToast('Enter a valid price'); return; }
+  const data = {
+    brand: document.getElementById('pe-brand').value,
+    detail: document.getElementById('pe-detail').value,
+    size: document.getElementById('pe-size').value,
+    price,
+    store: document.getElementById('pe-store').value,
+    dateLogged: document.getElementById('pe-date').value || localDateStr(),
+  };
+  addItemPriceEntry(item.name, data);
+  _priceSheetShowForm = false;
+  renderPriceSheetContent();
+  renderShopList();
+}
+
 function showToast(msg) {
   const existing = document.getElementById('fk-toast');
   if (existing) existing.remove();
@@ -3332,6 +3573,38 @@ function setShopFilter(key) {  // legacy alias
   renderShopList();
 }
 
+function renderPriceInfo(item) {
+  const sel = getSelectedPriceEntry(item.name);
+  if (sel) {
+    const detail = [sel.brand, sel.size].filter(Boolean).join(' ');
+    const amount = '$' + sel.price.toFixed(2) + (sel.store ? ' · ' + sel.store : '');
+    return `<div class="shop-item-price" onclick="event.stopPropagation();openPriceSheet(${item.id})">
+      ${detail ? `<span class="shop-item-price-detail">${detail}</span>` : ''}
+      <span class="shop-item-price-amount">${amount}</span>
+    </div>`;
+  }
+  return `<div class="shop-item-price" onclick="event.stopPropagation();openPriceSheet(${item.id})">
+    <span class="shop-item-price-add">+ price</span>
+  </div>`;
+}
+
+function renderNextRunEstimator(allItems) {
+  const bar = document.getElementById('nextRunEstimator');
+  if (!bar) return;
+  if (shopView !== 'next') { bar.classList.add('hidden'); return; }
+  const flagged = allItems.filter(i => i.nextRun);
+  if (!flagged.length) { bar.classList.add('hidden'); return; }
+  let total = 0;
+  let unpriced = 0;
+  flagged.forEach(item => {
+    const sel = getSelectedPriceEntry(item.name);
+    if (sel) total += sel.price * (item.qty || 1);
+    else unpriced++;
+  });
+  bar.classList.remove('hidden');
+  bar.innerHTML = `Next Run Est: $${total.toFixed(2)}${unpriced ? `<span class="nextrun-estimator-unpriced"> + ${unpriced} unpriced</span>` : ''}`;
+}
+
 function renderShopList() {
   const allItems = getShopItems();
   const container = document.getElementById('shopList');
@@ -3357,6 +3630,7 @@ function renderShopList() {
 
   if (shopView === 'next') {
     const flagged = items.filter(i => i.nextRun);
+    renderNextRunEstimator(allItems);
     if (flagged.length === 0) {
       container.innerHTML = shopSearchTerm
         ? `<div class="shop-nextrun-empty"><div class="shop-nextrun-empty-icon">🔍</div><p>No Next Run items match "${shopSearchTerm}".</p></div>`
@@ -3368,7 +3642,10 @@ function renderShopList() {
       ${flagged.map(item => `
         <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}">
           <div class="shop-item-cb" onclick="toggleBought(${item.id})"></div>
-          <div class="shop-item-name">${item.name}</div>
+          <div class="shop-item-main">
+            <div class="shop-item-name">${item.name}</div>
+            ${renderPriceInfo(item)}
+          </div>
           <div class="shop-qty">
             <button class="shop-qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
             <span class="shop-qty-num">${item.qty || 1}</span>
@@ -3381,6 +3658,8 @@ function renderShopList() {
     </div>`;
     return;
   }
+
+  renderNextRunEstimator(allItems);
 
   // FULL VIEW
   if (items.length === 0) {
@@ -3398,7 +3677,10 @@ function renderShopList() {
   const renderItemRows = (catItems) => catItems.map(item => `
     <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}">
       <div class="shop-item-cb" onclick="toggleBought(${item.id})"></div>
-      <div class="shop-item-name">${item.name}</div>
+      <div class="shop-item-main">
+        <div class="shop-item-name">${item.name}</div>
+        ${renderPriceInfo(item)}
+      </div>
       <div class="shop-qty">
         <button class="shop-qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
         <span class="shop-qty-num">${item.qty || 1}</span>

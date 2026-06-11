@@ -1301,14 +1301,59 @@ body::before {
 
 .shop-item.bought .shop-item-cb::after { display: block; }
 
-.shop-item-name {
+.shop-item-main {
   flex: 1;
-  font-size: 14px;
-  color: var(--text2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   min-width: 0;
 }
 
+.shop-item-name {
+  font-size: 14px;
+  color: var(--text2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .shop-item.bought .shop-item-name { text-decoration: line-through; color: var(--muted); }
+
+.shop-item-price {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  line-height: 1.25;
+  cursor: pointer;
+  text-align: right;
+}
+
+.shop-item-price-detail {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.shop-item-price-amount {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  white-space: nowrap;
+}
+
+.shop-item-price-add {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold);
+  white-space: nowrap;
+  padding: 3px 9px;
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+}
 
 .shop-qty {
   display: flex;
@@ -1742,6 +1787,28 @@ body::before {
   background: rgba(200,146,42,0.12);
 }
 .shop-nextrun-btn:hover { opacity: 0.8; }
+
+/* ── NEXT RUN ESTIMATOR ── */
+.nextrun-estimator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  background: var(--card2);
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold2);
+  text-align: center;
+}
+.nextrun-estimator.hidden { display: none; }
+.nextrun-estimator-unpriced {
+  color: var(--muted);
+  font-weight: 500;
+}
 
 /* ── NEXT RUN EMPTY STATE ── */
 .shop-nextrun-empty {
@@ -2783,6 +2850,171 @@ body::before {
   transition: color 0.15s;
 }
 .ing-picker-cancel:hover { color: var(--text2); }
+
+/* ── PRICE HISTORY BOTTOM SHEET ── */
+.price-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 500;
+  display: flex;
+  align-items: flex-end;
+}
+
+.price-sheet {
+  width: 100%;
+  max-width: 600px;
+  max-height: 85vh;
+  margin: 0 auto;
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 12px);
+  transform: translateY(100%);
+  transition: transform 0.25s cubic-bezier(0.32,0,0,1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.price-sheet.open { transform: translateY(0); }
+
+.price-sheet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 16px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.price-sheet-item-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: capitalize;
+}
+.price-sheet-title {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.price-sheet-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.price-sheet-close:hover { border-color: var(--red2); color: var(--red2); }
+
+.price-sheet-body {
+  padding: 12px 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.price-sheet-empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 24px 0;
+}
+
+.price-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.price-entry:hover { border-color: var(--gold); }
+.price-entry.selected { border-color: var(--gold); background: var(--card2); }
+
+.price-entry-main { min-width: 0; }
+.price-entry-detail {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: capitalize;
+}
+.price-entry-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.price-entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.price-entry-check {
+  color: var(--gold);
+  font-weight: 700;
+  font-size: 15px;
+}
+.price-entry-delete {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.price-entry-delete:hover { border-color: var(--red2); color: var(--red2); background: rgba(185,50,50,0.1); }
+
+.price-sheet-add-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 4px 16px 16px;
+  text-align: center;
+  background: var(--gold);
+  border: none;
+  border-radius: 10px;
+  color: #0d0b08;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.price-sheet-add-btn:hover { background: var(--gold2); }
+
+.price-entry-form {
+  padding: 4px 16px 16px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+.price-entry-form .form-row { margin-top: 14px; margin-bottom: 0; }
+.price-entry-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
 
 .hidden { display: none !important; }
 
