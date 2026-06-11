@@ -3003,7 +3003,6 @@ function setupShopSwipeHandlers() {
       startY: touch.clientY,
       dx: 0,
       axis: null,
-      allowLeft: !!wrap.querySelector('.shop-swipe-bg-left'),
     };
 
     if (e.target.closest('.shop-item-name')) {
@@ -3030,28 +3029,34 @@ function setupShopSwipeHandlers() {
     }
     if (drag.axis !== 'x') return;
 
-    const clamped = (dx < 0 && !drag.allowLeft) ? 0 : dx;
-    drag.dx = clamped;
+    drag.dx = dx;
     drag.row.style.transition = 'none';
-    drag.row.style.transform = `translateX(${clamped}px)`;
-    drag.wrap.classList.toggle('swiping-right', clamped > 0);
-    drag.wrap.classList.toggle('swiping-left', clamped < 0);
+    drag.row.style.transform = `translateX(${dx}px)`;
+    drag.wrap.classList.toggle('swiping-right', dx > 0);
+    drag.wrap.classList.toggle('swiping-left', dx < 0);
     e.preventDefault();
   }, { passive: false });
 
   const endDrag = () => {
     if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     if (!drag) return;
-    const { row, wrap, target, dx, id, axis, allowLeft } = drag;
+    const { row, wrap, target, dx, id, axis } = drag;
     const threshold = (row.offsetWidth || 1) * SHOP_SWIPE_THRESHOLD_RATIO;
     row.style.transition = `transform 0.2s ease-out`;
 
     if (dx > threshold) {
       row.style.transform = `translateX(${row.offsetWidth}px)`;
       setTimeout(() => toggleBought(id), 150);
-    } else if (allowLeft && dx < -threshold) {
+    } else if (dx < -threshold) {
       row.style.transform = `translateX(-${row.offsetWidth}px)`;
-      setTimeout(() => toggleNextRun(id), 150);
+      if (shopView === 'next') {
+        setTimeout(() => toggleNextRun(id), 150);
+      } else {
+        setTimeout(() => {
+          deleteShopItem(id);
+          showToast('Item deleted', { gold: true, duration: 1500 });
+        }, 150);
+      }
     } else {
       row.style.transform = 'translateX(0)';
       wrap.classList.remove('swiping-right', 'swiping-left');
@@ -3756,11 +3761,11 @@ function renderShopList() {
     </div>`;
 
   const renderItemRow = (item) => {
-    const allowLeftSwipe = shopView === 'next';
+    const leftSwipeLabel = shopView === 'next' ? '✗ Remove' : '✗ Delete';
     return `
     <div class="shop-item-wrap" id="shopwrap-${item.id}">
       <div class="shop-swipe-bg shop-swipe-bg-right"><span>${item.bought ? '✓ Undo' : '✓ Bought'}</span></div>
-      ${allowLeftSwipe ? `<div class="shop-swipe-bg shop-swipe-bg-left"><span>✗ Remove</span></div>` : ''}
+      <div class="shop-swipe-bg shop-swipe-bg-left"><span>${leftSwipeLabel}</span></div>
       <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}" data-id="${item.id}" style="border-left-color:${getStoreColor(item)}">
         <div class="shop-item-main">
           <div class="shop-item-name">${item.name}</div>
