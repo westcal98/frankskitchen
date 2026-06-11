@@ -1275,17 +1275,21 @@ body::before {
   font-weight: 700;
   color: #fff;
   padding: 0 22px;
+  opacity: 0;
 }
 
 .shop-swipe-bg-right {
-  background: var(--green);
+  background: #2E7D32;
   justify-content: flex-start;
 }
 
 .shop-swipe-bg-left {
-  background: var(--red2);
+  background: #C62828;
   justify-content: flex-end;
 }
+
+.shop-item-wrap.swiping-right .shop-swipe-bg-right { opacity: 1; }
+.shop-item-wrap.swiping-left .shop-swipe-bg-left { opacity: 1; }
 
 .shop-item {
   position: relative;
@@ -1300,10 +1304,6 @@ body::before {
   border-radius: 8px;
   transition: opacity 0.2s, transform 0.2s ease-out;
   touch-action: pan-y;
-}
-
-.shop-item.bought {
-  opacity: 0.5;
 }
 
 @keyframes shopLongPressPulse {
@@ -1332,7 +1332,7 @@ body::before {
   overflow-wrap: break-word;
 }
 
-.shop-item.bought .shop-item-name { text-decoration: line-through; color: var(--muted); }
+.shop-item.bought .shop-item-name { text-decoration: line-through; color: #666666; }
 
 .shop-item-price {
   flex-shrink: 0;
@@ -2711,6 +2711,11 @@ body::before {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.fk-toast-gold {
+  color: var(--gold);
+  font-weight: 600;
+}
+
 .fk-toast.fk-toast-visible {
   opacity: 1;
   transform: translateX(-50%) translateY(0);

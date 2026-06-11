@@ -2980,6 +2980,7 @@ function toggleNextRun(id) {
 const SHOP_SWIPE_THRESHOLD_RATIO = 0.4;
 const SHOP_DRAG_LOCK_PX = 10;
 const SHOP_LONG_PRESS_MS = 500;
+const SHOP_DOUBLE_TAP_MS = 300;
 
 function setupShopSwipeHandlers() {
   const container = document.getElementById('shopList');
@@ -2987,6 +2988,7 @@ function setupShopSwipeHandlers() {
 
   let drag = null;
   let longPressTimer = null;
+  let lastTap = { id: null, time: 0 };
 
   container.addEventListener('touchstart', (e) => {
     const wrap = e.target.closest('.shop-item-wrap');
@@ -2995,6 +2997,7 @@ function setupShopSwipeHandlers() {
     const touch = e.touches[0];
     drag = {
       wrap, row,
+      target: e.target,
       id: parseInt(row.dataset.id, 10),
       startX: touch.clientX,
       startY: touch.clientY,
@@ -3039,7 +3042,7 @@ function setupShopSwipeHandlers() {
   const endDrag = () => {
     if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     if (!drag) return;
-    const { row, wrap, dx, id, allowLeft } = drag;
+    const { row, wrap, target, dx, id, axis, allowLeft } = drag;
     const threshold = (row.offsetWidth || 1) * SHOP_SWIPE_THRESHOLD_RATIO;
     row.style.transition = `transform 0.2s ease-out`;
 
@@ -3053,6 +3056,26 @@ function setupShopSwipeHandlers() {
       row.style.transform = 'translateX(0)';
       wrap.classList.remove('swiping-right', 'swiping-left');
     }
+
+    // Double tap (Full List only) → add to Next Run
+    if (axis === null && shopView === 'full'
+        && !target.closest('.shop-qty-btn') && !target.closest('.shop-item-price')) {
+      const now = Date.now();
+      if (lastTap.id === id && (now - lastTap.time) < SHOP_DOUBLE_TAP_MS) {
+        lastTap = { id: null, time: 0 };
+        const items = getShopItems();
+        const item = items.find(i => i.id === id);
+        if (item && !item.nextRun) {
+          item.nextRun = true;
+          saveShopItems(items);
+          renderShopList();
+          showToast('Added to Next Run ✓', { gold: true, duration: 1500 });
+        }
+      } else {
+        lastTap = { id, time: now };
+      }
+    }
+
     drag = null;
   };
 
@@ -3568,19 +3591,19 @@ function savePriceEntryUI() {
   renderShopList();
 }
 
-function showToast(msg) {
+function showToast(msg, opts = {}) {
   const existing = document.getElementById('fk-toast');
   if (existing) existing.remove();
   const el = document.createElement('div');
   el.id = 'fk-toast';
-  el.className = 'fk-toast';
+  el.className = 'fk-toast' + (opts.gold ? ' fk-toast-gold' : '');
   el.textContent = msg;
   document.body.appendChild(el);
   requestAnimationFrame(() => el.classList.add('fk-toast-visible'));
   setTimeout(() => {
     el.classList.remove('fk-toast-visible');
     setTimeout(() => el.remove(), 300);
-  }, 2200);
+  }, opts.duration || 2200);
 }
 
 function handleShopSearch() {
@@ -3736,7 +3759,7 @@ function renderShopList() {
     const allowLeftSwipe = shopView === 'next';
     return `
     <div class="shop-item-wrap" id="shopwrap-${item.id}">
-      <div class="shop-swipe-bg shop-swipe-bg-right"><span>${item.bought ? 'Undo' : '✓ Bought'}</span></div>
+      <div class="shop-swipe-bg shop-swipe-bg-right"><span>${item.bought ? '✓ Undo' : '✓ Bought'}</span></div>
       ${allowLeftSwipe ? `<div class="shop-swipe-bg shop-swipe-bg-left"><span>✗ Remove</span></div>` : ''}
       <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}" data-id="${item.id}" style="border-left-color:${getStoreColor(item)}">
         <div class="shop-item-main">
