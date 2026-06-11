@@ -2943,7 +2943,7 @@ function hideSuggestions() {
 
 document.addEventListener('click', (e) => {
   // Collapse add panel when clicking outside it (but not when clicking the FAB/speed dial)
-  if (!e.target.closest('#shopAddPanel') && !e.target.closest('#shopFabWrap')) {
+  if (!e.target.closest('#shopAddPanel') && !e.target.closest('#shopFabWrap') && !e.target.closest('#shopNextRunFab')) {
     const ap = document.getElementById('shopAddPanel');
     if (ap && !ap.classList.contains('hidden')) collapseShopAdd();
   }
@@ -3666,6 +3666,19 @@ function closeShopSpeedDial() {
 function speedDialAddItem() {
   closeShopSpeedDial();
   toggleShopAdd();
+}
+
+function nextRunAddItem() {
+  // Show the add panel if hidden
+  const panel = document.getElementById('shopAddPanel');
+  if (!panel) return;
+  // Close search if open
+  const sp = document.getElementById('shopSearchPanel');
+  if (sp && !sp.classList.contains('hidden')) clearShopSearch();
+  // Show the panel
+  panel.classList.remove('hidden');
+  // Focus the input
+  requestAnimationFrame(() => document.getElementById('shopInput')?.focus());
 }
 
 function speedDialScan() {
