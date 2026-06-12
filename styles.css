@@ -1869,7 +1869,6 @@ body::before {
 .serving-num.scaled { color: var(--gold2); }
 
 /* ── ADD RECIPE / SHOP FABs ── */
-.add-recipe-fab,
 .add-shop-fab {
   position: fixed;
   bottom: 20px;
@@ -1888,7 +1887,6 @@ body::before {
   box-shadow: 0 4px 16px rgba(200, 146, 42, 0.4);
   transition: background 0.2s, transform 0.15s;
 }
-.add-recipe-fab:hover,
 .add-shop-fab:hover { background: var(--gold2); transform: translateY(-1px); }
 
 /* ── SHOP FAB SPEED DIAL ── */

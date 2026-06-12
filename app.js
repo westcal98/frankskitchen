@@ -2050,7 +2050,8 @@ function switchMainTab(tab) {
   document.getElementById('nav-recipes').classList.toggle('active', tab === 'recipes');
   document.getElementById('nav-shop').classList.toggle('active', tab === 'shop');
   document.getElementById('nav-nutrition').classList.toggle('active', tab === 'nutrition');
-  document.getElementById('addRecipeFab').classList.toggle('hidden', tab !== 'recipes');
+  document.getElementById('recipeFabWrap').classList.toggle('hidden', tab !== 'recipes');
+  if (tab !== 'recipes') closeRecipeSpeedDial();
   document.getElementById('shopFabWrap').classList.toggle('hidden', tab !== 'shop' || shopView !== 'full');
   document.getElementById('shopNextRunFab').classList.toggle('hidden', tab !== 'shop' || shopView !== 'next');
   if (tab !== 'shop') closeShopSpeedDial();
@@ -2977,6 +2978,7 @@ document.addEventListener('click', (e) => {
   }
   // Close speed dial when clicking outside it
   if (!e.target.closest('#shopFabWrap')) closeShopSpeedDial();
+  if (!e.target.closest('#recipeFabWrap')) closeRecipeSpeedDial();
 });
 
 function setShopView(view) {
@@ -3702,6 +3704,33 @@ function nextRunAddItem() {
 function speedDialScan() {
   closeShopSpeedDial();
   openReceiptStoreSheet();
+}
+
+function openRecipeSpeedDial() {
+  const wrap = document.getElementById('recipeFabWrap');
+  if (wrap) wrap.classList.add('open');
+}
+
+function closeRecipeSpeedDial() {
+  const wrap = document.getElementById('recipeFabWrap');
+  if (wrap) wrap.classList.remove('open');
+}
+
+function toggleRecipeSpeedDial() {
+  const wrap = document.getElementById('recipeFabWrap');
+  if (!wrap) return;
+  if (wrap.classList.contains('open')) closeRecipeSpeedDial();
+  else openRecipeSpeedDial();
+}
+
+function speedDialAddRecipe() {
+  closeRecipeSpeedDial();
+  openAddRecipeForm();
+}
+
+function speedDialAskRecipe() {
+  closeRecipeSpeedDial();
+  showToast('Coming soon', { gold: true, duration: 1500 });
 }
 
 // ─── RECEIPT SCAN ────────────────────────────────────────────────────────
