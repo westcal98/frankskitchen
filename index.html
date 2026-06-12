@@ -133,6 +133,25 @@
   </div>
 </div>
 
+<!-- ── PANTRY SCREEN ── -->
+<div id="pantryScreen" class="modal-overlay hidden">
+  <div class="modal-card" style="height:100%;display:flex;flex-direction:column;">
+    <div class="modal-header">
+      <div class="modal-title">Pantry</div>
+      <button class="modal-close" onclick="closePantryScreen()">✕</button>
+    </div>
+    <div class="pantry-search-row">
+      <input type="text" id="pantrySearchInput" placeholder="Search items..." oninput="renderPantryList()" autocomplete="off">
+    </div>
+    <div class="pantry-bulk-row">
+      <span id="pantryInStockCount"></span>
+      <button onclick="pantryMarkAllInStock()">Mark All In Stock</button>
+      <button onclick="pantryMarkAllOutOfStock()">Mark All Out of Stock</button>
+    </div>
+    <div id="pantryList" style="flex:1;overflow-y:auto;"></div>
+  </div>
+</div>
+
 <div id="view-shop" class="hidden">
   <div class="shop-wrap">
     <div class="shop-recovery-banner hidden" id="shopRecoveryBanner">
