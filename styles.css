@@ -273,6 +273,13 @@ body::before {
   flex-wrap: wrap;
 }
 
+.recipe-can-make {
+  font-size: 11px;
+  color: var(--gold);
+  opacity: 0.7;
+  margin: -4px 0 6px;
+}
+
 .meta-tag {
   font-size: 10px;
   padding: 2px 8px;

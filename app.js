@@ -1042,6 +1042,7 @@ let shopSearchTerm = '';
 // ── Multi-select filter state ────────────────────────────────────────────────
 let recipeFilterCats = [];    // [] = show all; ['breakfast','dinner'] = multi-select
 let recipeFilterFavs = false; // favorites special filter
+let recipeFilterCanMake = false; // "what can I make" special filter
 let shopFilterCats   = [];    // [] = show all
 let shopFilterBought = false; // bought special filter
 let shopFilterInStock = false; // in stock special filter
@@ -1597,7 +1598,38 @@ function clearRecipeSearch() {
 function matchesFilter(recipe) {
   if (recipeFilterCats.length > 0 && !recipeFilterCats.includes(recipe.category)) return false;
   if (recipeFilterFavs && !isFavorited(recipe.id)) return false;
+  if (recipeFilterCanMake && !canMakeRecipe(recipe).canMake) return false;
   return true;
+}
+
+function canMakeRecipe(recipe) {
+  const shopItems = getShopItems();
+  const inStockItems = shopItems.filter(i => i.inStock === true);
+
+  if (!recipe.ingredients || recipe.ingredients.length === 0) return {
+    canMake: false, matched: 0, total: 0
+  };
+
+  let matched = 0;
+  const total = recipe.ingredients.length;
+
+  recipe.ingredients.forEach(ing => {
+    const ingName = (typeof ing === 'object' ? ing.name : ing).toLowerCase().trim();
+    // Fuzzy match: check if any in-stock item name shares a significant word
+    const found = inStockItems.some(item => {
+      const itemName = item.name.toLowerCase().trim();
+      // Direct contains check first
+      if (itemName.includes(ingName) || ingName.includes(itemName)) return true;
+      // Word-level match (min 4 chars to avoid noise)
+      const ingWords = ingName.split(/\s+/).filter(w => w.length >= 4);
+      const itemWords = itemName.split(/\s+/).filter(w => w.length >= 4);
+      return ingWords.some(w => itemWords.some(iw => iw.includes(w) || w.includes(iw)));
+    });
+    if (found) matched++;
+  });
+
+  const pct = total > 0 ? matched / total : 0;
+  return { canMake: pct >= 0.75, matched, total, pct };
 }
 
 function matchesSearch(recipe) {
@@ -1756,6 +1788,7 @@ function renderRecipe(recipe) {
             <div class="recipe-name">${displayName}</div>
             <button class="rename-btn" onclick="event.stopPropagation();startRename('${recipe.id}')" title="Rename recipe">✏️</button>
           </div>
+          ${recipeFilterCanMake ? (() => { const m = canMakeRecipe(recipe); return `<div class="recipe-can-make">${m.matched}/${m.total} ingredients</div>`; })() : ''}
           <div class="recipe-meta">
             ${applianceTag(recipe.appliance)}
             <span class="meta-tag tag-time">⏱ ${recipe.time}</span>
@@ -1837,12 +1870,14 @@ function renderAll() {
   const container = document.getElementById('mainContent');
   renderRecipeFilterBar();
 
-  // Flat mode: favorites filter or search term — no category headers
-  if (recipeFilterFavs || searchTerm) {
+  // Flat mode: favorites/can-make filter or search term — no category headers
+  if (recipeFilterFavs || recipeFilterCanMake || searchTerm) {
     const visible = getAllRecipes().filter(r => matchesFilter(r) && matchesSearch(r));
     if (visible.length === 0) {
       container.innerHTML = recipeFilterFavs && !searchTerm
         ? `<div class="empty-state"><div class="emoji">⭐</div><p>No favorites yet.<br>Tap ☆ on any recipe to add it here.</p></div>`
+        : recipeFilterCanMake && !searchTerm
+        ? `<div class="empty-state"><div class="emoji">🧑‍🍳</div><p>No recipes match what's in stock.<br>Mark items as In Stock on your shopping list.</p></div>`
         : `<div class="empty-state"><div class="emoji">🔍</div><p>No recipes found.<br>Try a different search or filter.</p></div>`;
     } else {
       container.innerHTML = `<div class="recipe-grid">${visible.map(renderRecipe).join('')}</div>`;
@@ -2103,6 +2138,7 @@ function renderRecipeFilterBar() {
     if (c) tags.push({ label: `${c.icon} ${c.label}`, key: cat });
   });
   if (recipeFilterFavs) tags.push({ label: '⭐ Favorites', key: '__favs' });
+  if (recipeFilterCanMake) tags.push({ label: '🧑‍🍳 Can Make', key: '__canmake' });
   const hasFilters = tags.length > 0;
   bar.innerHTML =
     `<button class="filter-by-btn${hasFilters ? ' has-filters' : ''}" onclick="openFilterDropdown('recipe')">Filter by ▾</button>` +
@@ -2143,6 +2179,7 @@ function renderTagsHtml(tags, tab) {
 function removeFilterTag(tab, key) {
   if (tab === 'recipe') {
     if (key === '__favs') recipeFilterFavs = false;
+    else if (key === '__canmake') recipeFilterCanMake = false;
     else recipeFilterCats = recipeFilterCats.filter(k => k !== key);
     renderAll();
   } else {
@@ -2178,7 +2215,7 @@ function closeFilterDropdown() {
 function clearFilterDropdown() {
   const body = document.getElementById('filterDropdownBody');
   if (_filterDropdownTab === 'recipe') {
-    recipeFilterCats = []; recipeFilterFavs = false;
+    recipeFilterCats = []; recipeFilterFavs = false; recipeFilterCanMake = false;
     renderAll();
     if (body) renderRecipeDropdownBody(body);
   } else {
@@ -2203,6 +2240,9 @@ function renderRecipeDropdownBody(body) {
   html += `</div><div class="filter-group"><div class="filter-group-label">Special Filters</div>
     <button class="filter-option${recipeFilterFavs ? ' selected' : ''}" onclick="toggleRecipeFilterFavs()">
       <span class="filter-option-check">${recipeFilterFavs ? '✓' : ''}</span>⭐ Favorites
+    </button>
+    <button class="filter-option${recipeFilterCanMake ? ' selected' : ''}" onclick="toggleRecipeFilterCanMake()">
+      <span class="filter-option-check">${recipeFilterCanMake ? '✓' : ''}</span>🧑‍🍳 What Can I Make?
     </button>
   </div>`;
   body.innerHTML = html;
@@ -2243,6 +2283,13 @@ function toggleRecipeFilterCat(key) {
 
 function toggleRecipeFilterFavs() {
   recipeFilterFavs = !recipeFilterFavs;
+  const body = document.getElementById('filterDropdownBody');
+  if (body) renderRecipeDropdownBody(body);
+  renderAll();
+}
+
+function toggleRecipeFilterCanMake() {
+  recipeFilterCanMake = !recipeFilterCanMake;
   const body = document.getElementById('filterDropdownBody');
   if (body) renderRecipeDropdownBody(body);
   renderAll();
