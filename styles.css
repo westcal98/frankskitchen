@@ -3091,6 +3091,214 @@ body::before {
 .receipt-add-store-row .form-input { flex: 1; }
 .receipt-add-store-row .modal-save-btn { flex: 0 0 auto; padding: 10px 16px; }
 
+/* ── RECEIPT REVIEW: FULL SCREEN OVERLAY ── */
+.receipt-review-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 600;
+  display: flex;
+  align-items: flex-end;
+}
+
+.receipt-review-screen {
+  width: 100%;
+  max-width: 600px;
+  height: 100%;
+  margin: 0 auto;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateY(100%);
+  transition: transform 0.25s cubic-bezier(0.32,0,0,1);
+}
+.receipt-review-screen.open { transform: translateY(0); }
+
+.receipt-review-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.receipt-review-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+.receipt-review-title .gold { color: var(--gold); }
+.receipt-review-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.receipt-review-body {
+  padding: 12px 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.receipt-review-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  transition: opacity 0.15s;
+}
+.receipt-review-row.skipped { opacity: 0.5; }
+.receipt-review-row.skipped .receipt-review-name { text-decoration: line-through; }
+
+.receipt-review-info { flex: 1; min-width: 0; }
+.receipt-review-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.receipt-review-price {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.receipt-review-match {
+  flex-shrink: 0;
+  max-width: 40%;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border2);
+  background: var(--surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.receipt-review-match:hover { border-color: var(--gold); }
+.receipt-match-selected { color: var(--gold); }
+.receipt-match-empty { color: var(--muted); }
+
+.receipt-review-skip {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.receipt-review-skip:hover { border-color: var(--red2); color: var(--red2); }
+
+.receipt-review-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+  background: var(--card);
+  flex-shrink: 0;
+}
+.receipt-review-count {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.receipt-review-save {
+  padding: 11px 24px;
+  border-radius: 999px;
+  border: 1px solid var(--gold);
+  background: var(--gold);
+  color: #0d0b08;
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.receipt-review-save:hover { background: var(--gold2); border-color: var(--gold2); }
+.receipt-review-save:disabled {
+  background: var(--border2);
+  border-color: var(--border2);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+/* ── RECEIPT REVIEW: MATCH PICKER ── */
+.receipt-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.receipt-picker-sheet {
+  width: 100%;
+  max-width: 480px;
+  max-height: 70vh;
+  background: var(--surface);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.receipt-picker-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.receipt-picker-header .form-input { flex: 1; }
+
+.receipt-picker-list {
+  overflow-y: auto;
+  padding: 8px 12px 12px;
+}
+
+.receipt-picker-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 12px;
+  margin-top: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.receipt-picker-item:hover { border-color: var(--gold); background: var(--card2); }
+.receipt-picker-item.selected { border-color: var(--gold); color: var(--gold); }
+.receipt-picker-item.receipt-picker-new { color: var(--gold); border-style: dashed; }
+
 .hidden { display: none !important; }
 
 /* ── ADD METHOD CHOOSER ── */

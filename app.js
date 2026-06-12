@@ -3863,6 +3863,7 @@ If you cannot read the receipt clearly, return an empty array [].`;
       showToast('No items found — try a clearer photo');
     } else {
       showToast(`Receipt scanned — ${items.length} items found`, { gold: true });
+      openReceiptReviewScreen();
     }
   } catch (err) {
     if (err.message === 'FETCH_FAILED') {
@@ -3874,6 +3875,285 @@ If you cannot read the receipt clearly, return an empty array [].`;
     }
     console.error('[FK] Receipt scan error:', err);
   }
+}
+
+// ─── RECEIPT REVIEW (Session B) ────────────────────────────────────────────
+
+const RECEIPT_BRAND_PREFIXES = ['GREAT VALUE', 'SE GROCERS', 'SIMPLY ESSENTIALS', 'GVL', 'GV', 'ALDI'];
+
+function _fuzzyNormalize(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function _wordStem(w) {
+  return (w.length > 3 && w.endsWith('s')) ? w.slice(0, -1) : w;
+}
+
+// Finds the shopping list item whose longest matching word-stem (min 3 chars,
+// from a list-item word of at least 4 chars) overlaps with a word in the
+// receipt item name. Prefers longer overlapping stems.
+function findReceiptItemMatch(receiptName, shopItems) {
+  const receiptWords = _fuzzyNormalize(receiptName).split(' ').filter(w => w.length >= 3);
+  let best = null;
+  let bestLen = 0;
+  for (const item of shopItems) {
+    const itemWords = _fuzzyNormalize(item.name).split(' ').filter(w => w.length >= 4);
+    for (const iw of itemWords) {
+      const stem = _wordStem(iw);
+      for (const rw of receiptWords) {
+        if (_wordStem(rw) === stem && stem.length > bestLen) {
+          bestLen = stem.length;
+          best = item;
+        }
+      }
+    }
+  }
+  return best;
+}
+
+function cleanReceiptName(name, size) {
+  let s = (name || '').trim();
+  for (const prefix of RECEIPT_BRAND_PREFIXES) {
+    const re = new RegExp('^' + prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+', 'i');
+    if (re.test(s)) { s = s.replace(re, ''); break; }
+  }
+  if (size) {
+    const escSize = size.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    s = s.replace(new RegExp('\\s*' + escSize + '\\s*$', 'i'), '');
+  }
+  s = s.replace(/\s+\d+\s*(ct|cnt|oz|lb|lbs|gal|pk|pack)\.?$/i, '').trim();
+  return s.toLowerCase().split(' ').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function parseReceiptNameParts(name, size) {
+  const cleaned = cleanReceiptName(name, size);
+  const words = cleaned.split(' ').filter(Boolean);
+  return { brand: words[0] || '', detail: words.slice(1).join(' ') };
+}
+
+let _receiptReviewRows = [];
+let _receiptPickerRowIdx = null;
+let _receiptPickerSearch = '';
+
+function openReceiptReviewScreen() {
+  const scan = window._lastReceiptScan;
+  if (!scan) return;
+
+  const shopItems = getShopItems();
+  _receiptReviewRows = scan.items.map(it => {
+    const matched = findReceiptItemMatch(it.name, shopItems);
+    return {
+      name: it.name,
+      size: it.size || '',
+      price: +it.price || 0,
+      match: matched ? { type: 'existing', name: matched.name } : null,
+      skipped: false,
+    };
+  });
+  _receiptPickerRowIdx = null;
+
+  const existing = document.getElementById('receipt-review-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'receipt-review-overlay';
+  overlay.className = 'receipt-review-overlay';
+
+  const screen = document.createElement('div');
+  screen.className = 'receipt-review-screen';
+  screen.id = 'receipt-review-screen';
+
+  overlay.appendChild(screen);
+  document.body.appendChild(overlay);
+  renderReceiptReviewScreen();
+  requestAnimationFrame(() => screen.classList.add('open'));
+}
+
+function closeReceiptReviewScreen() {
+  const overlay = document.getElementById('receipt-review-overlay');
+  if (!overlay) return;
+  const screen = overlay.querySelector('.receipt-review-screen');
+  if (screen) {
+    screen.classList.remove('open');
+    setTimeout(() => overlay.remove(), 260);
+  } else {
+    overlay.remove();
+  }
+  _receiptPickerRowIdx = null;
+}
+
+function renderReceiptReviewScreen() {
+  const screen = document.getElementById('receipt-review-screen');
+  if (!screen) return;
+  const scan = window._lastReceiptScan;
+  if (!scan) return;
+
+  const dateLabel = new Date(scan.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  let matched = 0;
+  const rowsHtml = _receiptReviewRows.map((row, idx) => {
+    if (row.match && !row.skipped) matched++;
+    const matchLabel = row.match
+      ? `<span class="receipt-match-selected">✓ ${row.match.name}</span>`
+      : `<span class="receipt-match-empty">＋ New item</span>`;
+    return `<div class="receipt-review-row${row.skipped ? ' skipped' : ''}">
+      <div class="receipt-review-info">
+        <div class="receipt-review-name">${row.name}${row.size ? ` · ${row.size}` : ''}</div>
+        <div class="receipt-review-price">$${row.price.toFixed(2)}</div>
+      </div>
+      <div class="receipt-review-match" onclick="openReceiptMatchPicker(${idx})">${matchLabel}</div>
+      <button class="receipt-review-skip" onclick="toggleReceiptRowSkip(${idx})" title="${row.skipped ? 'Restore' : 'Skip'}">${row.skipped ? '↺' : '✕'}</button>
+    </div>`;
+  }).join('');
+
+  screen.innerHTML = `
+    <div class="receipt-review-header">
+      <div>
+        <div class="receipt-review-title">Review Receipt — <span class="gold">${scan.store || ''}</span></div>
+        <div class="receipt-review-subtitle">${dateLabel}</div>
+      </div>
+      <button class="price-sheet-close" onclick="closeReceiptReviewScreen()">✕</button>
+    </div>
+    <div class="receipt-review-body">${rowsHtml}</div>
+    <div class="receipt-review-bar">
+      <div class="receipt-review-count">${matched} of ${_receiptReviewRows.length} matched</div>
+      <button class="receipt-review-save" ${matched === 0 ? 'disabled' : ''} onclick="saveReceiptReview()">Save All</button>
+    </div>
+    ${_receiptPickerRowIdx != null ? renderReceiptMatchPicker() : ''}
+  `;
+
+  if (_receiptPickerRowIdx != null) {
+    requestAnimationFrame(() => document.getElementById('receiptPickerSearch')?.focus());
+  }
+}
+
+function openReceiptMatchPicker(idx) {
+  _receiptPickerRowIdx = idx;
+  _receiptPickerSearch = '';
+  renderReceiptReviewScreen();
+}
+
+function closeReceiptMatchPicker() {
+  _receiptPickerRowIdx = null;
+  renderReceiptReviewScreen();
+}
+
+function handleReceiptPickerSearch() {
+  _receiptPickerSearch = (document.getElementById('receiptPickerSearch')?.value || '').toLowerCase();
+  renderReceiptMatchPickerList();
+}
+
+function renderReceiptMatchPicker() {
+  const row = _receiptReviewRows[_receiptPickerRowIdx];
+  if (!row) return '';
+  return `<div class="receipt-picker-overlay" onclick="if(event.target===this)closeReceiptMatchPicker()">
+    <div class="receipt-picker-sheet">
+      <div class="receipt-picker-header">
+        <input class="form-input" id="receiptPickerSearch" type="text" placeholder="Search shopping list..." autocomplete="off" oninput="handleReceiptPickerSearch()">
+        <button class="price-sheet-close" onclick="closeReceiptMatchPicker()">✕</button>
+      </div>
+      <div class="receipt-picker-list" id="receiptPickerList">${renderReceiptMatchPickerItems(row)}</div>
+    </div>
+  </div>`;
+}
+
+function renderReceiptMatchPickerItems(row) {
+  const idx = _receiptPickerRowIdx;
+  const items = getShopItems().slice().sort((a, b) => a.name.localeCompare(b.name));
+  const filtered = _receiptPickerSearch ? items.filter(i => i.name.toLowerCase().includes(_receiptPickerSearch)) : items;
+  const cleanedName = cleanReceiptName(row.name, row.size);
+
+  let html = filtered.map(item => {
+    const selected = !!(row.match && row.match.type === 'existing' && row.match.name === item.name);
+    return `<button class="receipt-picker-item${selected ? ' selected' : ''}" onclick="selectReceiptMatchExisting(${idx}, '${item.name.replace(/'/g, "\\'")}')">${selected ? '✓ ' : ''}${item.name}</button>`;
+  }).join('');
+
+  html += `<button class="receipt-picker-item receipt-picker-new" onclick="selectReceiptMatchNew(${idx})">＋ Create new item: ${cleanedName}</button>`;
+  return html;
+}
+
+function renderReceiptMatchPickerList() {
+  const container = document.getElementById('receiptPickerList');
+  const row = _receiptReviewRows[_receiptPickerRowIdx];
+  if (!container || !row) return;
+  container.innerHTML = renderReceiptMatchPickerItems(row);
+}
+
+function selectReceiptMatchExisting(idx, itemName) {
+  const row = _receiptReviewRows[idx];
+  if (!row) return;
+  row.match = { type: 'existing', name: itemName };
+  row.skipped = false;
+  closeReceiptMatchPicker();
+}
+
+function selectReceiptMatchNew(idx) {
+  const row = _receiptReviewRows[idx];
+  if (!row) return;
+  row.match = { type: 'new', name: cleanReceiptName(row.name, row.size) };
+  row.skipped = false;
+  closeReceiptMatchPicker();
+}
+
+function toggleReceiptRowSkip(idx) {
+  const row = _receiptReviewRows[idx];
+  if (!row) return;
+  row.skipped = !row.skipped;
+  renderReceiptReviewScreen();
+}
+
+// Adds a price entry without disturbing the existing selectedForTrip pick
+// when the item already has price history (only brand-new items auto-select).
+function _addReceiptPriceEntry(itemName, data) {
+  const existingEntries = getItemPriceEntries(itemName);
+  const hadEntries = existingEntries.length > 0;
+  const entry = addItemPriceEntry(itemName, data);
+  if (hadEntries) {
+    entry.selectedForTrip = false;
+    _idbPutItemPrice(entry);
+    const prevSelected = existingEntries.find(p => p.selectedForTrip);
+    if (prevSelected) {
+      prevSelected.selectedForTrip = true;
+      _idbPutItemPrice(prevSelected);
+    }
+    _persistItemPricesLS();
+  }
+  return entry;
+}
+
+function saveReceiptReview() {
+  const scan = window._lastReceiptScan;
+  if (!scan) return;
+  let savedCount = 0;
+
+  _receiptReviewRows.forEach(row => {
+    if (row.skipped || !row.match) return;
+    const { brand, detail } = parseReceiptNameParts(row.name, row.size);
+    const priceData = {
+      brand, detail, size: row.size, price: row.price,
+      store: scan.store, dateLogged: scan.date,
+    };
+
+    if (row.match.type === 'existing') {
+      _addReceiptPriceEntry(row.match.name, priceData);
+    } else {
+      const items = getShopItems();
+      let item = items.find(i => i.name.toLowerCase() === row.match.name.toLowerCase());
+      if (!item) {
+        item = { id: Date.now() + Math.floor(Math.random() * 1000), name: row.match.name, qty: 1, bought: false, category: resolveCategory(row.match.name), isNew: true, addedAt: Date.now() };
+        items.push(item);
+        saveShopItems(items);
+        saveToMemory(row.match.name);
+      }
+      _addReceiptPriceEntry(item.name, priceData);
+    }
+    savedCount++;
+  });
+
+  closeReceiptReviewScreen();
+  renderShopList();
+  updateShopStats();
+  showToast(`${savedCount} price${savedCount === 1 ? '' : 's'} saved`, { gold: true });
 }
 
 function toggleShopAdd() {
