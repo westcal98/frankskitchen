@@ -1044,6 +1044,7 @@ let recipeFilterCats = [];    // [] = show all; ['breakfast','dinner'] = multi-s
 let recipeFilterFavs = false; // favorites special filter
 let shopFilterCats   = [];    // [] = show all
 let shopFilterBought = false; // bought special filter
+let shopFilterInStock = false; // in stock special filter
 let _filterDropdownTab = null; // 'recipe' | 'shop' — which tab opened the dropdown
 let expandedCard = null;
 let activeTab = {};
@@ -2117,6 +2118,7 @@ function renderShopFilterBar() {
     if (c) tags.push({ label: c.label, key: cat });
   });
   if (shopFilterBought) tags.push({ label: '✓ Bought', key: '__bought' });
+  if (shopFilterInStock) tags.push({ label: '● In Stock', key: '__instock' });
   const hasFilters = tags.length > 0;
   const isNextRun = shopView === 'next';
   const editOpen = !document.getElementById('shopEditPanel')?.classList.contains('hidden');
@@ -2144,6 +2146,7 @@ function removeFilterTag(tab, key) {
     renderAll();
   } else {
     if (key === '__bought') shopFilterBought = false;
+    else if (key === '__instock') shopFilterInStock = false;
     else shopFilterCats = shopFilterCats.filter(k => k !== key);
     renderShopFilterBar();
     renderShopList();
@@ -2178,7 +2181,7 @@ function clearFilterDropdown() {
     renderAll();
     if (body) renderRecipeDropdownBody(body);
   } else {
-    shopFilterCats = []; shopFilterBought = false;
+    shopFilterCats = []; shopFilterBought = false; shopFilterInStock = false;
     renderShopFilterBar(); renderShopList();
     if (body) renderShopDropdownBody(body);
   }
@@ -2221,6 +2224,9 @@ function renderShopDropdownBody(body) {
     <button class="filter-option${shopFilterBought ? ' selected' : ''}" onclick="toggleShopFilterBought()">
       <span class="filter-option-check">${shopFilterBought ? '✓' : ''}</span>✓ Bought
     </button>
+    <button class="filter-option${shopFilterInStock ? ' selected' : ''}" onclick="toggleShopFilterInStock()">
+      <span class="filter-option-check">${shopFilterInStock ? '✓' : ''}</span>● In Stock
+    </button>
   </div>`;
   body.innerHTML = html;
 }
@@ -2253,6 +2259,14 @@ function toggleShopFilterCat(key) {
 
 function toggleShopFilterBought() {
   shopFilterBought = !shopFilterBought;
+  const body = document.getElementById('filterDropdownBody');
+  if (body) renderShopDropdownBody(body);
+  renderShopFilterBar();
+  renderShopList();
+}
+
+function toggleShopFilterInStock() {
+  shopFilterInStock = !shopFilterInStock;
   const body = document.getElementById('filterDropdownBody');
   if (body) renderShopDropdownBody(body);
   renderShopFilterBar();
@@ -2781,7 +2795,7 @@ function addShopItem(nameOverride) {
       existing.nextRun = true;
       existing.bought = false;
     } else {
-      items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, isNew: true, addedAt: Date.now() });
+      items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, isNew: true, addedAt: Date.now(), inStock: false });
       saveToMemory(name);
     }
     saveShopItems(items);
@@ -2804,7 +2818,7 @@ function addShopItem(nameOverride) {
     updateShopStats();
     return;
   }
-  items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), isNew: true, addedAt: Date.now() });
+  items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), isNew: true, addedAt: Date.now(), inStock: false });
   saveShopItems(items);
   saveToMemory(name);
   input.value = '';
@@ -3121,7 +3135,7 @@ function toggleIngredientNextRun(recipeId, index) {
       existing.nextRun = true;
       existing.bought = false;
     } else {
-      items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: Date.now() });
+      items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: Date.now(), inStock: false });
       saveToMemory(name);
     }
     saveShopItems(items);
@@ -3161,7 +3175,7 @@ function toggleIngredientNextRun(recipeId, index) {
     singleParts.forEach((name, i) => {
       const ex = items.find(item => item.name.toLowerCase() === name.toLowerCase());
       if (ex) { ex.nextRun = true; ex.bought = false; }
-      else { items.push({ id: now + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: now }); saveToMemory(name); }
+      else { items.push({ id: now + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: now, inStock: false }); saveToMemory(name); }
     });
     saveShopItems(items);
     renderAll();
@@ -3170,7 +3184,7 @@ function toggleIngredientNextRun(recipeId, index) {
     const name = alts[0];
     const ex = items.find(item => item.name.toLowerCase() === name.toLowerCase());
     if (ex) { ex.nextRun = true; ex.bought = false; }
-    else { items.push({ id: Date.now() + 200 + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: Date.now() }); saveToMemory(name); }
+    else { items.push({ id: Date.now() + 200 + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: Date.now(), inStock: false }); saveToMemory(name); }
   });
   if (choiceParts.slice(1).length > 0) { saveShopItems(items); renderAll(); }
 
@@ -3369,7 +3383,7 @@ function _bulkAddToNextRun(names, itemsRef) {
   names.forEach((name, i) => {
     const ex = items.find(item => item.name.toLowerCase() === name.toLowerCase());
     if (ex) { ex.nextRun = true; ex.bought = false; }
-    else { items.push({ id: now + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: now }); saveToMemory(name); }
+    else { items.push({ id: now + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: now, inStock: false }); saveToMemory(name); }
   });
   saveShopItems(items);
   const msg = names.length === 1
@@ -3431,7 +3445,7 @@ function showIngredientPicker(alternatives) {
         ex.nextRun = true;
         ex.bought = false;
       } else {
-        items.push({ id: now + i, name: cleanName, qty: 1, bought: false, category: resolveCategory(cleanName), nextRun: true, addedAt: now });
+        items.push({ id: now + i, name: cleanName, qty: 1, bought: false, category: resolveCategory(cleanName), nextRun: true, addedAt: now, inStock: false });
         saveToMemory(cleanName);
       }
     });
@@ -4125,6 +4139,7 @@ function saveReceiptReview() {
   const scan = window._lastReceiptScan;
   if (!scan) return;
   let savedCount = 0;
+  const matchedNames = [];
 
   _receiptReviewRows.forEach(row => {
     if (row.skipped || !row.match) return;
@@ -4140,15 +4155,25 @@ function saveReceiptReview() {
       const items = getShopItems();
       let item = items.find(i => i.name.toLowerCase() === row.match.name.toLowerCase());
       if (!item) {
-        item = { id: Date.now() + Math.floor(Math.random() * 1000), name: row.match.name, qty: 1, bought: false, category: resolveCategory(row.match.name), isNew: true, addedAt: Date.now() };
+        item = { id: Date.now() + Math.floor(Math.random() * 1000), name: row.match.name, qty: 1, bought: false, category: resolveCategory(row.match.name), isNew: true, addedAt: Date.now(), inStock: false };
         items.push(item);
         saveShopItems(items);
         saveToMemory(row.match.name);
       }
       _addReceiptPriceEntry(item.name, priceData);
     }
+    matchedNames.push(row.match.name);
     savedCount++;
   });
+
+  if (matchedNames.length) {
+    const items = getShopItems();
+    matchedNames.forEach(name => {
+      const item = items.find(i => i.name.toLowerCase() === name.toLowerCase());
+      if (item) item.inStock = true;
+    });
+    saveShopItems(items);
+  }
 
   closeReceiptReviewScreen();
   renderShopList();
@@ -4193,6 +4218,16 @@ function toggleCatPicker(id) {
   const isHidden = picker.classList.contains('hidden');
   document.querySelectorAll('.shop-cat-picker').forEach(el => el.classList.add('hidden'));
   if (isHidden) picker.classList.remove('hidden');
+}
+
+function toggleInStock(id) {
+  const items = getShopItems();
+  const item = items.find(i => i.id === id);
+  if (item) {
+    item.inStock = !item.inStock;
+    saveShopItems(items);
+  }
+  renderShopList();
 }
 
 function changeItemCategory(id, newCat) {
@@ -4257,6 +4292,7 @@ function renderShopList() {
     ? allItems
     : allItems.filter(i => shopFilterCats.includes(i.category));
   if (shopFilterBought) catFiltered = catFiltered.filter(i => i.bought);
+  if (shopFilterInStock) catFiltered = catFiltered.filter(i => i.inStock);
   const items = shopSearchTerm
     ? catFiltered.filter(i => i.name.toLowerCase().includes(shopSearchTerm))
     : catFiltered;
@@ -4268,18 +4304,20 @@ function renderShopList() {
   const catPickerHtml = (item) =>
     `<div class="shop-cat-picker hidden" id="catpicker-${item.id}">
       <button class="cat-pick-btn${item.nextRun ? ' active' : ''}" onclick="toggleNextRun(${item.id})">${item.nextRun ? '🛒 In Next Run' : '🛒 Add to Next Run'}</button>
+      <button class="cat-pick-btn" onclick="toggleInStock(${item.id})">${item.inStock ? '✗ Mark Out of Stock' : '✓ Mark In Stock'}</button>
       ${cats.map(cat => `<button class="cat-pick-btn${item.category === cat.key ? ' active' : ''}" onclick="changeItemCategory(${item.id},'${cat.key}')">${cat.label}</button>`).join('')}
     </div>`;
 
   const renderItemRow = (item) => {
     const leftSwipeLabel = shopView === 'next' ? '✗ Remove' : '✗ Delete';
+    const inStockDot = (shopView === 'full' && item.inStock) ? `<span class="shop-instock-dot"></span>` : '';
     return `
     <div class="shop-item-wrap" id="shopwrap-${item.id}">
       <div class="shop-swipe-bg shop-swipe-bg-right"><span>${item.bought ? '✓ Undo' : '✓ Bought'}</span></div>
       <div class="shop-swipe-bg shop-swipe-bg-left"><span>${leftSwipeLabel}</span></div>
       <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}" data-id="${item.id}" style="border-left-color:${getStoreColor(item)}">
         <div class="shop-item-main">
-          <div class="shop-item-name">${item.name}</div>
+          <div class="shop-item-name">${inStockDot}${item.name}</div>
           ${renderPriceInfo(item)}
         </div>
         <div class="shop-qty">

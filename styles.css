@@ -1334,6 +1334,16 @@ body::before {
 
 .shop-item.bought .shop-item-name { text-decoration: line-through; color: #666666; }
 
+.shop-instock-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4CAF50;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
 .shop-item-price {
   flex-shrink: 0;
   display: flex;
