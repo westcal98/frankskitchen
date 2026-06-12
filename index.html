@@ -921,6 +921,30 @@
   </div>
 </div>
 
+<!-- ── HOW DO I MAKE (AI RECIPE SEARCH) ── -->
+<div id="howDoIMakeScreen" class="modal-overlay hidden">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div class="modal-title hdim-title">👨‍🍳 How Do I Make...</div>
+      <button class="modal-close" onclick="closeHowDoIMake()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <input class="form-input" id="hdimInput" type="text" placeholder="Try: 'chicken tikka masala', 'easy high protein breakfast', or 'something with ground beef and rice'" autocomplete="off">
+      </div>
+      <button class="modal-save-btn" id="hdimAskBtn" style="width:100%" onclick="runHowDoIMake()">Ask</button>
+      <div id="hdimStatus" class="hdim-status hidden"></div>
+      <div id="hdimPreview" class="hdim-preview hidden">
+        <div id="hdimPreviewContent"></div>
+        <div class="modal-footer" style="padding:14px 0 0;border-top:none;background:none">
+          <button class="modal-cancel-btn" id="hdimAgainBtn" onclick="hdimSearchAgain()">Search Again</button>
+          <button class="modal-save-btn" id="hdimSaveBtn" onclick="saveHdimRecipe()">Save to Recipes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── RECIPE EMOJI PICKER ── -->
 <div id="recipeEmojiPickerOverlay" class="cat-emoji-overlay hidden" onclick="if(event.target===this)closeRecipeEmojiPicker()">
   <div class="cat-emoji-sheet">

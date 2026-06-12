@@ -2798,6 +2798,65 @@ body::before {
   transform: translateX(-50%) translateY(0);
 }
 
+/* ── HOW DO I MAKE (AI RECIPE SEARCH) ── */
+.hdim-title { color: var(--gold); }
+
+.hdim-status {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 14px;
+}
+
+.hdim-preview {
+  margin-top: 16px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.hdim-recipe-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.hdim-emoji { font-size: 2em; line-height: 1; }
+
+.hdim-recipe-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.hdim-section-label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 14px 0 8px;
+  font-weight: 600;
+}
+
+.hdim-ingredients,
+.hdim-steps {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  padding-left: 22px;
+}
+
+.hdim-ingredients li,
+.hdim-steps li { margin-bottom: 4px; }
+
+.hdim-notes {
+  font-style: italic;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
 /* ── INGREDIENT PICKER SHEET ── */
 .ing-picker-overlay {
   position: fixed;

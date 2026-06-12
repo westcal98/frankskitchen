@@ -3730,8 +3730,160 @@ function speedDialAddRecipe() {
 
 function speedDialAskRecipe() {
   closeRecipeSpeedDial();
-  showToast('Coming soon', { gold: true, duration: 1500 });
+  openHowDoIMake();
 }
+
+// ─── HOW DO I MAKE (AI RECIPE SEARCH) ────────────────────────────────────────
+
+let _hdimRecipe = null; // holds the last parsed recipe from AI search
+
+function openHowDoIMake() {
+  document.getElementById('howDoIMakeScreen').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('hdimInput').value = '';
+  document.getElementById('hdimStatus').classList.add('hidden');
+  document.getElementById('hdimPreview').classList.add('hidden');
+  requestAnimationFrame(() => document.getElementById('hdimInput').focus());
+}
+
+function closeHowDoIMake() {
+  document.getElementById('howDoIMakeScreen').classList.add('hidden');
+  document.body.style.overflow = '';
+  _hdimRecipe = null;
+}
+
+function showHdimStatus(msg) {
+  const el = document.getElementById('hdimStatus');
+  el.textContent = msg;
+  el.style.color = '';
+  el.classList.remove('hidden');
+}
+
+function showHdimError(msg) {
+  const el = document.getElementById('hdimStatus');
+  el.textContent = msg;
+  el.style.color = 'var(--red, #e05555)';
+  el.classList.remove('hidden');
+}
+
+function showHdimPreview(recipe) {
+  document.getElementById('hdimStatus').classList.add('hidden');
+  const preview = document.getElementById('hdimPreview');
+  const content = document.getElementById('hdimPreviewContent');
+
+  const ingredientsList = recipe.ingredients
+    .map(i => `<li>${i.qty ? i.qty + ' ' : ''}${i.unit ? i.unit + ' ' : ''}${i.name}</li>`)
+    .join('');
+  const stepsList = recipe.steps
+    .map(s => `<li>${s}</li>`)
+    .join('');
+  const notesHtml = recipe.notes
+    ? `<p class="hdim-notes">${recipe.notes}</p>` : '';
+
+  content.innerHTML = `
+    <div class="hdim-recipe-header">
+      <span class="hdim-emoji">${recipe.emoji}</span>
+      <span class="hdim-recipe-name">${recipe.name}</span>
+    </div>
+    <div class="hdim-section-label">Ingredients</div>
+    <ul class="hdim-ingredients">${ingredientsList}</ul>
+    <div class="hdim-section-label">Steps</div>
+    <ol class="hdim-steps">${stepsList}</ol>
+    ${notesHtml}
+  `;
+  preview.classList.remove('hidden');
+}
+
+function runHowDoIMake() {
+  const query = document.getElementById('hdimInput').value.trim();
+  if (!query) return;
+
+  const apiKey = DB_CACHE.preferences?.anthropicApiKey;
+  if (!apiKey) {
+    showHdimError('Add your Gemini API key in Settings');
+    return;
+  }
+
+  showHdimStatus('Finding recipe...');
+  document.getElementById('hdimAskBtn').disabled = true;
+  document.getElementById('hdimPreview').classList.add('hidden');
+
+  const prompt = `You are a recipe assistant. The user wants to know how to make: "${query}"
+
+Return a complete recipe as a JSON object with exactly these fields:
+{
+  "name": "Recipe name",
+  "emoji": "single most relevant emoji",
+  "category": "Breakfast" or "Lunch" or "Dinner" or "Dessert" or "Snack",
+  "appliance": "Any" or "Air Fryer" or "Pressure Cooker",
+  "ingredients": [
+    { "name": "ingredient name", "qty": 2, "unit": "cups" },
+    { "name": "salt", "qty": 1, "unit": "tsp" }
+  ],
+  "steps": ["Step 1 text", "Step 2 text"],
+  "notes": "Any tips or empty string"
+}
+
+For qty use a number or null if not applicable. For unit use empty string if not applicable.
+Return ONLY valid JSON. No explanation, no markdown, no code blocks.`;
+
+  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+  })
+  .then(r => r.json())
+  .then(data => {
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch(e) {
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (m) { try { parsed = JSON.parse(m[0]); } catch(e2) { parsed = null; } }
+    }
+    if (!parsed) throw new Error('parse_failed');
+    _hdimRecipe = _normalizeImportedRecipe(parsed);
+    showHdimPreview(_hdimRecipe);
+  })
+  .catch(err => {
+    if (err.message === 'parse_failed') {
+      showHdimError("Couldn't parse the recipe — try rephrasing your search");
+    } else {
+      showHdimError('Search failed — check your connection');
+    }
+  })
+  .finally(() => {
+    document.getElementById('hdimAskBtn').disabled = false;
+  });
+}
+
+function saveHdimRecipe() {
+  if (!_hdimRecipe) return;
+  const recipes = getCustomRecipes();
+  const newRecipe = {
+    ..._hdimRecipe,
+    id: 'custom-' + Date.now(),
+    custom: true,
+    addedAt: Date.now(),
+    source: 'ai_search'
+  };
+  recipes.push(newRecipe);
+  saveCustomRecipes(recipes);
+  closeHowDoIMake();
+  renderAll();
+  showToast('Recipe saved! ✓', { gold: true, duration: 2000 });
+}
+
+function hdimSearchAgain() {
+  document.getElementById('hdimPreview').classList.add('hidden');
+  document.getElementById('hdimStatus').classList.add('hidden');
+  _hdimRecipe = null;
+  document.getElementById('hdimInput').value = '';
+  document.getElementById('hdimInput').focus();
+}
+
+document.getElementById('hdimInput')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') runHowDoIMake();
+});
 
 // ─── RECEIPT SCAN ────────────────────────────────────────────────────────
 
