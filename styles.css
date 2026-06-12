@@ -1674,6 +1674,9 @@ body::before {
 /* Next Run view: filter-by and tags are hidden, leaving only the search
    button as the sole flex child — push it to the right edge */
 .filter-bar .shop-tb-search:only-child { margin-left: auto; }
+/* Next Run view: filter-by and tags are absent, so Edit is the first
+   child — push Edit + search together to the right edge */
+.filter-bar .shop-edit-btn:first-child { margin-left: auto; }
 
 /* ── SHOP SEARCH ── */
 .shop-search-wrap {
