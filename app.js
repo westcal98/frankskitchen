@@ -2160,12 +2160,24 @@ function renderShopFilterBar() {
   const isNextRun = shopView === 'next';
   const editOpen = !document.getElementById('shopEditPanel')?.classList.contains('hidden');
   const pantryOpen = !document.getElementById('pantryScreen')?.classList.contains('hidden');
-  bar.innerHTML =
-    (isNextRun ? '' : `<button class="filter-by-btn${hasFilters ? ' has-filters' : ''}" onclick="openFilterDropdown('shop')">Filter by ▾</button>`) +
-    (isNextRun ? '' : `<div class="filter-active-tags">${renderTagsHtml(tags, 'shop')}</div>`) +
-    (isNextRun ? '' : `<button class="filter-by-btn shop-edit-btn${pantryOpen ? ' active' : ''}" onclick="openPantryScreen()">Pantry</button>`) +
-    `<button class="filter-by-btn shop-edit-btn${editOpen ? ' active' : ''}" id="shopEditBtn" onclick="toggleShopEdit()">Edit ▾</button>` +
-    `<button class="shop-tb-search${shopSearchTerm ? ' active' : ''}" id="shopSearchBtn" onclick="toggleShopSearch()" title="Search">🔍</button>`;
+  if (isNextRun) {
+    bar.innerHTML =
+      `<button class="filter-by-btn shop-edit-btn${editOpen ? ' active' : ''}" id="shopEditBtn" onclick="toggleShopEdit()">Edit ▾</button>` +
+      `<button class="shop-tb-search${shopSearchTerm ? ' active' : ''}" id="shopSearchBtn" onclick="toggleShopSearch()" title="Search">🔍</button>`;
+  } else {
+    bar.innerHTML =
+      `<div class="shop-toolbar-left">` +
+        `<button class="filter-by-btn${hasFilters ? ' has-filters' : ''}" onclick="openFilterDropdown('shop')">Filter by ▾</button>` +
+        `<div class="filter-active-tags">${renderTagsHtml(tags, 'shop')}</div>` +
+      `</div>` +
+      `<div class="shop-toolbar-center">` +
+        `<button class="filter-by-btn shop-edit-btn${pantryOpen ? ' active' : ''}" onclick="openPantryScreen()">Pantry</button>` +
+      `</div>` +
+      `<div class="shop-toolbar-right">` +
+        `<button class="filter-by-btn shop-edit-btn${editOpen ? ' active' : ''}" id="shopEditBtn" onclick="toggleShopEdit()">Edit ▾</button>` +
+        `<button class="shop-tb-search${shopSearchTerm ? ' active' : ''}" id="shopSearchBtn" onclick="toggleShopSearch()" title="Search">🔍</button>` +
+      `</div>`;
+  }
 }
 
 function renderTagsHtml(tags, tab) {
