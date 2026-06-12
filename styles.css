@@ -3046,6 +3046,51 @@ body::before {
   margin-top: 14px;
 }
 
+/* ── RECEIPT SCAN: STORE SELECTION SHEET ── */
+.receipt-sheet-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.receipt-store-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.receipt-store-btn {
+  width: 100%;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.receipt-store-btn:hover { border-color: var(--gold); background: var(--card2); }
+
+.receipt-add-store-btn {
+  text-align: center;
+  color: var(--gold);
+  border-style: dashed;
+}
+.receipt-add-store-btn:hover { border-color: var(--gold); color: var(--gold2); }
+
+.receipt-add-store-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.receipt-add-store-row .form-input { flex: 1; }
+.receipt-add-store-row .modal-save-btn { flex: 0 0 auto; padding: 10px 16px; }
+
 .hidden { display: none !important; }
 
 /* ── ADD METHOD CHOOSER ── */

@@ -1135,6 +1135,7 @@ const DB_CACHE = {
   nutrition_card_settings: {}, // { showWater, showProtein, showFiber }
   weight_log:             [],  // array of { id, date, weight, unit, note }
   item_prices:            [],  // array of { id, itemName, brand, detail, size, price, store, dateLogged, selectedForTrip }
+  custom_stores:          [],  // array of user-added store names (receipt scan)
 };
 
 function getState(recipeId) {
@@ -1391,6 +1392,9 @@ async function initDB() {
 
     const prefs = await _idbGet('kv', 'preferences');
     if (prefs && typeof prefs === 'object') DB_CACHE.preferences = prefs;
+
+    const cs = await _idbGet('kv', 'customStores');
+    if (Array.isArray(cs)) DB_CACHE.custom_stores = cs;
 
     const catMem = await _idbGet('kv', 'category_memory');
     if (catMem && typeof catMem === 'object' && !Array.isArray(catMem)) DB_CACHE.category_memory = catMem;
@@ -3683,7 +3687,193 @@ function nextRunAddItem() {
 
 function speedDialScan() {
   closeShopSpeedDial();
-  showToast('Coming soon', { gold: true, duration: 1500 });
+  openReceiptStoreSheet();
+}
+
+// ─── RECEIPT SCAN ────────────────────────────────────────────────────────
+
+let _receiptSelectedStore = null;
+let _receiptShowAddStore = false;
+window._lastReceiptScan = null;
+
+const RECEIPT_DEFAULT_STORES = ['Aldi', 'Dollar General', 'Target', 'Walmart'];
+
+function getReceiptStoreList() {
+  const custom = (DB_CACHE.custom_stores || []).slice().sort((a, b) => a.localeCompare(b));
+  return RECEIPT_DEFAULT_STORES.concat(custom);
+}
+
+function openReceiptStoreSheet() {
+  _receiptShowAddStore = false;
+
+  const existing = document.getElementById('receipt-sheet-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'receipt-sheet-overlay';
+  overlay.className = 'price-sheet-overlay';
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeReceiptStoreSheet(); });
+
+  const sheet = document.createElement('div');
+  sheet.className = 'price-sheet';
+  sheet.id = 'receipt-sheet';
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+  renderReceiptStoreSheet();
+  requestAnimationFrame(() => sheet.classList.add('open'));
+}
+
+function closeReceiptStoreSheet() {
+  const overlay = document.getElementById('receipt-sheet-overlay');
+  if (!overlay) return;
+  const sheet = overlay.querySelector('.price-sheet');
+  if (sheet) {
+    sheet.classList.remove('open');
+    setTimeout(() => overlay.remove(), 260);
+  } else {
+    overlay.remove();
+  }
+}
+
+function renderReceiptStoreSheet() {
+  const sheet = document.getElementById('receipt-sheet');
+  if (!sheet) return;
+
+  let html = `<div class="price-sheet-header">
+    <div class="receipt-sheet-title">Which store is this receipt from?</div>
+    <button class="price-sheet-close" onclick="closeReceiptStoreSheet()">✕</button>
+  </div>
+  <div class="price-sheet-body receipt-store-list">`;
+
+  html += getReceiptStoreList().map(name =>
+    `<button class="receipt-store-btn" onclick="selectReceiptStore('${name.replace(/'/g, "\\'")}')">${name}</button>`
+  ).join('');
+
+  if (_receiptShowAddStore) {
+    html += `<div class="receipt-add-store-row">
+      <input class="form-input" id="newStoreNameInput" type="text" placeholder="Store name" autocomplete="off"
+        onkeydown="if(event.key==='Enter')saveCustomStore()">
+      <button class="modal-save-btn" onclick="saveCustomStore()">Save</button>
+    </div>`;
+  } else {
+    html += `<button class="receipt-store-btn receipt-add-store-btn" onclick="showAddStoreForm()">＋ Add Store</button>`;
+  }
+
+  html += `</div>`;
+  sheet.innerHTML = html;
+  if (_receiptShowAddStore) requestAnimationFrame(() => document.getElementById('newStoreNameInput')?.focus());
+}
+
+function showAddStoreForm() {
+  _receiptShowAddStore = true;
+  renderReceiptStoreSheet();
+}
+
+function saveCustomStore() {
+  const input = document.getElementById('newStoreNameInput');
+  const name = input ? input.value.trim() : '';
+  if (!name) return;
+  const exists = getReceiptStoreList().some(s => s.toLowerCase() === name.toLowerCase());
+  if (!exists) {
+    const custom = (DB_CACHE.custom_stores || []).slice();
+    custom.push(name);
+    DB_CACHE.custom_stores = custom;
+    _idbPut('kv', 'customStores', custom);
+  }
+  _receiptShowAddStore = false;
+  renderReceiptStoreSheet();
+}
+
+function selectReceiptStore(name) {
+  _receiptSelectedStore = name;
+  closeReceiptStoreSheet();
+  setTimeout(() => document.getElementById('receiptImageInput')?.click(), 50);
+}
+
+function handleReceiptImageSelected(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  scanReceiptImage(file);
+}
+
+async function scanReceiptImage(file) {
+  const apiKey = DB_CACHE.preferences?.anthropicApiKey;
+  if (!apiKey) {
+    showToast('Add your Gemini API key in Settings');
+    return;
+  }
+
+  showToast('Scanning receipt...', { gold: true, duration: 4000 });
+
+  const RECEIPT_PROMPT = `You are a receipt parser. Extract every line item from this grocery receipt image. For each item return: the full product name as printed on the receipt, the size or count if visible (e.g. "12ct", "32oz", "2lb"), and the price. Ignore subtotals, taxes, totals, store name, date, payment info, and loyalty savings lines. Return ONLY a valid JSON array, no markdown, no explanation. Format:
+[
+  { "name": "VITAL FARMS EGG LG BRN", "size": "12CT", "price": 3.49 },
+  { "name": "GREAT VALUE MILK", "size": "1GAL", "price": 2.98 }
+]
+If you cannot read the receipt clearly, return an empty array [].`;
+
+  try {
+    const base64Data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1] || '');
+      reader.onerror = () => reject(new Error('Could not read image'));
+      reader.readAsDataURL(file);
+    });
+
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: file.type || 'image/jpeg', data: base64Data } },
+            { text: RECEIPT_PROMPT },
+          ],
+        }],
+      }),
+    }).catch(() => { throw new Error('FETCH_FAILED'); });
+
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      throw new Error(errData.error?.message || `API error ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    let items;
+    try {
+      items = JSON.parse(raw);
+      if (!Array.isArray(items)) throw new Error('Not an array');
+    } catch (e) {
+      const m = raw.match(/\[[\s\S]*\]/);
+      if (m) { try { items = JSON.parse(m[0]); } catch (e2) {} }
+      if (!Array.isArray(items)) throw new Error('PARSE_FAILED');
+    }
+
+    window._lastReceiptScan = {
+      store: _receiptSelectedStore,
+      date: localDateStr(),
+      items,
+    };
+    console.log('[FK] Receipt scan result:', window._lastReceiptScan);
+
+    if (!items.length) {
+      showToast('No items found — try a clearer photo');
+    } else {
+      showToast(`Receipt scanned — ${items.length} items found`, { gold: true });
+    }
+  } catch (err) {
+    if (err.message === 'FETCH_FAILED') {
+      showToast('Scan failed — check your connection');
+    } else if (err.message === 'PARSE_FAILED') {
+      showToast('Could not read receipt — try a clearer photo');
+    } else {
+      showToast('Could not read receipt — try a clearer photo');
+    }
+    console.error('[FK] Receipt scan error:', err);
+  }
 }
 
 function toggleShopAdd() {
