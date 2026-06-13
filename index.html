@@ -828,6 +828,27 @@
           <div class="settings-row-sub">Delete all custom recipes &amp; reset recipe states</div>
         </div>
       </button>
+      <div class="settings-divider"></div>
+      <div class="settings-section-label">Debug Log</div>
+      <div class="settings-row-static" style="flex-direction:column;align-items:stretch;gap:8px">
+        <div style="display:flex;gap:8px">
+          <button class="modal-cancel-btn" onclick="renderDebugLog()" style="flex:1">Refresh</button>
+          <button class="modal-cancel-btn" onclick="copyDebugLog()" style="flex:1">Copy Log</button>
+          <button class="modal-cancel-btn" onclick="clearDebugLog()" style="flex:1;color:var(--red2)">Clear</button>
+        </div>
+        <div id="fkDebugLog" style="
+          max-height: 300px;
+          overflow-y: auto;
+          background: #0a0a0a;
+          border-radius: 8px;
+          padding: 8px;
+          font-family: monospace;
+          font-size: 11px;
+          color: #aaa;
+        ">
+          <div style="color:#555;text-align:center">Tap Refresh to load log</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

@@ -1031,6 +1031,31 @@ const RECIPE_SERVINGS = {
   'hot-honey-bbq-thighs': 2,
 };
 
+// ─── DEBUG LOG ─────────────────────────────────────────────────────────────
+
+const FK_LOG = [];
+const FK_LOG_MAX = 100;
+
+function fkLog(level, message, data) {
+  const entry = {
+    time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+    level, // 'info' | 'warn' | 'error'
+    message,
+    data: data !== undefined ? JSON.stringify(data).slice(0, 300) : null,
+  };
+  FK_LOG.unshift(entry); // newest first
+  if (FK_LOG.length > FK_LOG_MAX) FK_LOG.pop();
+  // Also send to console
+  if (level === 'error') console.error('[FK]', message, data);
+  else if (level === 'warn') console.warn('[FK]', message, data);
+  else console.log('[FK]', message, data);
+}
+
+// Convenience aliases
+const fkInfo  = (msg, data) => fkLog('info',  msg, data);
+const fkWarn  = (msg, data) => fkLog('warn',  msg, data);
+const fkError = (msg, data) => fkLog('error', msg, data);
+
 // ─── STATE ─────────────────────────────────────────────────────────────────
 
 let activeFilter = 'all';   // legacy — kept for safety
@@ -3986,6 +4011,8 @@ function runHowDoIMake() {
   document.getElementById('hdimAskBtn').disabled = true;
   document.getElementById('hdimPreview').classList.add('hidden');
 
+  fkInfo('HDIM search started', { query });
+
   const prompt = `You are a recipe assistant. The user wants to know how to make: "${query}"
 
 Return a complete recipe as a JSON object with exactly these fields:
@@ -4010,7 +4037,7 @@ Return ONLY valid JSON. No explanation, no markdown, no code blocks.`;
     headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
   })
-  .then(r => r.json())
+  .then(r => { fkInfo('HDIM response received', { status: r.status }); return r.json(); })
   .then(data => {
     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
     let parsed;
@@ -4023,6 +4050,7 @@ Return ONLY valid JSON. No explanation, no markdown, no code blocks.`;
     showHdimPreview(_hdimRecipe);
   })
   .catch(err => {
+    fkError('HDIM failed', { message: err.message });
     if (err.message === 'parse_failed') {
       showHdimError("Couldn't parse the recipe — try rephrasing your search");
     } else {
@@ -4180,6 +4208,8 @@ async function scanReceiptImage(file) {
 
   showToast('Scanning receipt...', { gold: true, duration: 4000 });
 
+  fkInfo('Receipt scan started', { store: _receiptSelectedStore, fileType: file.type, fileSize: file.size });
+
   const RECEIPT_PROMPT = `You are a receipt parser. Extract every line item from this grocery receipt image. For each item return: the full product name as printed on the receipt, the size or count if visible (e.g. "12ct", "32oz", "2lb"), and the price. Ignore subtotals, taxes, totals, store name, date, payment info, and loyalty savings lines. Return ONLY a valid JSON array, no markdown, no explanation. Format:
 [
   { "name": "VITAL FARMS EGG LG BRN", "size": "12CT", "price": 3.49 },
@@ -4195,6 +4225,8 @@ If you cannot read the receipt clearly, return an empty array [].`;
       reader.readAsDataURL(file);
     });
 
+    fkInfo('Gemini API request sent');
+
     const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
@@ -4208,6 +4240,8 @@ If you cannot read the receipt clearly, return an empty array [].`;
       }),
     }).catch(() => { throw new Error('FETCH_FAILED'); });
 
+    fkInfo('Gemini API response received', { status: resp.status, ok: resp.ok });
+
     if (!resp.ok) {
       const errData = await resp.json().catch(() => ({}));
       throw new Error(errData.error?.message || `API error ${resp.status}`);
@@ -4215,6 +4249,7 @@ If you cannot read the receipt clearly, return an empty array [].`;
 
     const data = await resp.json();
     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    fkInfo('Raw Gemini response text', { raw: raw?.slice(0, 200) });
     let items;
     try {
       items = JSON.parse(raw);
@@ -4224,6 +4259,8 @@ If you cannot read the receipt clearly, return an empty array [].`;
       if (m) { try { items = JSON.parse(m[0]); } catch (e2) {} }
       if (!Array.isArray(items)) throw new Error('PARSE_FAILED');
     }
+
+    fkInfo('Receipt items parsed', { count: items.length, items: items.slice(0, 3) });
 
     window._lastReceiptScan = {
       store: _receiptSelectedStore,
@@ -4246,7 +4283,7 @@ If you cannot read the receipt clearly, return an empty array [].`;
     } else {
       showToast('Could not read receipt — try a clearer photo');
     }
-    console.error('[FK] Receipt scan error:', err);
+    fkError('Receipt scan failed', { message: err.message });
   }
 }
 
@@ -4500,8 +4537,13 @@ function saveReceiptReview() {
   let savedCount = 0;
   const matchedNames = [];
 
+  fkInfo('Receipt review save started', { rowCount: _receiptReviewRows.length });
+
   _receiptReviewRows.forEach(row => {
-    if (row.skipped || !row.match) return;
+    if (row.skipped || !row.match) {
+      fkWarn('Receipt row skipped', { name: row.name });
+      return;
+    }
     const { brand, detail } = parseReceiptNameParts(row.name, row.size);
     const priceData = {
       brand, detail, size: row.size, price: row.price,
@@ -4521,6 +4563,7 @@ function saveReceiptReview() {
       }
       _addReceiptPriceEntry(item.name, priceData);
     }
+    fkInfo('Price entry saved', { itemName: row.match.name, price: row.price, store: scan.store });
     matchedNames.push(row.match.name);
     savedCount++;
   });
@@ -4533,6 +4576,8 @@ function saveReceiptReview() {
     });
     saveShopItems(items);
   }
+
+  fkInfo('Receipt save complete', { saved: savedCount });
 
   closeReceiptReviewScreen();
   renderShopList();
@@ -8751,7 +8796,10 @@ function applyDefaultTab() {
   switchMainTab(tab);
 }
 
-Promise.all([initDB(), initPhotos()]).then(() => { renderAll(); applyDefaultTab(); setupWaterReminders(); setupShopSwipeHandlers(); }).catch(renderAll);
+Promise.all([initDB(), initPhotos()]).then(() => {
+  renderAll(); applyDefaultTab(); setupWaterReminders(); setupShopSwipeHandlers();
+  fkInfo('App initialized', { itemCount: getShopItems().length, recipeCount: getAllRecipes().length });
+}).catch(renderAll);
 
 // ─── SERVICE WORKER ─────────────────────────────────────────────────────────
 
@@ -8763,6 +8811,42 @@ if ('serviceWorker' in navigator) {
       console.warn('[FK] Service worker registration failed:', err);
     });
   });
+}
+
+// ─── DEBUG LOG PANEL ────────────────────────────────────────────────────────
+
+function renderDebugLog() {
+  const el = document.getElementById('fkDebugLog');
+  if (!el) return;
+  if (FK_LOG.length === 0) {
+    el.innerHTML = '<div style="color:#555;text-align:center">No log entries yet</div>';
+    return;
+  }
+  el.innerHTML = FK_LOG.map(e => {
+    const color = e.level === 'error' ? '#e05555'
+                : e.level === 'warn'  ? '#c8922a'
+                : '#7cb87c';
+    return `<div style="margin-bottom:6px;border-bottom:1px solid #1a1a1a;padding-bottom:6px">
+      <span style="color:#555">${e.time}</span>
+      <span style="color:${color};font-weight:bold"> [${e.level.toUpperCase()}]</span>
+      <span style="color:#ddd"> ${e.message}</span>
+      ${e.data ? `<div style="color:#888;margin-top:2px;word-break:break-all">${e.data}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function copyDebugLog() {
+  const text = FK_LOG.map(e =>
+    `[${e.time}] [${e.level.toUpperCase()}] ${e.message}${e.data ? ' | ' + e.data : ''}`
+  ).join('\n');
+  navigator.clipboard.writeText(text)
+    .then(() => showToast('Log copied to clipboard', { gold: true, duration: 1500 }))
+    .catch(() => showToast('Copy failed', { duration: 1500 }));
+}
+
+function clearDebugLog() {
+  FK_LOG.length = 0;
+  renderDebugLog();
 }
 
 // ─── PWA INSTALL PROMPT ─────────────────────────────────────────────────────
