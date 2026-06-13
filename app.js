@@ -4624,12 +4624,9 @@ function renderPriceInfo(item) {
   </div>`;
 }
 
-function renderNextRunEstimator(allItems) {
-  const bar = document.getElementById('nextRunEstimator');
-  if (!bar) return;
-  if (shopView !== 'next') { bar.classList.add('hidden'); return; }
+function getNextRunEstimatorHtml(allItems) {
   const flagged = allItems.filter(i => i.nextRun);
-  if (!flagged.length) { bar.classList.add('hidden'); return; }
+  if (!flagged.length) return '';
   let total = 0;
   let unpriced = 0;
   flagged.forEach(item => {
@@ -4637,8 +4634,7 @@ function renderNextRunEstimator(allItems) {
     if (sel) total += sel.price * (item.qty || 1);
     else unpriced++;
   });
-  bar.classList.remove('hidden');
-  bar.innerHTML = `Next Run Est: $${total.toFixed(2)}${unpriced ? `<span class="nextrun-estimator-unpriced"> + ${unpriced} unpriced</span>` : ''}`;
+  return `<div class="nextrun-estimator" id="nextRunEstimator">Next Run Est: $${total.toFixed(2)}${unpriced ? `<span class="nextrun-estimator-unpriced"> + ${unpriced} unpriced</span>` : ''}</div>`;
 }
 
 function renderShopList() {
@@ -4691,21 +4687,19 @@ function renderShopList() {
 
   if (shopView === 'next') {
     const flagged = items.filter(i => i.nextRun);
-    renderNextRunEstimator(allItems);
+    const estimatorHtml = getNextRunEstimatorHtml(allItems);
     if (flagged.length === 0) {
-      container.innerHTML = shopSearchTerm
+      container.innerHTML = estimatorHtml + (shopSearchTerm
         ? `<div class="shop-nextrun-empty"><div class="shop-nextrun-empty-icon">🔍</div><p>No Next Run items match "${shopSearchTerm}".</p></div>`
-        : `<div class="shop-nextrun-empty"><div class="shop-nextrun-empty-icon">🛒</div><p>No items flagged for next run.<br>Long-press an item in <strong>Full List</strong> and tap "Add to Next Run".</p></div>`;
+        : `<div class="shop-nextrun-empty"><div class="shop-nextrun-empty-icon">🛒</div><p>No items flagged for next run.<br>Long-press an item in <strong>Full List</strong> and tap "Add to Next Run".</p></div>`);
       return;
     }
     flagged.sort((a, b) => (a.bought ? 1 : 0) - (b.bought ? 1 : 0));
-    container.innerHTML = `<div class="shop-nextrun-list">
+    container.innerHTML = estimatorHtml + `<div class="shop-nextrun-list">
       ${flagged.map(renderItemRow).join('')}
     </div>`;
     return;
   }
-
-  renderNextRunEstimator(allItems);
 
   // FULL VIEW
   if (items.length === 0) {
