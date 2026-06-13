@@ -4303,22 +4303,66 @@ function _wordStem(w) {
 // from a list-item word of at least 4 chars) overlaps with a word in the
 // receipt item name. Prefers longer overlapping stems.
 function findReceiptItemMatch(receiptName, shopItems) {
-  const receiptWords = _fuzzyNormalize(receiptName).split(' ').filter(w => w.length >= 3);
-  let best = null;
-  let bestLen = 0;
+  // Step 1: Strip known Aldi/store abbreviations and noise from receipt name
+  const RECEIPT_NOISE = [
+    'nf', 'gf', 'og', 'or', 'se', 'gv', 'gvl', 'aldi',
+    'the', 'and', 'with', 'van', 'chkn', 'chz'
+  ];
+
+  const normalizedReceipt = _fuzzyNormalize(receiptName);
+  const receiptWords = normalizedReceipt
+    .split(' ')
+    .filter(w => w.length >= 3 && !RECEIPT_NOISE.includes(w));
+
+  if (receiptWords.length === 0) return null;
+
+  let bestItem = null;
+  let bestScore = 0;
+
   for (const item of shopItems) {
-    const itemWords = _fuzzyNormalize(item.name).split(' ').filter(w => w.length >= 4);
+    const normalizedItem = _fuzzyNormalize(item.name);
+    const itemWords = normalizedItem
+      .split(' ')
+      .filter(w => w.length >= 3);
+
+    if (itemWords.length === 0) continue;
+
+    // Count how many item words match receipt words (stem or contains)
+    let matchCount = 0;
     for (const iw of itemWords) {
-      const stem = _wordStem(iw);
+      const iwStem = _wordStem(iw);
       for (const rw of receiptWords) {
-        if (_wordStem(rw) === stem && stem.length > bestLen) {
-          bestLen = stem.length;
-          best = item;
+        const rwStem = _wordStem(rw);
+        // Exact stem match OR one fully contains the other (min 4 chars)
+        if (
+          iwStem === rwStem ||
+          (iwStem.length >= 4 && rwStem.length >= 4 &&
+            (iwStem.startsWith(rwStem) || rwStem.startsWith(iwStem)))
+        ) {
+          matchCount++;
+          break; // count each item word at most once
         }
       }
     }
+
+    // Score = proportion of item words that matched
+    // e.g. "Hot dog buns" has 3 words, if 2 match → score 0.67
+    const score = matchCount / itemWords.length;
+
+    // STRICT THRESHOLD: require either:
+    // (a) ALL item words match (score === 1.0), OR
+    // (b) At least 2 words match AND score >= 0.75
+    const meetsThreshold =
+      score === 1.0 ||
+      (matchCount >= 2 && score >= 0.75);
+
+    if (meetsThreshold && score > bestScore) {
+      bestScore = score;
+      bestItem = item;
+    }
   }
-  return best;
+
+  return bestItem;
 }
 
 function cleanReceiptName(name, size) {
