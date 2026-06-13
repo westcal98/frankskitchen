@@ -3086,7 +3086,7 @@ function setupShopSwipeHandlers() {
     drag = {
       wrap, row,
       target: e.target,
-      id: parseInt(row.dataset.id, 10),
+      id: parseFloat(row.dataset.id),
       startX: touch.clientX,
       startY: touch.clientY,
       dx: 0,
