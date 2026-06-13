@@ -4517,12 +4517,16 @@ function renderReceiptMatchPickerItems(row) {
   const filtered = _receiptPickerSearch ? items.filter(i => i.name.toLowerCase().includes(_receiptPickerSearch)) : items;
   const cleanedName = cleanReceiptName(row.name, row.size);
 
-  let html = filtered.map(item => {
+  let html = `<div class="receipt-picker-new-row">
+    <input class="form-input receipt-picker-new-input" id="receiptPickerNewName" type="text" placeholder="New item name..." value="${cleanedName.replace(/"/g, '&quot;')}" autocomplete="off" oninput="event.stopPropagation()">
+    <button class="receipt-picker-new-confirm" onclick="confirmReceiptMatchNew(${idx})">＋ Add</button>
+  </div>`;
+
+  html += filtered.map(item => {
     const selected = !!(row.match && row.match.type === 'existing' && row.match.name === item.name);
     return `<button class="receipt-picker-item${selected ? ' selected' : ''}" onclick="selectReceiptMatchExisting(${idx}, '${item.name.replace(/'/g, "\\'")}')">${selected ? '✓ ' : ''}${item.name}</button>`;
   }).join('');
 
-  html += `<button class="receipt-picker-item receipt-picker-new" onclick="selectReceiptMatchNew(${idx})">＋ Create new item: ${cleanedName}</button>`;
   return html;
 }
 
@@ -4547,6 +4551,22 @@ function selectReceiptMatchNew(idx) {
   row.match = { type: 'new', name: cleanReceiptName(row.name, row.size) };
   row.skipped = false;
   closeReceiptMatchPicker();
+}
+
+function confirmReceiptMatchNew(idx) {
+  const row = _receiptReviewRows[idx];
+  if (!row) return;
+  const input = document.getElementById('receiptPickerNewName');
+  const name = input ? input.value.trim() : cleanReceiptName(row.name, row.size);
+  if (!name) return;
+  // Title case the name
+  const titled = name.split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+  row.match = { type: 'new', name: titled };
+  row.skipped = false;
+  closeReceiptMatchPicker();
+  renderReceiptReviewScreen();
 }
 
 function toggleReceiptRowSkip(idx) {
