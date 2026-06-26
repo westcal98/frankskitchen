@@ -9123,18 +9123,36 @@ function applyDefaultTab() {
 
 async function migrateCategoryOther() {
   const MIGRATION_KEY = 'fk_cat_migration_v3';
-  if (localStorage.getItem(MIGRATION_KEY)) return;
+
+  fkInfo('migrateCategoryOther: started', {
+    alreadyRan: !!localStorage.getItem(MIGRATION_KEY),
+    shoplistLength: getShopItems().length
+  });
+
+  if (localStorage.getItem(MIGRATION_KEY)) {
+    fkInfo('migrateCategoryOther: already ran, skipping');
+    return;
+  }
 
   const items = getShopItems();
+  fkInfo('migrateCategoryOther: items loaded', { count: items.length });
+
   const otherItems = items.filter(i => !i.category || i.category === 'other');
+  fkInfo('migrateCategoryOther: other items found', {
+    count: otherItems.length,
+    names: otherItems.map(i => i.name)
+  });
+
   if (!otherItems.length) {
     localStorage.setItem(MIGRATION_KEY, '1');
+    fkInfo('migrateCategoryOther: no other items, done');
     return;
   }
 
   let needsGemini = [];
   otherItems.forEach(item => {
     const guessed = guessCategory(item.name);
+    fkInfo('migrateCategoryOther: keyword guess', { name: item.name, guessed });
     if (guessed && guessed !== 'other') {
       item.category = guessed;
       recordCategoryMemory(item.name, guessed);
@@ -9143,14 +9161,26 @@ async function migrateCategoryOther() {
     }
   });
 
+  fkInfo('migrateCategoryOther: after keywords', {
+    keywordResolved: otherItems.length - needsGemini.length,
+    needsGemini: needsGemini.length,
+    geminiItems: needsGemini
+  });
+
   if (otherItems.length > needsGemini.length) saveShopItems(items);
 
   if (needsGemini.length > 0) {
-    fkInfo('Sending to Gemini for categorization', { count: needsGemini.length, items: needsGemini });
+    fkInfo('migrateCategoryOther: calling Gemini', { items: needsGemini });
     const results = await geminiCategorizeItems(needsGemini);
+    fkInfo('migrateCategoryOther: Gemini returned', { results });
     let changed = false;
     items.forEach(item => {
       if (results[item.name] && results[item.name] !== 'other') {
+        fkInfo('migrateCategoryOther: updating item', {
+          name: item.name,
+          from: 'other',
+          to: results[item.name]
+        });
         item.category = results[item.name];
         recordCategoryMemory(item.name, results[item.name]);
         changed = true;
@@ -9159,16 +9189,31 @@ async function migrateCategoryOther() {
     if (changed) {
       saveShopItems(items);
       renderShopList();
+      fkInfo('migrateCategoryOther: saved and re-rendered');
+    } else {
+      fkInfo('migrateCategoryOther: Gemini returned no usable results');
     }
   }
 
   localStorage.setItem(MIGRATION_KEY, '1');
+  fkInfo('migrateCategoryOther: complete');
 }
 
 Promise.all([initDB(), initPhotos()]).then(() => {
-  migrateCategoryOther().catch(e => fkError('Category migration failed', { message: e.message }));
-  renderAll(); applyDefaultTab(); setupWaterReminders(); setupShopSwipeHandlers(); setupShopScrollTopFab();
+  renderAll();
+  applyDefaultTab();
+  setupWaterReminders();
+  setupShopSwipeHandlers();
+  setupShopScrollTopFab();
   fkInfo('App initialized', { itemCount: getShopItems().length, recipeCount: getAllRecipes().length });
+  // Temporary: clear v3 flag so migration re-runs with new logging
+  // Remove this line after confirming migration works
+  localStorage.removeItem('fk_cat_migration_v3');
+  setTimeout(() => {
+    migrateCategoryOther().catch(e =>
+      fkError('Category migration failed', { message: e.message })
+    );
+  }, 1000);
 }).catch(renderAll);
 
 // ─── SERVICE WORKER ─────────────────────────────────────────────────────────
