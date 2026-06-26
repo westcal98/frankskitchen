@@ -2851,16 +2851,31 @@ function recordCategoryMemory(name, cat) {
 
 function guessCategory(name) {
   const n = name.toLowerCase();
-  if (/\bfrozen\b|ice cream/.test(n)) return 'frozen';
-  if (/\b(chicken|beef|pork|turkey|fish|shrimp|salmon|tuna|tilapia|bacon|sausage|ham|steak|ground beef|ground turkey|lamb|crab|lobster|hot.?dog|patty|patties|brisket)\b/.test(n)) return 'protein';
-  if (/\b(milk|cheese|butter|cream|yogurt|eggs?|sour cream|cream cheese|mozzarella|cheddar|parmesan|half.?and.?half|whipping cream)\b/.test(n)) return 'dairy';
-  if (/\b(onion|garlic|tomato|lettuce|spinach|pepper|carrot|celery|potato|broccoli|cucumber|mushroom|zucchini|asparagus|lemon|lime|apple|banana|avocado|cilantro|parsley|basil|ginger|jalape[nñ]o|kale|arugula|berr(y|ies)|snap pea|raspberry|mango|orange)\b/.test(n)) return 'produce';
-  if (/\b(juice|soda|water|broth|stock|wine|beer|coffee|tea|lemonade|gatorade|energy drink|dr pepper)\b/.test(n)) return 'beverages';
-  if (/\b(chip|cracker|nut|popcorn|pretzel|candy|granola bar|trail mix|oreo|biscoff|graham|pop.?tart|snicker)\b/.test(n)) return 'snacks';
-  if (/\b(cumin|paprika|oregano|thyme|rosemary|cinnamon|turmeric|chili powder|garlic powder|onion powder|cayenne|bay leaf|seasoning|spice)\b/.test(n)) return 'pantry';
-  if (/\b(chocolate|cocoa|vanilla|sprinkle|frosting|powdered sugar|brown sugar|pancake mix|baking soda|baking powder|cornstarch)\b/.test(n)) return 'pantry';
-  if (/\b(flour|sugar|salt|oil|vinegar|pasta|rice|beans|lentils|oats|bread.?crumb|honey|maple syrup|soy sauce|hot sauce|ketchup|mustard|mayo|worcestershire)\b/.test(n)) return 'pantry';
-  if (/bag|liner|parchment|thermometer|scale|board|pan|skillet|detergent|soap|towel|shaker|mold|brush|mop|sponge/.test(n)) return 'other';
+
+  if (/\bfrozen\b|ice cream|popsicle|freezer/.test(n)) return 'frozen';
+
+  if (/\b(chicken|beef|pork|turkey|fish|shrimp|salmon|tuna|tilapia|bacon|sausage|ham|steak|ground beef|ground turkey|lamb|crab|lobster|hot.?dog|patty|patties|brisket|pepperoni|salami|deli|lunch.?meat|smoked turkey|rotisserie|wings|drumstick|thigh|breast|tenderloin|ribs|chuck|sirloin|meatball|bratwurst|chorizo|kielbasa|sardine|anchovy|catfish|cod|halibut|pulled pork|corned beef|pastrami)\b/.test(n)) return 'protein';
+
+  if (/\b(milk|cheese|butter|cream|yogurt|eggs?|sour cream|cream cheese|mozzarella|cheddar|parmesan|half.?and.?half|whipping cream|colby|monterey|monterrey|jack|gouda|brie|feta|ricotta|cottage cheese|provolone|swiss|american cheese|string cheese|heavy cream|oat milk|almond milk|kefir|ghee|whipped cream)\b/.test(n)) return 'dairy';
+
+  if (/\b(onion|garlic|tomato|lettuce|spinach|pepper|carrot|celery|potato|broccoli|cucumber|mushroom|zucchini|asparagus|cilantro|parsley|basil|ginger|jalape[nñ]o|kale|arugula|snap pea|cabbage|cauliflower|brussels|eggplant|beet|radish|artichoke|leek|shallot|bok choy|sweet potato|yam|turnip|squash|pumpkin|corn|pea|edamame|baby carrot|green bean|collard|chard|endive|fennel|okra|rutabaga|tomatillo)\b/.test(n)) return 'produce';
+
+  if (/\b(apple|banana|avocado|lemon|lime|orange|grape|strawberr|blueberr|raspberr|blackberr|mango|peach|pear|plum|cherry|watermelon|cantaloupe|honeydew|pineapple|kiwi|pomegranate|fig|date|apricot|nectarine|clementine|grapefruit|tangerine|coconut|papaya|guava|passion.?fruit|dragon.?fruit)\b/.test(n)) return 'produce';
+
+  if (/\b(juice|soda|water|broth|stock|wine|beer|coffee|tea|lemonade|gatorade|energy drink|dr pepper|sprite|coke|pepsi|sparkling|kombucha|smoothie|protein shake|vitamin water|powerade|coconut water|hot chocolate|cider|champagne|liquor|whiskey|vodka|rum|tequila)\b/.test(n)) return 'beverages';
+
+  if (/\b(chip|cracker|nut|popcorn|pretzel|candy|granola.?bar|trail mix|oreo|biscoff|graham|pop.?tart|snicker|cookie|brownie|cake|muffin|donut|pastry|croissant|danish|pita chip|rice cake|jerky|fruit snack|gummy|lollipop|chocolate bar|kit kat|m&m|reese|twix|skittle|starburst|jaffa|biscuit|wafer|pudding cup|jello)\b/.test(n)) return 'snacks';
+
+  if (/\b(bread|bun|roll|bagel|tortilla|wrap|pita|naan|baguette|sourdough|brioche|ciabatta|english muffin|hot dog bun|hamburger bun|sandwich bread|wheat bread|white bread|rye|pumpernickel|flatbread|lavash|cornbread|dinner roll|slider bun)\b/.test(n)) return 'pantry';
+
+  if (/\b(cumin|paprika|oregano|thyme|rosemary|cinnamon|turmeric|chili powder|garlic powder|onion powder|cayenne|bay leaf|seasoning|spice|pepper flake|red pepper|black pepper|white pepper|nutmeg|cardamom|clove|allspice|sage|tarragon|dill|marjoram|anise|fennel seed|mustard seed|coriander|saffron|vanilla extract|almond extract)\b/.test(n)) return 'pantry';
+
+  if (/\b(chocolate|cocoa|vanilla|sprinkle|frosting|powdered sugar|brown sugar|pancake mix|baking soda|baking powder|cornstarch|cake mix|pie crust|phyllo|yeast|gelatin|food coloring|cream of tartar|arrowroot)\b/.test(n)) return 'pantry';
+
+  if (/\b(flour|sugar|salt|oil|vinegar|pasta|rice|beans|lentils|oats|bread.?crumb|panko|honey|maple syrup|soy sauce|hot sauce|ketchup|mustard|mayo|worcestershire|sriracha|oyster sauce|fish sauce|hoisin|teriyaki|bbq sauce|ranch|caesar|italian dressing|pickle|olive|jam|jelly|peanut butter|almond butter|nutella|tomato sauce|marinara|pasta sauce|salsa|hummus|tahini|coconut milk|condensed milk|evaporated milk|chicken broth|beef broth|vegetable broth|canned tomato|tomato paste|tomato puree|diced tomato|crushed tomato|canned corn|canned bean|black bean|chickpea|kidney bean|refried bean|lentil|split pea|quinoa|couscous|barley|farro|bulgur|ramen|noodle|spaghetti|linguine|penne|fettuccine|rigatoni|mac.?and.?cheese|instant potato|stuffing mix|gravy|bouillon)\b/.test(n)) return 'pantry';
+
+  if (/\b(bag|liner|parchment|thermometer|scale|board|pan|skillet|detergent|soap|towel|shaker|mold|brush|mop|sponge|cleaner|tissue|toilet paper|paper towel|napkin|plastic wrap|foil|aluminum foil|ziploc|trash bag|garbage bag|laundry|dish soap|hand soap|bleach|sanitizer|disinfectant|razor|shampoo|conditioner|toothpaste|deodorant|lotion|sunscreen|bandage|vitamin|supplement|battery|candle|air freshener|fabric softener|dryer sheet)\b/.test(n)) return 'other';
+
   return 'other';
 }
 
