@@ -4709,6 +4709,83 @@ function changeItemCategory(id, newCat) {
   renderShopList();
 }
 
+function openRenameItem(id) {
+  document.querySelectorAll('.shop-cat-picker')
+    .forEach(el => el.classList.add('hidden'));
+
+  const item = getShopItems().find(i => i.id === id);
+  if (!item) return;
+
+  document.getElementById('shopRenameSheet')?.remove();
+
+  const sheet = document.createElement('div');
+  sheet.id = 'shopRenameSheet';
+  sheet.className = 'shop-rename-sheet';
+  sheet.innerHTML = `
+    <div class="shop-rename-inner">
+      <div class="shop-rename-label">Rename Item</div>
+      <input
+        class="form-input"
+        id="shopRenameInput"
+        type="text"
+        value="${item.name.replace(/"/g, '&quot;')}"
+        autocomplete="off"
+        maxlength="80"
+      >
+      <div class="shop-rename-btns">
+        <button class="modal-cancel-btn" onclick="closeRenameItem()">Cancel</button>
+        <button class="modal-confirm-btn" onclick="confirmRenameItem(${id})">Save</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(sheet);
+  requestAnimationFrame(() => {
+    sheet.classList.add('open');
+    const inp = document.getElementById('shopRenameInput');
+    inp?.focus();
+    inp?.select();
+  });
+}
+
+function closeRenameItem() {
+  const sheet = document.getElementById('shopRenameSheet');
+  if (!sheet) return;
+  sheet.classList.remove('open');
+  setTimeout(() => sheet.remove(), 200);
+}
+
+function confirmRenameItem(id) {
+  const input = document.getElementById('shopRenameInput');
+  if (!input) return;
+  const newName = input.value.trim();
+  if (!newName) return;
+
+  const items = getShopItems();
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+
+  const oldName = item.name;
+  item.name = newName;
+  saveShopItems(items);
+
+  const prices = DB_CACHE.item_prices || [];
+  let priceChanged = false;
+  prices.forEach(p => {
+    if (p.itemName && p.itemName.toLowerCase() === oldName.toLowerCase()) {
+      p.itemName = newName;
+      priceChanged = true;
+    }
+  });
+  if (priceChanged) {
+    DB_CACHE.item_prices = prices;
+    _idbPut('item_prices_store', 'all', prices);
+  }
+
+  closeRenameItem();
+  renderShopList();
+  showToast('Item renamed ✓', { gold: true, duration: 1500 });
+}
+
 function renderShopFilterRow() { renderShopFilterBar(); } // legacy alias
 function setShopFilter(key) {  // legacy alias
   if (key === 'all') shopFilterCats = [];
@@ -4770,6 +4847,7 @@ function renderShopList() {
       <button class="cat-pick-btn${item.nextRun ? ' active' : ''}" onclick="toggleNextRun(${item.id})">${item.nextRun ? '🛒 In Next Run' : '🛒 Add to Next Run'}</button>
       <button class="cat-pick-btn" onclick="toggleInStock(${item.id})">${item.inStock ? '✗ Mark Out of Stock' : '✓ Mark In Stock'}</button>
       ${cats.map(cat => `<button class="cat-pick-btn${item.category === cat.key ? ' active' : ''}" onclick="changeItemCategory(${item.id},'${cat.key}')">${cat.label}</button>`).join('')}
+      <button class="cat-pick-btn" onclick="openRenameItem(${item.id})">✏️ Rename</button>
     </div>`;
 
   const renderItemRow = (item) => {

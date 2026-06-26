@@ -2420,6 +2420,40 @@ body::before {
   font-weight: 600;
 }
 
+/* ── RENAME SHEET ── */
+.shop-rename-sheet {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.shop-rename-sheet.open { opacity: 1; }
+.shop-rename-inner {
+  background: var(--card2, #1e1e1e);
+  border-radius: 16px;
+  padding: 20px;
+  width: calc(100% - 48px);
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.shop-rename-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gold, #c8922a);
+}
+.shop-rename-btns {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 /* ── SETTINGS CATEGORIES ── */
 .settings-cat-row {
   display: flex;
