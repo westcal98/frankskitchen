@@ -2947,12 +2947,13 @@ function resolveCategory(name) {
   if (guessed !== 'other') return guessed;
 
   geminiCategorizeItems([name]).then(results => {
-    if (results[name] && results[name] !== 'other') {
-      recordCategoryMemory(name, results[name]);
+    const resultCat = results[name.toLowerCase().trim()];
+    if (resultCat && resultCat !== 'other') {
+      recordCategoryMemory(name, resultCat);
       const items = getShopItems();
       const item = items.find(i => i.name.toLowerCase() === name.toLowerCase());
       if (item) {
-        item.category = results[name];
+        item.category = resultCat;
         saveShopItems(items);
         renderShopList();
       }
@@ -4002,9 +4003,10 @@ async function manualAutoCategorize() {
     const results = await geminiCategorizeItems(needsGemini);
     let changed = false;
     items.forEach(item => {
-      if (results[item.name] && results[item.name] !== 'other') {
-        item.category = results[item.name];
-        recordCategoryMemory(item.name, results[item.name]);
+      const resultCat = results[item.name.toLowerCase().trim()];
+      if (resultCat && resultCat !== 'other') {
+        item.category = resultCat;
+        recordCategoryMemory(item.name, resultCat);
         changed = true;
       }
     });
@@ -7048,14 +7050,20 @@ Example: {"Baby carrots": "produce", "Jaffa Cake": "snacks"}`;
     );
     const data = await resp.json();
     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    fkInfo('Gemini raw response', { raw: raw?.slice(0, 500) });
     let parsed;
     try { parsed = JSON.parse(raw); } catch(e) {
       const m = raw.match(/\{[\s\S]*\}/);
       if (m) { try { parsed = JSON.parse(m[0]); } catch(e2) { parsed = {}; } }
     }
+    fkInfo('Gemini parsed response', { parsed: JSON.stringify(parsed)?.slice(0, 500) });
     const result = {};
+    const parsedLower = {};
     Object.entries(parsed || {}).forEach(([name, cat]) => {
-      if (validKeys.has(cat)) result[name] = cat;
+      parsedLower[name.toLowerCase().trim()] = { originalName: name, cat };
+    });
+    Object.entries(parsedLower).forEach(([lowerName, { originalName, cat }]) => {
+      if (validKeys.has(cat)) result[lowerName] = cat;
     });
     fkInfo('Gemini categorization complete', { count: Object.keys(result).length });
     return result;
@@ -9224,14 +9232,15 @@ async function migrateCategoryOther() {
     fkInfo('migrateCategoryOther: Gemini returned', { results });
     let changed = false;
     items.forEach(item => {
-      if (results[item.name] && results[item.name] !== 'other') {
+      const resultCat = results[item.name.toLowerCase().trim()];
+      if (resultCat && resultCat !== 'other') {
         fkInfo('migrateCategoryOther: updating item', {
           name: item.name,
           from: 'other',
-          to: results[item.name]
+          to: resultCat
         });
-        item.category = results[item.name];
-        recordCategoryMemory(item.name, results[item.name]);
+        item.category = resultCat;
+        recordCategoryMemory(item.name, resultCat);
         changed = true;
       }
     });
