@@ -1071,6 +1071,8 @@ let recipeFilterCanMake = false; // "what can I make" special filter
 let shopFilterCats   = [];    // [] = show all
 let shopFilterBought = false; // bought special filter
 let shopFilterInStock = false; // in stock special filter
+let shopFilterStores = [];    // [] = show all stores
+let shopFilterHideUnpriced = false;
 let _filterDropdownTab = null; // 'recipe' | 'shop' — which tab opened the dropdown
 let expandedCard = null;
 let activeTab = {};
@@ -2190,6 +2192,10 @@ function renderShopFilterBar() {
   });
   if (shopFilterBought) tags.push({ label: '✓ Bought', key: '__bought' });
   if (shopFilterInStock) tags.push({ label: '● In Stock', key: '__instock' });
+  shopFilterStores.forEach(store => {
+    tags.push({ label: `🏪 ${store}`, key: `__store__${store}` });
+  });
+  if (shopFilterHideUnpriced) tags.push({ label: '💰 Priced Only', key: '__hideunpriced' });
   const hasFilters = tags.length > 0;
   const isNextRun = shopView === 'next';
   const editOpen = !document.getElementById('shopEditPanel')?.classList.contains('hidden');
@@ -2233,6 +2239,8 @@ function removeFilterTag(tab, key) {
   } else {
     if (key === '__bought') shopFilterBought = false;
     else if (key === '__instock') shopFilterInStock = false;
+    else if (key.startsWith('__store__')) shopFilterStores = shopFilterStores.filter(s => s !== key.replace('__store__', ''));
+    else if (key === '__hideunpriced') shopFilterHideUnpriced = false;
     else shopFilterCats = shopFilterCats.filter(k => k !== key);
     renderShopFilterBar();
     renderShopList();
@@ -2268,6 +2276,7 @@ function clearFilterDropdown() {
     if (body) renderRecipeDropdownBody(body);
   } else {
     shopFilterCats = []; shopFilterBought = false; shopFilterInStock = false;
+    shopFilterStores = []; shopFilterHideUnpriced = false;
     renderShopFilterBar(); renderShopList();
     if (body) renderShopDropdownBody(body);
   }
@@ -2317,7 +2326,29 @@ function renderShopDropdownBody(body) {
       <span class="filter-option-check">${shopFilterInStock ? '✓' : ''}</span>● In Stock
     </button>
   </div>`;
+  const availableStores = getAvailableStores();
+  if (availableStores.length > 0) {
+    html += `<div class="filter-group"><div class="filter-group-label">Store</div>`;
+    availableStores.forEach(store => {
+      const on = shopFilterStores.includes(store);
+      html += `<button class="filter-option${on ? ' selected' : ''}" onclick="toggleShopFilterStore('${store.replace(/'/g, "\\'")}')">
+        <span class="filter-option-check">${on ? '✓' : ''}</span>${store}
+      </button>`;
+    });
+    html += `</div>`;
+  }
+  html += `<div class="filter-group"><div class="filter-group-label">Pricing</div>
+    <button class="filter-option${shopFilterHideUnpriced ? ' selected' : ''}" onclick="toggleShopFilterHideUnpriced()">
+      <span class="filter-option-check">${shopFilterHideUnpriced ? '✓' : ''}</span>💰 Priced Items Only
+    </button>
+  </div>`;
   body.innerHTML = html;
+}
+
+function getAvailableStores() {
+  const prices = DB_CACHE.item_prices || [];
+  const stores = [...new Set(prices.map(p => p.store).filter(Boolean))];
+  return stores.sort();
 }
 
 function toggleRecipeFilterCat(key) {
@@ -2363,6 +2394,26 @@ function toggleShopFilterBought() {
 
 function toggleShopFilterInStock() {
   shopFilterInStock = !shopFilterInStock;
+  const body = document.getElementById('filterDropdownBody');
+  if (body) renderShopDropdownBody(body);
+  renderShopFilterBar();
+  renderShopList();
+}
+
+function toggleShopFilterStore(store) {
+  if (shopFilterStores.includes(store)) {
+    shopFilterStores = shopFilterStores.filter(s => s !== store);
+  } else {
+    shopFilterStores.push(store);
+  }
+  const body = document.getElementById('filterDropdownBody');
+  if (body) renderShopDropdownBody(body);
+  renderShopFilterBar();
+  renderShopList();
+}
+
+function toggleShopFilterHideUnpriced() {
+  shopFilterHideUnpriced = !shopFilterHideUnpriced;
   const body = document.getElementById('filterDropdownBody');
   if (body) renderShopDropdownBody(body);
   renderShopFilterBar();
@@ -4875,6 +4926,18 @@ function renderShopList() {
     : allItems.filter(i => shopFilterCats.includes(i.category));
   if (shopFilterBought) catFiltered = catFiltered.filter(i => i.bought);
   if (shopFilterInStock) catFiltered = catFiltered.filter(i => i.inStock);
+  if (shopFilterStores.length > 0) {
+    catFiltered = catFiltered.filter(item => {
+      const sel = getSelectedPriceEntry(item.name);
+      return sel && shopFilterStores.includes(sel.store);
+    });
+  }
+  if (shopFilterHideUnpriced) {
+    catFiltered = catFiltered.filter(item => {
+      const entries = getItemPriceEntries(item.name);
+      return entries && entries.length > 0;
+    });
+  }
   const items = shopSearchTerm
     ? catFiltered.filter(i => i.name.toLowerCase().includes(shopSearchTerm))
     : catFiltered;
