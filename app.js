@@ -3972,6 +3972,55 @@ function collapseShopEdit() {
   }
 }
 
+async function manualAutoCategorize() {
+  collapseShopEdit();
+
+  const items = getShopItems();
+  const otherItems = items.filter(i => !i.category || i.category === 'other');
+
+  if (!otherItems.length) {
+    showToast('All items already categorized ✓', { gold: true, duration: 2000 });
+    return;
+  }
+
+  showToast(`Categorizing ${otherItems.length} items...`, { duration: 3000 });
+
+  let needsGemini = [];
+  otherItems.forEach(item => {
+    const guessed = guessCategory(item.name);
+    if (guessed && guessed !== 'other') {
+      item.category = guessed;
+      recordCategoryMemory(item.name, guessed);
+    } else {
+      needsGemini.push(item.name);
+    }
+  });
+
+  if (otherItems.length > needsGemini.length) saveShopItems(items);
+
+  if (needsGemini.length > 0) {
+    const results = await geminiCategorizeItems(needsGemini);
+    let changed = false;
+    items.forEach(item => {
+      if (results[item.name] && results[item.name] !== 'other') {
+        item.category = results[item.name];
+        recordCategoryMemory(item.name, results[item.name]);
+        changed = true;
+      }
+    });
+    if (changed) saveShopItems(items);
+  }
+
+  const remaining = getShopItems().filter(i => !i.category || i.category === 'other').length;
+  renderShopList();
+  showToast(
+    remaining === 0
+      ? '✓ All items categorized'
+      : `✓ Done — ${remaining} item${remaining === 1 ? '' : 's'} still in Other`,
+    { gold: true, duration: 3000 }
+  );
+}
+
 function toggleShopSpeedDial() {
   const wrap = document.getElementById('shopFabWrap');
   if (!wrap) return;
