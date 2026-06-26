@@ -2115,6 +2115,15 @@ function switchMainTab(tab) {
   document.getElementById('shopFabWrap').classList.toggle('hidden', tab !== 'shop' || shopView !== 'full');
   document.getElementById('shopNextRunFab').classList.toggle('hidden', tab !== 'shop' || shopView !== 'next');
   if (tab !== 'shop') closeShopSpeedDial();
+  const scrollTopFab = document.getElementById('shopScrollTopFab');
+  if (scrollTopFab) {
+    if (tab === 'shop') {
+      scrollTopFab.classList.remove('hidden');
+    } else {
+      scrollTopFab.classList.add('hidden');
+      scrollTopFab.classList.remove('visible');
+    }
+  }
   document.getElementById('addNutritionFab').classList.toggle('hidden', tab !== 'nutrition');
   if (tab === 'shop') {
     const rsp = document.getElementById('recipeSearchPanel');
@@ -3917,6 +3926,23 @@ function nextRunAddItem() {
   panel.classList.remove('hidden');
   // Focus the input
   requestAnimationFrame(() => document.getElementById('shopInput')?.focus());
+}
+
+function setupShopScrollTopFab() {
+  const fab = document.getElementById('shopScrollTopFab');
+  if (!fab) return;
+  window.addEventListener('scroll', () => {
+    const scrollY = window.scrollY || document.documentElement.scrollTop;
+    if (scrollY > 300) {
+      fab.classList.add('visible');
+    } else {
+      fab.classList.remove('visible');
+    }
+  }, { passive: true });
+}
+
+function shopScrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function speedDialScan() {
@@ -8954,7 +8980,7 @@ function applyDefaultTab() {
 }
 
 Promise.all([initDB(), initPhotos()]).then(() => {
-  renderAll(); applyDefaultTab(); setupWaterReminders(); setupShopSwipeHandlers();
+  renderAll(); applyDefaultTab(); setupWaterReminders(); setupShopSwipeHandlers(); setupShopScrollTopFab();
   fkInfo('App initialized', { itemCount: getShopItems().length, recipeCount: getAllRecipes().length });
 }).catch(renderAll);
 

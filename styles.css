@@ -1992,6 +1992,39 @@ body::before {
 .shop-fab-wrap.open #shopSpeedDialScan { transition-delay: 0s; }
 .shop-fab-wrap.open #shopSpeedDialItem { transition-delay: 0.05s; }
 
+/* ── SCROLL-TO-TOP FAB ── */
+.shop-scroll-top-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #C8922A;
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  z-index: 300;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+.shop-scroll-top-fab.visible {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+.shop-scroll-top-fab.hidden {
+  display: none;
+}
+
 /* ── MODAL ── */
 .modal-overlay {
   position: fixed;
