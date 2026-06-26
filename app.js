@@ -3193,7 +3193,12 @@ function setupShopSwipeHandlers() {
       axis: null,
     };
 
-    if (e.target.closest('.shop-item-name')) {
+    if (
+      e.target.closest('.shop-item-main') &&
+      !e.target.closest('.shop-qty-btn') &&
+      !e.target.closest('.shop-qty-num') &&
+      !e.target.closest('.shop-item-price')
+    ) {
       longPressTimer = setTimeout(() => {
         longPressTimer = null;
         if (drag && drag.axis === 'x') return;
@@ -9042,7 +9047,29 @@ function applyDefaultTab() {
   switchMainTab(tab);
 }
 
+function migrateCategoryOther() {
+  const MIGRATION_KEY = 'fk_cat_migration_v2';
+  if (localStorage.getItem(MIGRATION_KEY)) return;
+
+  const items = getShopItems();
+  let changed = false;
+
+  items.forEach(item => {
+    if (item.category === 'other' || !item.category) {
+      const guessed = guessCategory(item.name);
+      if (guessed && guessed !== 'other') {
+        item.category = guessed;
+        changed = true;
+      }
+    }
+  });
+
+  if (changed) saveShopItems(items);
+  localStorage.setItem(MIGRATION_KEY, '1');
+}
+
 Promise.all([initDB(), initPhotos()]).then(() => {
+  migrateCategoryOther();
   renderAll(); applyDefaultTab(); setupWaterReminders(); setupShopSwipeHandlers(); setupShopScrollTopFab();
   fkInfo('App initialized', { itemCount: getShopItems().length, recipeCount: getAllRecipes().length });
 }).catch(renderAll);
