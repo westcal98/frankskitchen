@@ -2942,7 +2942,24 @@ function guessCategory(name) {
 function resolveCategory(name) {
   const remembered = lookupCategoryMemory(name);
   if (remembered) return remembered;
-  return guessCategory(name);
+
+  const guessed = guessCategory(name);
+  if (guessed !== 'other') return guessed;
+
+  geminiCategorizeItems([name]).then(results => {
+    if (results[name] && results[name] !== 'other') {
+      recordCategoryMemory(name, results[name]);
+      const items = getShopItems();
+      const item = items.find(i => i.name.toLowerCase() === name.toLowerCase());
+      if (item) {
+        item.category = results[name];
+        saveShopItems(items);
+        renderShopList();
+      }
+    }
+  }).catch(() => {});
+
+  return 'other';
 }
 
 function addShopItem(nameOverride) {
@@ -6942,6 +6959,63 @@ async function submitNutritionQuickLog() {
   }
 }
 
+// ─── GEMINI CATEGORY LOOKUP ─────────────────────────────
+
+async function geminiCategorizeItems(itemNames) {
+  const apiKey = DB_CACHE.preferences?.anthropicApiKey;
+  if (!apiKey || !itemNames.length) return {};
+
+  const cats = getShopCategories();
+  const categoryList = cats.map(c => c.key).join(', ');
+  const categoryRules = cats.map(c => `- ${c.key}: ${c.label}`).join('\n');
+  const validKeys = new Set(cats.map(c => c.key));
+
+  const prompt = `You are a grocery categorization assistant.
+Assign each of the following grocery items to exactly one category from this list:
+${categoryList}
+
+Category descriptions:
+${categoryRules}
+
+Use your best judgment based on the category names and labels.
+Assign the most specific and appropriate category.
+If nothing fits well, use "other".
+
+Items to categorize:
+${itemNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}
+
+Return ONLY a valid JSON object mapping each item name exactly as given to its category key.
+No explanation, no markdown, no code blocks.
+Example: {"Baby carrots": "produce", "Jaffa Cake": "snacks"}`;
+
+  try {
+    const resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      }
+    );
+    const data = await resp.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch(e) {
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (m) { try { parsed = JSON.parse(m[0]); } catch(e2) { parsed = {}; } }
+    }
+    const result = {};
+    Object.entries(parsed || {}).forEach(([name, cat]) => {
+      if (validKeys.has(cat)) result[name] = cat;
+    });
+    fkInfo('Gemini categorization complete', { count: Object.keys(result).length });
+    return result;
+  } catch(err) {
+    fkError('Gemini categorization failed', { message: err.message });
+    return {};
+  }
+}
+
 // ─── SHARED GEMINI SINGLE-ITEM LOOKUP ─────────────────────────────
 
 async function geminiNutritionLookupSingle(query) {
@@ -9047,29 +9121,52 @@ function applyDefaultTab() {
   switchMainTab(tab);
 }
 
-function migrateCategoryOther() {
-  const MIGRATION_KEY = 'fk_cat_migration_v2';
+async function migrateCategoryOther() {
+  const MIGRATION_KEY = 'fk_cat_migration_v3';
   if (localStorage.getItem(MIGRATION_KEY)) return;
 
   const items = getShopItems();
-  let changed = false;
+  const otherItems = items.filter(i => !i.category || i.category === 'other');
+  if (!otherItems.length) {
+    localStorage.setItem(MIGRATION_KEY, '1');
+    return;
+  }
 
-  items.forEach(item => {
-    if (item.category === 'other' || !item.category) {
-      const guessed = guessCategory(item.name);
-      if (guessed && guessed !== 'other') {
-        item.category = guessed;
-        changed = true;
-      }
+  let needsGemini = [];
+  otherItems.forEach(item => {
+    const guessed = guessCategory(item.name);
+    if (guessed && guessed !== 'other') {
+      item.category = guessed;
+      recordCategoryMemory(item.name, guessed);
+    } else {
+      needsGemini.push(item.name);
     }
   });
 
-  if (changed) saveShopItems(items);
+  if (otherItems.length > needsGemini.length) saveShopItems(items);
+
+  if (needsGemini.length > 0) {
+    fkInfo('Sending to Gemini for categorization', { count: needsGemini.length, items: needsGemini });
+    const results = await geminiCategorizeItems(needsGemini);
+    let changed = false;
+    items.forEach(item => {
+      if (results[item.name] && results[item.name] !== 'other') {
+        item.category = results[item.name];
+        recordCategoryMemory(item.name, results[item.name]);
+        changed = true;
+      }
+    });
+    if (changed) {
+      saveShopItems(items);
+      renderShopList();
+    }
+  }
+
   localStorage.setItem(MIGRATION_KEY, '1');
 }
 
 Promise.all([initDB(), initPhotos()]).then(() => {
-  migrateCategoryOther();
+  migrateCategoryOther().catch(e => fkError('Category migration failed', { message: e.message }));
   renderAll(); applyDefaultTab(); setupWaterReminders(); setupShopSwipeHandlers(); setupShopScrollTopFab();
   fkInfo('App initialized', { itemCount: getShopItems().length, recipeCount: getAllRecipes().length });
 }).catch(renderAll);
