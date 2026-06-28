@@ -2726,7 +2726,9 @@ function normalizeItemName(name) {
 
 function getItemPriceEntries(itemName) {
   const norm = normalizeItemName(itemName);
-  return DB_CACHE.item_prices.filter(p => p.itemName === norm);
+  return (DB_CACHE.item_prices || []).filter(p =>
+    normalizeItemName(p.itemName) === norm
+  );
 }
 
 function getSelectedPriceEntry(itemName) {
@@ -3185,7 +3187,7 @@ function toggleNextRun(id) {
 
 const SHOP_SWIPE_THRESHOLD_RATIO = 0.4;
 const SHOP_DRAG_LOCK_PX = 10;
-const SHOP_LONG_PRESS_MS = 500;
+const SHOP_LONG_PRESS_MS = 600;
 const SHOP_DOUBLE_TAP_MS = 300;
 
 function setupShopSwipeHandlers() {
@@ -3234,9 +3236,13 @@ function setupShopSwipeHandlers() {
     const dy = touch.clientY - drag.startY;
 
     if (drag.axis === null) {
+      const totalDist = Math.sqrt(dx * dx + dy * dy);
+      if (longPressTimer && totalDist > 8) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
       if (Math.abs(dx) < SHOP_DRAG_LOCK_PX && Math.abs(dy) < SHOP_DRAG_LOCK_PX) return;
       drag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-      if (drag.axis === 'x' && longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     }
     if (drag.axis !== 'x') return;
 
