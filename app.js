@@ -1368,6 +1368,14 @@ async function initDB() {
     if (!DB_CACHE.item_prices.length) {
       try { const d = JSON.parse(localStorage.getItem('fk_item_prices')); if (Array.isArray(d) && d.length) DB_CACHE.item_prices = d; } catch(e) {}
     }
+    fkInfo('item_prices loaded', {
+      count: DB_CACHE.item_prices.length,
+      sample: DB_CACHE.item_prices.slice(0, 3).map(p => ({
+        itemName: p.itemName,
+        price: p.price,
+        store: p.store
+      }))
+    });
 
     // ── Load kv entries ─────────────────────────────────────────────────────
     const custom = await _idbGet('kv', 'custom_recipes');
@@ -2725,10 +2733,12 @@ function normalizeItemName(name) {
 }
 
 function getItemPriceEntries(itemName) {
-  const norm = normalizeItemName(itemName);
-  return (DB_CACHE.item_prices || []).filter(p =>
-    normalizeItemName(p.itemName) === norm
-  );
+  if (!itemName || !DB_CACHE.item_prices) return [];
+  const norm = (itemName || '').trim().toLowerCase();
+  return DB_CACHE.item_prices.filter(p => {
+    const pNorm = (p.itemName || '').trim().toLowerCase();
+    return pNorm === norm;
+  });
 }
 
 function getSelectedPriceEntry(itemName) {
@@ -5012,10 +5022,19 @@ function renderShopList() {
     });
   }
   if (shopFilterHideUnpriced) {
+    fkInfo('Priced Only filter running', {
+      totalItems: catFiltered.length,
+      item_prices_count: (DB_CACHE.item_prices || []).length,
+      sampleCheck: catFiltered.slice(0, 3).map(item => ({
+        name: item.name,
+        entriesFound: getItemPriceEntries(item.name).length
+      }))
+    });
     catFiltered = catFiltered.filter(item => {
       const entries = getItemPriceEntries(item.name);
       return entries && entries.length > 0;
     });
+    fkInfo('Priced Only filter result', { remaining: catFiltered.length });
   }
   const items = shopSearchTerm
     ? catFiltered.filter(i => i.name.toLowerCase().includes(shopSearchTerm))
