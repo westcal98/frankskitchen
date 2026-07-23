@@ -2207,7 +2207,6 @@ function renderShopFilterBar() {
   const hasFilters = tags.length > 0;
   const isNextRun = shopView === 'next';
   const editOpen = !document.getElementById('shopEditPanel')?.classList.contains('hidden');
-  const pantryOpen = !document.getElementById('pantryScreen')?.classList.contains('hidden');
   if (isNextRun) {
     bar.innerHTML =
       `<button class="filter-by-btn shop-edit-btn${editOpen ? ' active' : ''}" id="shopEditBtn" onclick="toggleShopEdit()">Edit ▾</button>` +
@@ -2217,9 +2216,6 @@ function renderShopFilterBar() {
       `<div class="shop-toolbar-left">` +
         `<button class="filter-by-btn${hasFilters ? ' has-filters' : ''}" onclick="openFilterDropdown('shop')">Filter by ▾</button>` +
         `<div class="filter-active-tags">${renderTagsHtml(tags, 'shop')}</div>` +
-      `</div>` +
-      `<div class="shop-toolbar-center">` +
-        `<button class="filter-by-btn shop-edit-btn${pantryOpen ? ' active' : ''}" onclick="openPantryScreen()">Pantry</button>` +
       `</div>` +
       `<div class="shop-toolbar-right">` +
         `<button class="filter-by-btn shop-edit-btn${editOpen ? ' active' : ''}" id="shopEditBtn" onclick="toggleShopEdit()">Edit ▾</button>` +
@@ -3289,7 +3285,7 @@ function setupShopSwipeHandlers() {
       wrap.classList.remove('swiping-right', 'swiping-left');
     }
 
-    // Double tap (Full List only) → add to Next Run
+    // Double tap (Pantry view only) → add to Next Run
     if (axis === null && shopView === 'full'
         && !target.closest('.shop-qty-btn') && !target.closest('.shop-item-price')) {
       const now = Date.now();
@@ -3862,123 +3858,6 @@ function toggleShopEdit() {
   if (!panel) return;
   panel.classList.toggle('hidden');
   renderShopFilterBar();
-}
-
-// ─── PANTRY SCREEN ──────────────────────────────────────────────────────────
-function openPantryScreen() {
-  document.getElementById('pantryScreen').classList.remove('hidden');
-  document.body.style.overflow = 'hidden';
-  document.getElementById('pantrySearchInput').value = '';
-  renderPantryList();
-  requestAnimationFrame(() => document.getElementById('pantrySearchInput').focus());
-  renderShopFilterBar();
-}
-
-function closePantryScreen() {
-  document.getElementById('pantryScreen').classList.add('hidden');
-  document.body.style.overflow = '';
-  renderShopFilterBar();
-  renderShopList();
-}
-
-function renderPantryList() {
-  const searchTerm = document.getElementById('pantrySearchInput').value.trim().toLowerCase();
-  const allItems = getShopItems();
-  const filtered = searchTerm
-    ? allItems.filter(i => i.name.toLowerCase().includes(searchTerm))
-    : allItems;
-
-  const cats = getShopCategories();
-  const uncategorized = [];
-  const grouped = {};
-  cats.forEach(c => grouped[c.key] = []);
-
-  filtered.forEach(item => {
-    if (item.category && grouped[item.category] !== undefined) {
-      grouped[item.category].push(item);
-    } else {
-      uncategorized.push(item);
-    }
-  });
-
-  const inStockCount = allItems.filter(i => i.inStock).length;
-  document.getElementById('pantryInStockCount').textContent =
-    `${inStockCount} of ${allItems.length} in stock`;
-
-  let html = '';
-  cats.forEach(cat => {
-    const items = grouped[cat.key];
-    if (!items || items.length === 0) return;
-    html += `<div class="pantry-category-header">
-      <span>${cat.icon || ''} ${cat.label}</span>
-      <button class="pantry-cat-toggle" onclick="pantryCategoryToggle('${cat.key}')">Mark All ▾</button>
-    </div>`;
-    items.forEach(item => {
-      html += `<div class="pantry-item-row" onclick="togglePantryItem(${item.id})">
-        <span class="pantry-checkbox ${item.inStock ? 'checked' : ''}">${item.inStock ? '✓' : ''}</span>
-        <span class="pantry-item-name">${item.name}</span>
-      </div>`;
-    });
-  });
-
-  if (uncategorized.length > 0) {
-    html += `<div class="pantry-category-header">Other</div>`;
-    uncategorized.forEach(item => {
-      html += `<div class="pantry-item-row" onclick="togglePantryItem(${item.id})">
-        <span class="pantry-checkbox ${item.inStock ? 'checked' : ''}">${item.inStock ? '✓' : ''}</span>
-        <span class="pantry-item-name">${item.name}</span>
-      </div>`;
-    });
-  }
-
-  if (!html) html = '<div class="empty-state"><p>No items found</p></div>';
-  document.getElementById('pantryList').innerHTML = html;
-}
-
-function togglePantryItem(itemId) {
-  const items = getShopItems();
-  const item = items.find(i => i.id === itemId);
-  if (!item) return;
-  item.inStock = !item.inStock;
-  saveShopItems(items);
-  renderPantryList();
-}
-
-function pantryMarkAllInStock() {
-  const searchTerm = document.getElementById('pantrySearchInput').value.trim().toLowerCase();
-  const items = getShopItems();
-  items.forEach(i => {
-    if (!searchTerm || i.name.toLowerCase().includes(searchTerm)) {
-      i.inStock = true;
-    }
-  });
-  saveShopItems(items);
-  renderPantryList();
-}
-
-function pantryMarkAllOutOfStock() {
-  const searchTerm = document.getElementById('pantrySearchInput').value.trim().toLowerCase();
-  const items = getShopItems();
-  items.forEach(i => {
-    if (!searchTerm || i.name.toLowerCase().includes(searchTerm)) {
-      i.inStock = false;
-    }
-  });
-  saveShopItems(items);
-  renderPantryList();
-}
-
-function pantryCategoryToggle(catKey) {
-  const items = getShopItems();
-  const catItems = items.filter(i => i.category === catKey);
-  const allIn = catItems.every(i => i.inStock);
-  catItems.forEach(i => i.inStock = !allIn);
-  catItems.forEach(updated => {
-    const idx = items.findIndex(i => i.id === updated.id);
-    if (idx >= 0) items[idx] = updated;
-  });
-  saveShopItems(items);
-  renderPantryList();
 }
 
 function collapseShopEdit() {
@@ -5080,7 +4959,7 @@ function renderShopList() {
     if (flagged.length === 0) {
       container.innerHTML = estimatorHtml + (shopSearchTerm
         ? `<div class="shop-nextrun-empty"><div class="shop-nextrun-empty-icon">🔍</div><p>No Next Run items match "${shopSearchTerm}".</p></div>`
-        : `<div class="shop-nextrun-empty"><div class="shop-nextrun-empty-icon">🛒</div><p>No items flagged for next run.<br>Long-press an item in <strong>Full List</strong> and tap "Add to Next Run".</p></div>`);
+        : `<div class="shop-nextrun-empty"><div class="shop-nextrun-empty-icon">🛒</div><p>No items flagged for next run.<br>Long-press an item in <strong>Pantry</strong> and tap "Add to Next Run".</p></div>`);
       return;
     }
     flagged.sort((a, b) => (a.bought ? 1 : 0) - (b.bought ? 1 : 0));
