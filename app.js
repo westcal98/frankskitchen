@@ -1639,7 +1639,7 @@ function matchesFilter(recipe) {
 
 function canMakeRecipe(recipe) {
   const shopItems = getShopItems();
-  const inStockItems = shopItems.filter(i => i.inStock === true);
+  const inStockItems = shopItems.filter(i => i.stock === 'in');
 
   if (!recipe.ingredients || recipe.ingredients.length === 0) return {
     canMake: false, matched: 0, total: 0
@@ -2983,7 +2983,7 @@ function addShopItem(nameOverride) {
       existing.nextRun = true;
       existing.bought = false;
     } else {
-      items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, isNew: true, addedAt: Date.now(), inStock: false });
+      items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, isNew: true, addedAt: Date.now(), stock: 'out' });
       saveToMemory(name);
     }
     saveShopItems(items);
@@ -3006,7 +3006,7 @@ function addShopItem(nameOverride) {
     updateShopStats();
     return;
   }
-  items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), isNew: true, addedAt: Date.now(), inStock: false });
+  items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), isNew: true, addedAt: Date.now(), stock: 'out' });
   saveShopItems(items);
   saveToMemory(name);
   input.value = '';
@@ -3268,9 +3268,11 @@ function setupShopSwipeHandlers() {
     row.style.transition = `transform 0.2s ease-out`;
 
     if (dx > threshold) {
+      if (navigator.vibrate) navigator.vibrate(15);
       row.style.transform = `translateX(${row.offsetWidth}px)`;
       setTimeout(() => toggleBought(id), 150);
     } else if (dx < -threshold) {
+      if (navigator.vibrate) navigator.vibrate(15);
       row.style.transform = `translateX(-${row.offsetWidth}px)`;
       if (shopView === 'next') {
         setTimeout(() => toggleNextRun(id), 150);
@@ -3333,7 +3335,7 @@ function toggleIngredientNextRun(recipeId, index) {
       existing.nextRun = true;
       existing.bought = false;
     } else {
-      items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: Date.now(), inStock: false });
+      items.push({ id: Date.now(), name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: Date.now(), stock: 'out' });
       saveToMemory(name);
     }
     saveShopItems(items);
@@ -3373,7 +3375,7 @@ function toggleIngredientNextRun(recipeId, index) {
     singleParts.forEach((name, i) => {
       const ex = items.find(item => item.name.toLowerCase() === name.toLowerCase());
       if (ex) { ex.nextRun = true; ex.bought = false; }
-      else { items.push({ id: now + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: now, inStock: false }); saveToMemory(name); }
+      else { items.push({ id: now + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: now, stock: 'out' }); saveToMemory(name); }
     });
     saveShopItems(items);
     renderAll();
@@ -3382,7 +3384,7 @@ function toggleIngredientNextRun(recipeId, index) {
     const name = alts[0];
     const ex = items.find(item => item.name.toLowerCase() === name.toLowerCase());
     if (ex) { ex.nextRun = true; ex.bought = false; }
-    else { items.push({ id: Date.now() + 200 + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: Date.now(), inStock: false }); saveToMemory(name); }
+    else { items.push({ id: Date.now() + 200 + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: Date.now(), stock: 'out' }); saveToMemory(name); }
   });
   if (choiceParts.slice(1).length > 0) { saveShopItems(items); renderAll(); }
 
@@ -3581,7 +3583,7 @@ function _bulkAddToNextRun(names, itemsRef) {
   names.forEach((name, i) => {
     const ex = items.find(item => item.name.toLowerCase() === name.toLowerCase());
     if (ex) { ex.nextRun = true; ex.bought = false; }
-    else { items.push({ id: now + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: now, inStock: false }); saveToMemory(name); }
+    else { items.push({ id: now + i, name, qty: 1, bought: false, category: resolveCategory(name), nextRun: true, addedAt: now, stock: 'out' }); saveToMemory(name); }
   });
   saveShopItems(items);
   const msg = names.length === 1
@@ -3643,7 +3645,7 @@ function showIngredientPicker(alternatives) {
         ex.nextRun = true;
         ex.bought = false;
       } else {
-        items.push({ id: now + i, name: cleanName, qty: 1, bought: false, category: resolveCategory(cleanName), nextRun: true, addedAt: now, inStock: false });
+        items.push({ id: now + i, name: cleanName, qty: 1, bought: false, category: resolveCategory(cleanName), nextRun: true, addedAt: now, stock: 'out' });
         saveToMemory(cleanName);
       }
     });
@@ -4680,7 +4682,7 @@ function saveReceiptReview() {
       const items = getShopItems();
       let item = items.find(i => i.name.toLowerCase() === row.match.name.toLowerCase());
       if (!item) {
-        item = { id: Date.now() + Math.floor(Math.random() * 1000), name: row.match.name, qty: 1, bought: false, category: resolveCategory(row.match.name), isNew: true, addedAt: Date.now(), inStock: false };
+        item = { id: Date.now() + Math.floor(Math.random() * 1000), name: row.match.name, qty: 1, bought: false, category: resolveCategory(row.match.name), isNew: true, addedAt: Date.now(), stock: 'out' };
         items.push(item);
         saveShopItems(items);
         saveToMemory(row.match.name);
@@ -4696,7 +4698,7 @@ function saveReceiptReview() {
     const items = getShopItems();
     matchedNames.forEach(name => {
       const item = items.find(i => i.name.toLowerCase() === name.toLowerCase());
-      if (item) item.inStock = true;
+      if (item) item.stock = 'in';
     });
     saveShopItems(items);
   }
@@ -4748,13 +4750,13 @@ function toggleCatPicker(id) {
   if (isHidden) picker.classList.remove('hidden');
 }
 
-function toggleInStock(id) {
+function setItemStock(id, status) {
   const items = getShopItems();
   const item = items.find(i => i.id === id);
-  if (item) {
-    item.inStock = !item.inStock;
-    saveShopItems(items);
-  }
+  if (!item) return;
+  item.stock = status;
+  saveShopItems(items);
+  if (navigator.vibrate) navigator.vibrate(10);
   renderShopList();
 }
 
@@ -4893,7 +4895,7 @@ function renderShopList() {
     ? allItems
     : allItems.filter(i => shopFilterCats.includes(i.category));
   if (shopFilterBought) catFiltered = catFiltered.filter(i => i.bought);
-  if (shopFilterInStock) catFiltered = catFiltered.filter(i => i.inStock);
+  if (shopFilterInStock) catFiltered = catFiltered.filter(i => i.stock === 'in');
   if (shopFilterStores.length > 0) {
     catFiltered = catFiltered.filter(item => {
       const sel = getSelectedPriceEntry(item.name);
@@ -4926,23 +4928,30 @@ function renderShopList() {
   const catPickerHtml = (item) =>
     `<div class="shop-cat-picker hidden" id="catpicker-${item.id}">
       <button class="cat-pick-btn${item.nextRun ? ' active' : ''}" onclick="toggleNextRun(${item.id})">${item.nextRun ? '🛒 In Next Run' : '🛒 Add to Next Run'}</button>
-      <button class="cat-pick-btn" onclick="toggleInStock(${item.id})">${item.inStock ? '✗ Mark Out of Stock' : '✓ Mark In Stock'}</button>
       ${cats.map(cat => `<button class="cat-pick-btn${item.category === cat.key ? ' active' : ''}" onclick="changeItemCategory(${item.id},'${cat.key}')">${cat.label}</button>`).join('')}
       <button class="cat-pick-btn" onclick="openRenameItem(${item.id})">✏️ Rename</button>
+      <div class="cat-pick-stock-row">
+        <button class="cat-pick-stock-btn${item.stock === 'in' ? ' active' : ''}" onclick="setItemStock(${item.id},'in')">🟢 In Stock</button>
+        <button class="cat-pick-stock-btn${item.stock === 'low' ? ' active' : ''}" onclick="setItemStock(${item.id},'low')">🟡 Low</button>
+        <button class="cat-pick-stock-btn${item.stock === 'out' ? ' active' : ''}" onclick="setItemStock(${item.id},'out')">🔴 Out</button>
+      </div>
     </div>`;
 
   const renderItemRow = (item) => {
     const leftSwipeLabel = shopView === 'next' ? '✗ Remove' : '✗ Delete';
-    const inStockDot = (shopView === 'full' && item.inStock) ? `<span class="shop-instock-dot"></span>` : '';
+    const stockBadge = (shopView === 'full' && (item.stock === 'in' || item.stock === 'low'))
+      ? `<span class="shop-stock-badge ${item.stock}">${item.stock === 'in' ? 'In Stock' : 'Low'}</span>`
+      : '';
     return `
     <div class="shop-item-wrap" id="shopwrap-${item.id}">
       <div class="shop-swipe-bg shop-swipe-bg-right"><span>${item.bought ? '✓ Undo' : '✓ Bought'}</span></div>
       <div class="shop-swipe-bg shop-swipe-bg-left"><span>${leftSwipeLabel}</span></div>
       <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}" data-id="${item.id}" style="border-left-color:${getStoreColor(item)}">
         <div class="shop-item-main">
-          <div class="shop-item-name">${inStockDot}${item.name}</div>
+          <div class="shop-item-name">${item.name}</div>
           ${renderPriceInfo(item)}
         </div>
+        ${stockBadge}
         <div class="shop-qty">
           <button class="shop-qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
           <span class="shop-qty-num">${item.qty || 1}</span>
@@ -9082,6 +9091,21 @@ function applyDefaultTab() {
   switchMainTab(tab);
 }
 
+function migrateStockField() {
+  const MIGRATION_KEY = 'fk_stock_migration_v1';
+  if (localStorage.getItem(MIGRATION_KEY)) return;
+  const items = getShopItems();
+  let changed = false;
+  items.forEach(item => {
+    if (item.stock === undefined) {
+      item.stock = item.inStock ? 'in' : 'out';
+      changed = true;
+    }
+  });
+  if (changed) saveShopItems(items);
+  localStorage.setItem(MIGRATION_KEY, '1');
+}
+
 async function migrateCategoryOther() {
   const MIGRATION_KEY = 'fk_cat_migration_v3';
 
@@ -9162,6 +9186,7 @@ async function migrateCategoryOther() {
 }
 
 Promise.all([initDB(), initPhotos()]).then(() => {
+  migrateStockField();
   renderAll();
   applyDefaultTab();
   setupWaterReminders();
