@@ -978,6 +978,65 @@
   </div>
 </div>
 
+<div id="itemActionSheet" class="item-action-overlay hidden"
+  onclick="if(event.target===this)closeItemActionSheet()">
+  <div class="item-action-sheet">
+    <div class="item-action-header">
+      <div class="item-action-title" id="itemActionTitle"></div>
+      <button class="item-action-close" onclick="closeItemActionSheet()">✕</button>
+    </div>
+
+    <!-- Stock Status Section -->
+    <div class="item-action-section-label">Stock Status</div>
+    <div class="item-action-stock-row">
+      <button class="item-action-stock-btn" id="stockBtnIn"
+        onclick="setItemStockSheet('in')">
+        <span class="item-action-stock-dot" style="background:#52a064"></span>
+        In Stock
+      </button>
+      <button class="item-action-stock-btn" id="stockBtnLow"
+        onclick="setItemStockSheet('low')">
+        <span class="item-action-stock-dot" style="background:#e8b84b"></span>
+        Low
+      </button>
+      <button class="item-action-stock-btn" id="stockBtnOut"
+        onclick="setItemStockSheet('out')">
+        <span class="item-action-stock-dot" style="background:#b83232"></span>
+        Out
+      </button>
+    </div>
+
+    <!-- Actions Section -->
+    <div class="item-action-section-label">Actions</div>
+    <button class="item-action-row" id="itemActionNextRun"
+      onclick="itemActionToggleNextRun()">
+      <span class="item-action-row-icon">🛒</span>
+      <span class="item-action-row-label" id="itemActionNextRunLabel"></span>
+    </button>
+    <button class="item-action-row" onclick="itemActionRename()">
+      <span class="item-action-row-icon">✏️</span>
+      <span class="item-action-row-label">Rename Item</span>
+    </button>
+    <button class="item-action-row" onclick="itemActionCategory()">
+      <span class="item-action-row-icon">🏷</span>
+      <span class="item-action-row-label">Change Category</span>
+      <span class="item-action-row-value" id="itemActionCatLabel"></span>
+    </button>
+  </div>
+</div>
+
+<!-- Category picker sub-sheet -->
+<div id="itemCatSheet" class="item-action-overlay hidden"
+  onclick="if(event.target===this)closeItemCatSheet()">
+  <div class="item-action-sheet">
+    <div class="item-action-header">
+      <div class="item-action-title">Change Category</div>
+      <button class="item-action-close" onclick="closeItemCatSheet()">✕</button>
+    </div>
+    <div id="itemCatSheetList"></div>
+  </div>
+</div>
+
 <script src="app.js"></script>
 </body>
 </html>

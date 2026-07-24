@@ -1074,6 +1074,7 @@ let shopFilterInStock = false; // in stock special filter
 let shopFilterStores = [];    // [] = show all stores
 let shopFilterHideUnpriced = false;
 let _filterDropdownTab = null; // 'recipe' | 'shop' — which tab opened the dropdown
+let _actionSheetItemId = null;
 let expandedCard = null;
 let activeTab = {};
 
@@ -4743,11 +4744,105 @@ function collapseShopAdd() {
 }
 
 function toggleCatPicker(id) {
-  const picker = document.getElementById('catpicker-' + id);
-  if (!picker) return;
-  const isHidden = picker.classList.contains('hidden');
-  document.querySelectorAll('.shop-cat-picker').forEach(el => el.classList.add('hidden'));
-  if (isHidden) picker.classList.remove('hidden');
+  openItemActionSheet(id);
+}
+
+function openItemActionSheet(id) {
+  _actionSheetItemId = id;
+  const item = getShopItems().find(i => i.id === id);
+  if (!item) return;
+
+  document.getElementById('itemActionTitle').textContent = item.name;
+
+  // Stock buttons — highlight active
+  ['in','low','out'].forEach(s => {
+    const btn = document.getElementById('stockBtn' + s.charAt(0).toUpperCase() + s.slice(1));
+    if (btn) btn.classList.toggle('active', item.stock === s);
+  });
+
+  // Next Run label
+  document.getElementById('itemActionNextRunLabel').textContent =
+    item.nextRun ? 'Remove from Next Run' : 'Add to Next Run';
+
+  // Category label
+  const cats = getShopCategories();
+  const cat = cats.find(c => c.key === item.category);
+  document.getElementById('itemActionCatLabel').textContent = cat ? cat.label : '';
+
+  const sheet = document.getElementById('itemActionSheet');
+  sheet.classList.remove('hidden');
+  requestAnimationFrame(() => sheet.classList.add('open'));
+  document.body.style.overflow = 'hidden';
+  if (navigator.vibrate) navigator.vibrate(8);
+}
+
+function closeItemActionSheet() {
+  const sheet = document.getElementById('itemActionSheet');
+  sheet.classList.remove('open');
+  setTimeout(() => sheet.classList.add('hidden'), 250);
+  document.body.style.overflow = '';
+  _actionSheetItemId = null;
+}
+
+function closeItemCatSheet() {
+  const sheet = document.getElementById('itemCatSheet');
+  sheet.classList.remove('open');
+  setTimeout(() => sheet.classList.add('hidden'), 250);
+}
+
+function setItemStockSheet(status) {
+  if (!_actionSheetItemId) return;
+  setItemStock(_actionSheetItemId, status);
+  // Update button active states without closing sheet
+  ['in','low','out'].forEach(s => {
+    const btn = document.getElementById('stockBtn' + s.charAt(0).toUpperCase() + s.slice(1));
+    if (btn) btn.classList.toggle('active', s === status);
+  });
+}
+
+function itemActionToggleNextRun() {
+  if (!_actionSheetItemId) return;
+  toggleNextRun(_actionSheetItemId);
+  const item = getShopItems().find(i => i.id === _actionSheetItemId);
+  if (item) {
+    document.getElementById('itemActionNextRunLabel').textContent =
+      item.nextRun ? 'Remove from Next Run' : 'Add to Next Run';
+  }
+}
+
+function itemActionRename() {
+  if (!_actionSheetItemId) return;
+  closeItemActionSheet();
+  setTimeout(() => openRenameItem(_actionSheetItemId), 260);
+}
+
+function itemActionCategory() {
+  if (!_actionSheetItemId) return;
+  const cats = getShopCategories();
+  const item = getShopItems().find(i => i.id === _actionSheetItemId);
+  const list = document.getElementById('itemCatSheetList');
+  list.innerHTML = cats.map(cat => `
+    <button class="item-action-row${item && item.category === cat.key ? ' active' : ''}"
+      onclick="itemActionSetCategory('${cat.key}')">
+      <span class="item-action-row-icon">${cat.label.split(' ')[0]}</span>
+      <span class="item-action-row-label">${cat.label}</span>
+      ${item && item.category === cat.key ? '<span class="item-action-row-check">✓</span>' : ''}
+    </button>
+  `).join('');
+  const sheet = document.getElementById('itemCatSheet');
+  sheet.classList.remove('hidden');
+  requestAnimationFrame(() => sheet.classList.add('open'));
+}
+
+function itemActionSetCategory(catKey) {
+  if (!_actionSheetItemId) return;
+  changeItemCategory(_actionSheetItemId, catKey);
+  closeItemCatSheet();
+  // Update cat label in main sheet
+  const cats = getShopCategories();
+  const cat = cats.find(c => c.key === catKey);
+  const el = document.getElementById('itemActionCatLabel');
+  if (el && cat) el.textContent = cat.label;
 }
 
 function setItemStock(id, status) {
@@ -4925,17 +5020,6 @@ function renderShopList() {
   updateShopStats();
 
   const cats = getShopCategories();
-  const catPickerHtml = (item) =>
-    `<div class="shop-cat-picker hidden" id="catpicker-${item.id}">
-      <button class="cat-pick-btn${item.nextRun ? ' active' : ''}" onclick="toggleNextRun(${item.id})">${item.nextRun ? '🛒 In Next Run' : '🛒 Add to Next Run'}</button>
-      ${cats.map(cat => `<button class="cat-pick-btn${item.category === cat.key ? ' active' : ''}" onclick="changeItemCategory(${item.id},'${cat.key}')">${cat.label}</button>`).join('')}
-      <button class="cat-pick-btn" onclick="openRenameItem(${item.id})">✏️ Rename</button>
-      <div class="cat-pick-stock-row">
-        <button class="cat-pick-stock-btn${item.stock === 'in' ? ' active' : ''}" onclick="setItemStock(${item.id},'in')">🟢 In Stock</button>
-        <button class="cat-pick-stock-btn${item.stock === 'low' ? ' active' : ''}" onclick="setItemStock(${item.id},'low')">🟡 Low</button>
-        <button class="cat-pick-stock-btn${item.stock === 'out' ? ' active' : ''}" onclick="setItemStock(${item.id},'out')">🔴 Out</button>
-      </div>
-    </div>`;
 
   const renderItemRow = (item) => {
     const leftSwipeLabel = shopView === 'next' ? '✗ Remove' : '✗ Delete';
@@ -4958,8 +5042,7 @@ function renderShopList() {
           <button class="shop-qty-btn" onclick="changeQty(${item.id}, 1)">+</button>
         </div>
       </div>
-    </div>
-    ${catPickerHtml(item)}`;
+    </div>`;
   };
 
   if (shopView === 'next') {
