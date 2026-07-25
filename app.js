@@ -1392,6 +1392,25 @@ function cleanPriceSizeFields() {
   localStorage.setItem(CLEAN_KEY, '1');
 }
 
+function cleanPriceBrandFields() {
+  const CLEAN_KEY = 'fk_price_brand_clean_v1';
+  if (localStorage.getItem(CLEAN_KEY)) return;
+  const prices = DB_CACHE.item_prices || [];
+  let changed = false;
+  prices.forEach(p => {
+    if (p.brand || p.detail || p.size) {
+      p.brand = '';
+      p.detail = '';
+      p.size = '';
+      _idbPutItemPrice(p);
+      changed = true;
+    }
+  });
+  if (changed) _persistItemPricesLS();
+  localStorage.setItem(CLEAN_KEY, '1');
+  fkInfo('Price brand/detail/size fields cleaned', { count: prices.length });
+}
+
 async function initDB() {
   let _seedComplete = false;
   let _seededRecs = null;
@@ -1434,6 +1453,7 @@ async function initDB() {
     });
 
     cleanPriceSizeFields();
+    cleanPriceBrandFields();
 
     // ── Load kv entries ─────────────────────────────────────────────────────
     const custom = await _idbGet('kv', 'custom_recipes');
