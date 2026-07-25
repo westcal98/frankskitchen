@@ -4572,6 +4572,22 @@ function parseReceiptNameParts(name, size) {
   return { brand: words[0] || '', detail: words.slice(1).join(' ') };
 }
 
+function parseReceiptPrice(price, size) {
+  // Detect "N x P" or "Nx P" patterns in size field
+  // e.g. "2 x 3.49", "3x 1.99", "2X3.49"
+  if (size) {
+    const m = size.match(/^(\d+)\s*[xX]\s*([\d.]+)$/);
+    if (m) {
+      const qty = parseInt(m[1], 10);
+      const unitPrice = parseFloat(m[2]);
+      if (qty > 1 && unitPrice > 0) {
+        return { price: unitPrice, size: `${qty}ct`, isMultipack: true };
+      }
+    }
+  }
+  return { price: +price || 0, size: size || '', isMultipack: false };
+}
+
 let _receiptReviewRows = [];
 let _receiptPickerRowIdx = null;
 let _receiptPickerSearch = '';
@@ -4583,12 +4599,17 @@ function openReceiptReviewScreen() {
   const shopItems = getShopItems();
   _receiptReviewRows = scan.items.map(it => {
     const matched = findReceiptItemMatch(it.name, shopItems);
+    const cleanedName = cleanReceiptName(it.name, it.size);
+    const parsedPrice = parseReceiptPrice(+it.price || 0, it.size || '');
     return {
       name: it.name,
-      size: it.size || '',
-      price: +it.price || 0,
-      match: matched ? { type: 'existing', name: matched.name } : null,
+      size: parsedPrice.size,
+      price: parsedPrice.price,
+      match: matched
+        ? { type: 'existing', name: matched.name }
+        : { type: 'new', name: cleanedName },
       skipped: false,
+      isMultipack: parsedPrice.isMultipack,
     };
   });
   _receiptPickerRowIdx = null;
