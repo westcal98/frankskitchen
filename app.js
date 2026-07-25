@@ -3221,10 +3221,12 @@ function setupShopSwipeHandlers() {
     };
 
     if (
-      e.target.closest('.shop-item-main') &&
+      e.target.closest('.shop-item-wrap') &&
       !e.target.closest('.shop-qty-btn') &&
       !e.target.closest('.shop-qty-num') &&
-      !e.target.closest('.shop-item-price')
+      !e.target.closest('.shop-item-price') &&
+      !e.target.closest('.shop-price-add') &&
+      !e.target.closest('.shop-price-info')
     ) {
       longPressTimer = setTimeout(() => {
         longPressTimer = null;
@@ -4812,8 +4814,9 @@ function itemActionToggleNextRun() {
 
 function itemActionRename() {
   if (!_actionSheetItemId) return;
+  const id = _actionSheetItemId; // capture before close nulls it
   closeItemActionSheet();
-  setTimeout(() => openRenameItem(_actionSheetItemId), 260);
+  setTimeout(() => openRenameItem(id), 260);
 }
 
 function itemActionCategory() {
@@ -4824,7 +4827,6 @@ function itemActionCategory() {
   list.innerHTML = cats.map(cat => `
     <button class="item-action-row${item && item.category === cat.key ? ' active' : ''}"
       onclick="itemActionSetCategory('${cat.key}')">
-      <span class="item-action-row-icon">${cat.label.split(' ')[0]}</span>
       <span class="item-action-row-label">${cat.label}</span>
       ${item && item.category === cat.key ? '<span class="item-action-row-check">✓</span>' : ''}
     </button>
@@ -5031,6 +5033,7 @@ function renderShopList() {
       <div class="shop-swipe-bg shop-swipe-bg-right"><span>${item.bought ? '✓ Undo' : '✓ Bought'}</span></div>
       <div class="shop-swipe-bg shop-swipe-bg-left"><span>${leftSwipeLabel}</span></div>
       <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}" data-id="${item.id}" style="border-left-color:${getStoreColor(item)}">
+        <div class="shop-long-press-zone"></div>
         <div class="shop-item-main">
           <div class="shop-item-name">${item.name}</div>
           ${renderPriceInfo(item)}

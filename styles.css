@@ -1322,6 +1322,17 @@ body::before {
   animation: shopLongPressPulse 0.3s ease-out;
 }
 
+.shop-long-press-zone {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 55%;
+  height: 100%;
+  z-index: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .shop-item-main {
   flex: 1;
   display: flex;
