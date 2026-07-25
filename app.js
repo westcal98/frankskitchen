@@ -1075,6 +1075,34 @@ let shopFilterStores = [];    // [] = show all stores
 let shopFilterHideUnpriced = false;
 let _filterDropdownTab = null; // 'recipe' | 'shop' — which tab opened the dropdown
 let _actionSheetItemId = null;
+
+const SHOP_FILTER_STATE_KEY = 'fk_shop_filters_v1';
+
+function saveShopFilterState() {
+  const state = {
+    shopFilterCats,
+    shopFilterBought,
+    shopFilterInStock,
+    shopFilterStores,
+    shopFilterHideUnpriced,
+  };
+  localStorage.setItem(SHOP_FILTER_STATE_KEY, JSON.stringify(state));
+}
+
+function restoreShopFilterState() {
+  try {
+    const raw = localStorage.getItem(SHOP_FILTER_STATE_KEY);
+    if (!raw) return;
+    const state = JSON.parse(raw);
+    if (Array.isArray(state.shopFilterCats)) shopFilterCats = state.shopFilterCats;
+    if (typeof state.shopFilterBought === 'boolean') shopFilterBought = state.shopFilterBought;
+    if (typeof state.shopFilterInStock === 'boolean') shopFilterInStock = state.shopFilterInStock;
+    if (Array.isArray(state.shopFilterStores)) shopFilterStores = state.shopFilterStores;
+    if (typeof state.shopFilterHideUnpriced === 'boolean') shopFilterHideUnpriced = state.shopFilterHideUnpriced;
+  } catch(e) {
+    fkWarn('Failed to restore shop filter state', { message: e.message });
+  }
+}
 let expandedCard = null;
 let activeTab = {};
 
@@ -2223,6 +2251,7 @@ function renderShopFilterBar() {
         `<button class="shop-tb-search${shopSearchTerm ? ' active' : ''}" id="shopSearchBtn" onclick="toggleShopSearch()" title="Search">🔍</button>` +
       `</div>`;
   }
+  saveShopFilterState();
 }
 
 function renderTagsHtml(tags, tab) {
@@ -9278,6 +9307,7 @@ async function migrateCategoryOther() {
 
 Promise.all([initDB(), initPhotos()]).then(() => {
   migrateStockField();
+  restoreShopFilterState();
   renderAll();
   applyDefaultTab();
   setupWaterReminders();
