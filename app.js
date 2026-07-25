@@ -4303,6 +4303,86 @@ function handleReceiptImageSelected(event) {
   scanReceiptImage(file);
 }
 
+async function cleanReceiptItemNames(items) {
+  const apiKey = DB_CACHE.preferences?.anthropicApiKey;
+  if (!apiKey || !items.length) return items;
+
+  const names = items.map(i => i.name);
+
+  const prompt = `You are a grocery receipt decoder.
+Convert these abbreviated receipt item names into clear, plain English
+grocery item names that a shopper would recognize.
+
+Rules:
+- Expand abbreviations (NF = Nonfat, GRK = Greek, YOG = Yogurt,
+  VAN = Vanilla, CHKN = Chicken, CHZ = Cheese, TORT = Tortellini,
+  WHL = Whole, ORG = Organic, LG = Large, SM = Small, PKG = Package,
+  BTL = Bottle, CT = Count, OZ = Ounce, LB = Pound, GAL = Gallon,
+  QT = Quart, PT = Pint, BX = Box, BG = Bag, PK = Pack, DZ = Dozen,
+  SHRD = Shredded, SLC = Sliced, BNLS = Boneless, SKNLS = Skinless,
+  SMKD = Smoked, ITL = Italian, MDM = Medium, XLG = Extra Large)
+- Remove store brand prefixes (GV, GVL, SE, ALDI, AH, WM)
+- Remove size/count suffixes (they are captured separately)
+- Use title case
+- Keep the name concise but recognizable
+- If already clear, keep as-is
+
+Input names (one per line, numbered):
+${names.map((n, i) => `${i + 1}. ${n}`).join('\n')}
+
+Return ONLY a JSON array of cleaned names in the same order, same count.
+Example: ["Nonfat Greek Yogurt Vanilla", "Chicken or Cheese Tortellini"]
+No explanation, no markdown.`;
+
+  try {
+    showToast('Cleaning item names...', { duration: 2000 });
+    fkInfo('Gemini name cleaning started', { count: names.length });
+
+    const resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      }
+    );
+    const data = await resp.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    fkInfo('Gemini name cleaning response', { raw: raw?.slice(0, 300) });
+
+    let cleaned;
+    try { cleaned = JSON.parse(raw); } catch(e) {
+      const m = raw.match(/\[[\s\S]*\]/);
+      if (m) { try { cleaned = JSON.parse(m[0]); } catch(e2) { cleaned = null; } }
+    }
+
+    if (!Array.isArray(cleaned) || cleaned.length !== items.length) {
+      fkWarn('Name cleaning returned unexpected result, using originals');
+      return items;
+    }
+
+    // Return items with cleaned names, preserving size and price
+    const result = items.map((item, i) => ({
+      ...item,
+      name: cleaned[i] || item.name,
+      originalName: item.name // preserve original for reference
+    }));
+
+    fkInfo('Name cleaning complete', {
+      sample: result.slice(0, 3).map(i => ({
+        original: i.originalName,
+        cleaned: i.name
+      }))
+    });
+
+    return result;
+
+  } catch(err) {
+    fkWarn('Name cleaning failed, using originals', { message: err.message });
+    return items; // fall back to original names silently
+  }
+}
+
 async function scanReceiptImage(file) {
   const apiKey = DB_CACHE.preferences?.anthropicApiKey;
   if (!apiKey) {
@@ -4365,6 +4445,9 @@ If you cannot read the receipt clearly, return an empty array [].`;
     }
 
     fkInfo('Receipt items parsed', { count: items.length, items: items.slice(0, 3) });
+
+    // Clean abbreviated receipt names before matching
+    items = await cleanReceiptItemNames(items);
 
     window._lastReceiptScan = {
       store: _receiptSelectedStore,
