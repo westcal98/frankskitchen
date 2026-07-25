@@ -1376,6 +1376,22 @@ function _idbClearStore(store) {
   try { _db.transaction(store, 'readwrite').objectStore(store).clear(); } catch(e) {}
 }
 
+function cleanPriceSizeFields() {
+  const CLEAN_KEY = 'fk_price_size_clean_v1';
+  if (localStorage.getItem(CLEAN_KEY)) return;
+  const prices = DB_CACHE.item_prices || [];
+  let changed = false;
+  prices.forEach(p => {
+    if (p.size && /^\d+ct$/i.test(p.size.trim())) {
+      p.size = '';
+      _idbPutItemPrice(p);
+      changed = true;
+    }
+  });
+  if (changed) _persistItemPricesLS();
+  localStorage.setItem(CLEAN_KEY, '1');
+}
+
 async function initDB() {
   let _seedComplete = false;
   let _seededRecs = null;
@@ -1416,6 +1432,8 @@ async function initDB() {
         store: p.store
       }))
     });
+
+    cleanPriceSizeFields();
 
     // ── Load kv entries ─────────────────────────────────────────────────────
     const custom = await _idbGet('kv', 'custom_recipes');
@@ -5094,10 +5112,13 @@ function saveReceiptReview() {
       fkWarn('Receipt row skipped', { name: row.name });
       return;
     }
-    const { brand, detail } = parseReceiptNameParts(row.name, row.size);
     const priceData = {
-      brand, detail, size: row.size, price: row.price,
-      store: scan.store, dateLogged: scan.date,
+      brand: '',
+      detail: '',
+      size: '',
+      price: row.price,
+      store: scan.store,
+      dateLogged: scan.date,
     };
 
     if (row.match.type === 'existing') {
@@ -5499,7 +5520,7 @@ function setShopFilter(key) {  // legacy alias
 function renderPriceInfo(item) {
   const sel = getSelectedPriceEntry(item.name);
   if (sel) {
-    const detail = [sel.brand, sel.size].filter(Boolean).join(' ');
+    const detail = sel.brand || '';
     const amount = '$' + sel.price.toFixed(2) + (sel.store ? ' · ' + sel.store : '');
     return `<div class="shop-item-price" onclick="event.stopPropagation();openPriceSheet(${item.id})">
       ${detail ? `<span class="shop-item-price-detail">${detail}</span>` : ''}
