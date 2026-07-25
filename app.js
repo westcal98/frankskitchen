@@ -4821,19 +4821,21 @@ function updateReceiptRowPrice(idx, value) {
 // Adds a price entry without disturbing the existing selectedForTrip pick
 // when the item already has price history (only brand-new items auto-select).
 function _addReceiptPriceEntry(itemName, data) {
+  // Deselect all existing entries for this item
   const existingEntries = getItemPriceEntries(itemName);
-  const hadEntries = existingEntries.length > 0;
-  const entry = addItemPriceEntry(itemName, data);
-  if (hadEntries) {
-    entry.selectedForTrip = false;
-    _idbPutItemPrice(entry);
-    const prevSelected = existingEntries.find(p => p.selectedForTrip);
-    if (prevSelected) {
-      prevSelected.selectedForTrip = true;
-      _idbPutItemPrice(prevSelected);
+  existingEntries.forEach(p => {
+    if (p.selectedForTrip) {
+      p.selectedForTrip = false;
+      _idbPutItemPrice(p);
     }
-    _persistItemPricesLS();
-  }
+  });
+
+  // Add new entry as selected
+  const entry = addItemPriceEntry(itemName, data);
+  // addItemPriceEntry already sets selectedForTrip: true
+  // so no further action needed
+
+  _persistItemPricesLS();
   return entry;
 }
 
