@@ -2238,6 +2238,7 @@ function renderShopFilterBar() {
   const editOpen = !document.getElementById('shopEditPanel')?.classList.contains('hidden');
   if (isNextRun) {
     bar.innerHTML =
+      `<button class="filter-by-btn shop-edit-btn" id="shopFavBtn" onclick="openShopFavoritesSheet()">⭐ Favorites</button>` +
       `<button class="filter-by-btn shop-edit-btn${editOpen ? ' active' : ''}" id="shopEditBtn" onclick="toggleShopEdit()">Edit ▾</button>` +
       `<button class="shop-tb-search${shopSearchTerm ? ' active' : ''}" id="shopSearchBtn" onclick="toggleShopSearch()" title="Search">🔍</button>`;
   } else {
@@ -4783,6 +4784,33 @@ function collapseShopAdd() {
   hideSuggestions();
 }
 
+const SHOP_FAVS_KEY = 'fk_shop_favorites';
+
+function getShopFavorites() {
+  try {
+    const raw = localStorage.getItem(SHOP_FAVS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function saveShopFavorites(ids) {
+  localStorage.setItem(SHOP_FAVS_KEY, JSON.stringify(ids));
+}
+
+function isShopFavorite(itemId) {
+  return getShopFavorites().includes(itemId);
+}
+
+function toggleShopFavorite(itemId) {
+  let favs = getShopFavorites();
+  if (favs.includes(itemId)) {
+    favs = favs.filter(id => id !== itemId);
+  } else {
+    favs.push(itemId);
+  }
+  saveShopFavorites(favs);
+}
+
 function toggleCatPicker(id) {
   openItemActionSheet(id);
 }
@@ -4803,6 +4831,10 @@ function openItemActionSheet(id) {
   // Next Run label
   document.getElementById('itemActionNextRunLabel').textContent =
     item.nextRun ? 'Remove from Next Run' : 'Add to Next Run';
+
+  // Favorite label
+  document.getElementById('itemActionFavLabel').textContent =
+    isShopFavorite(id) ? 'Remove from Favorites' : 'Add to Favorites';
 
   // Category label
   const cats = getShopCategories();
@@ -4850,6 +4882,16 @@ function itemActionToggleNextRun() {
   }
 }
 
+function itemActionToggleFavorite() {
+  if (!_actionSheetItemId) return;
+  toggleShopFavorite(_actionSheetItemId);
+  document.getElementById('itemActionFavLabel').textContent =
+    isShopFavorite(_actionSheetItemId)
+      ? 'Remove from Favorites'
+      : 'Add to Favorites';
+  if (navigator.vibrate) navigator.vibrate(10);
+}
+
 function itemActionRename() {
   if (!_actionSheetItemId) return;
   const id = _actionSheetItemId; // capture before close nulls it
@@ -4883,6 +4925,86 @@ function itemActionSetCategory(catKey) {
   const cat = cats.find(c => c.key === catKey);
   const el = document.getElementById('itemActionCatLabel');
   if (el && cat) el.textContent = cat.label;
+}
+
+function openShopFavoritesSheet() {
+  renderShopFavList();
+  const sheet = document.getElementById('shopFavSheet');
+  sheet.classList.remove('hidden');
+  requestAnimationFrame(() => sheet.classList.add('open'));
+  document.body.style.overflow = 'hidden';
+}
+
+function closeShopFavoritesSheet() {
+  const sheet = document.getElementById('shopFavSheet');
+  sheet.classList.remove('open');
+  setTimeout(() => sheet.classList.add('hidden'), 250);
+  document.body.style.overflow = '';
+}
+
+function renderShopFavList() {
+  const favIds = getShopFavorites();
+  const allItems = getShopItems();
+  const favItems = favIds
+    .map(id => allItems.find(i => i.id === id))
+    .filter(Boolean);
+
+  const list = document.getElementById('shopFavList');
+  const empty = document.getElementById('shopFavEmpty');
+
+  if (!favItems.length) {
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+  list.innerHTML = favItems.map(item => `
+    <div class="item-action-row" style="justify-content:space-between">
+      <span style="font-size:15px;font-weight:500;color:var(--text)">
+        ${item.name}
+      </span>
+      <button
+        onclick="removeShopFavorite(${item.id})"
+        style="background:none;border:none;color:var(--muted);
+               font-size:18px;cursor:pointer;padding:4px 8px">
+        ✕
+      </button>
+    </div>
+  `).join('');
+}
+
+function removeShopFavorite(itemId) {
+  toggleShopFavorite(itemId);
+  renderShopFavList();
+}
+
+function loadFavoritesToNextRun() {
+  const favIds = getShopFavorites();
+  if (!favIds.length) {
+    showToast('No favorites saved yet', { duration: 1500 });
+    return;
+  }
+
+  const items = getShopItems();
+  let added = 0;
+  items.forEach(item => {
+    if (favIds.includes(item.id) && !item.nextRun) {
+      item.nextRun = true;
+      item.bought = false;
+      added++;
+    }
+  });
+
+  saveShopItems(items);
+  closeShopFavoritesSheet();
+  renderShopList();
+  showToast(
+    added > 0
+      ? `✓ ${added} item${added === 1 ? '' : 's'} added to Next Run`
+      : 'All favorites already on Next Run',
+    { gold: true, duration: 2000 }
+  );
 }
 
 function setItemStock(id, status) {

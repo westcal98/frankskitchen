@@ -1013,6 +1013,11 @@
       <span class="item-action-row-icon">🛒</span>
       <span class="item-action-row-label" id="itemActionNextRunLabel"></span>
     </button>
+    <button class="item-action-row" id="itemActionFavBtn"
+      onclick="itemActionToggleFavorite()">
+      <span class="item-action-row-icon">⭐</span>
+      <span class="item-action-row-label" id="itemActionFavLabel"></span>
+    </button>
     <button class="item-action-row" onclick="itemActionRename()">
       <span class="item-action-row-icon">✏️</span>
       <span class="item-action-row-label">Rename Item</span>
@@ -1034,6 +1039,33 @@
       <button class="item-action-close" onclick="closeItemCatSheet()">✕</button>
     </div>
     <div id="itemCatSheetList"></div>
+  </div>
+</div>
+
+<div id="shopFavSheet" class="item-action-overlay hidden"
+  onclick="if(event.target===this)closeShopFavoritesSheet()">
+  <div class="item-action-sheet">
+    <div class="item-action-header">
+      <div class="item-action-title">⭐ Favorites</div>
+      <button class="item-action-close"
+        onclick="closeShopFavoritesSheet()">✕</button>
+    </div>
+
+    <div style="padding:12px 16px 4px">
+      <button class="modal-confirm-btn" style="width:100%"
+        onclick="loadFavoritesToNextRun()">
+        🛒 Load All to Next Run
+      </button>
+    </div>
+
+    <div class="item-action-section-label">Your Favorites</div>
+    <div id="shopFavList"></div>
+
+    <div id="shopFavEmpty" class="hidden"
+      style="padding:24px;text-align:center;color:var(--muted);font-size:14px">
+      No favorites yet. Long press any item and tap
+      "Add to Favorites" to save it here.
+    </div>
   </div>
 </div>
 
