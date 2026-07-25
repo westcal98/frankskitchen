@@ -1308,8 +1308,11 @@ body::before {
   border: 1px solid var(--border);
   border-left-width: 4px;
   border-left-style: solid;
+  border-right-width: 4px;
+  border-right-style: solid;
+  border-right-color: transparent;
   border-radius: 8px;
-  transition: opacity 0.2s, transform 0.2s ease-out;
+  transition: opacity 0.2s, transform 0.2s ease-out, border-right-color 0.2s ease;
   touch-action: pan-y;
 }
 

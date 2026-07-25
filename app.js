@@ -2456,6 +2456,15 @@ function getStoreColor(item) {
   return STORE_COLOR_DEFAULT;
 }
 
+function getStockColor(item) {
+  switch(item.stock) {
+    case 'in':  return '#52a064';
+    case 'low': return '#e8b84b';
+    case 'out': return '#b83232';
+    default:    return 'transparent';
+  }
+}
+
 const CATEGORY_EMOJI_MAP = [
   { keywords: ['fruit'], emoji: '🍎' },
   { keywords: ['produce', 'vegetable', 'veggie', 'fresh'], emoji: '🥦' },
@@ -5025,20 +5034,16 @@ function renderShopList() {
 
   const renderItemRow = (item) => {
     const leftSwipeLabel = shopView === 'next' ? '✗ Remove' : '✗ Delete';
-    const stockBadge = (shopView === 'full' && (item.stock === 'in' || item.stock === 'low'))
-      ? `<span class="shop-stock-badge ${item.stock}">${item.stock === 'in' ? 'In Stock' : 'Low'}</span>`
-      : '';
     return `
     <div class="shop-item-wrap" id="shopwrap-${item.id}">
       <div class="shop-swipe-bg shop-swipe-bg-right"><span>${item.bought ? '✓ Undo' : '✓ Bought'}</span></div>
       <div class="shop-swipe-bg shop-swipe-bg-left"><span>${leftSwipeLabel}</span></div>
-      <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}" data-id="${item.id}" style="border-left-color:${getStoreColor(item)}">
+      <div class="shop-item ${item.bought ? 'bought' : ''}" id="shopitem-${item.id}" data-id="${item.id}" style="border-left-color:${getStoreColor(item)};border-right-color:${getStockColor(item)}">
         <div class="shop-long-press-zone"></div>
         <div class="shop-item-main">
           <div class="shop-item-name">${item.name}</div>
           ${renderPriceInfo(item)}
         </div>
-        ${stockBadge}
         <div class="shop-qty">
           <button class="shop-qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
           <span class="shop-qty-num">${item.qty || 1}</span>
