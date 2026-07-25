@@ -1036,6 +1036,14 @@ const RECIPE_SERVINGS = {
 const FK_LOG = [];
 const FK_LOG_MAX = 100;
 
+try {
+  const saved = localStorage.getItem('fk_debug_log');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (Array.isArray(parsed)) FK_LOG.push(...parsed);
+  }
+} catch(e) {}
+
 function fkLog(level, message, data) {
   const entry = {
     time: new Date().toLocaleTimeString('en-US', { hour12: false }),
@@ -1045,6 +1053,9 @@ function fkLog(level, message, data) {
   };
   FK_LOG.unshift(entry); // newest first
   if (FK_LOG.length > FK_LOG_MAX) FK_LOG.pop();
+  try {
+    localStorage.setItem('fk_debug_log', JSON.stringify(FK_LOG));
+  } catch(e) {}
   // Also send to console
   if (level === 'error') console.error('[FK]', message, data);
   else if (level === 'warn') console.warn('[FK]', message, data);
@@ -4303,6 +4314,41 @@ function handleReceiptImageSelected(event) {
   scanReceiptImage(file);
 }
 
+function showScanStatus(msg) {
+  let bar = document.getElementById('scanStatusBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'scanStatusBar';
+    bar.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: var(--gold);
+      color: #0d0b08;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      padding: 12px 16px;
+      z-index: 9999;
+      transition: opacity 0.3s ease;
+    `;
+    document.body.appendChild(bar);
+  }
+  bar.textContent = msg;
+  bar.style.opacity = '1';
+  bar.style.display = 'block';
+}
+
+function hideScanStatus() {
+  const bar = document.getElementById('scanStatusBar');
+  if (!bar) return;
+  bar.style.opacity = '0';
+  setTimeout(() => {
+    if (bar.parentNode) bar.parentNode.removeChild(bar);
+  }, 300);
+}
+
 async function cleanReceiptItemNames(items) {
   const apiKey = DB_CACHE.preferences?.anthropicApiKey;
   if (!apiKey || !items.length) return items;
@@ -4335,7 +4381,7 @@ Example: ["Nonfat Greek Yogurt Vanilla", "Chicken or Cheese Tortellini"]
 No explanation, no markdown.`;
 
   try {
-    showToast('Cleaning item names...', { duration: 2000 });
+    showScanStatus('✨ Cleaning item names...');
     fkInfo('Gemini name cleaning started', { count: names.length });
 
     const resp = await fetch(
@@ -4390,7 +4436,7 @@ async function scanReceiptImage(file) {
     return;
   }
 
-  showToast('Scanning receipt...', { gold: true, duration: 4000 });
+  showScanStatus('📷 Scanning receipt...');
 
   fkInfo('Receipt scan started', { store: _receiptSelectedStore, fileType: file.type, fileSize: file.size });
 
@@ -4479,8 +4525,10 @@ If you cannot read the receipt clearly, return an empty array [].`;
     } else {
       showToast(`Receipt scanned — ${items.length} items found`, { gold: true });
       openReceiptReviewScreen();
+      hideScanStatus();
     }
   } catch (err) {
+    hideScanStatus();
     if (err.message === 'FETCH_FAILED') {
       showToast('Scan failed — check your connection');
     } else if (err.message === 'PARSE_FAILED') {
@@ -9638,6 +9686,7 @@ function copyDebugLog() {
 
 function clearDebugLog() {
   FK_LOG.length = 0;
+  localStorage.removeItem('fk_debug_log');
   renderDebugLog();
 }
 
