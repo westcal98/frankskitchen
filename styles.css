@@ -3531,6 +3531,18 @@ body::before {
   margin-top: 2px;
 }
 
+.receipt-review-price-input {
+  width: 64px;
+  background: var(--card2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 6px;
+  text-align: right;
+}
+
 .receipt-review-match {
   flex-shrink: 0;
   max-width: 40%;

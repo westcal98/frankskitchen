@@ -4476,7 +4476,10 @@ If you cannot read the receipt clearly, return an empty array [].`;
 
 // ─── RECEIPT REVIEW (Session B) ────────────────────────────────────────────
 
-const RECEIPT_BRAND_PREFIXES = ['GREAT VALUE', 'SE GROCERS', 'SIMPLY ESSENTIALS', 'GVL', 'GV', 'ALDI'];
+const RECEIPT_BRAND_PREFIXES = [
+  'GREAT VALUE', 'SE GROCERS', 'SIMPLY ESSENTIALS', 'GVL', 'GV',
+  'ALDI', 'FP', 'AH', 'WM', 'MM'
+];
 
 function _fuzzyNormalize(s) {
   return (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -4599,15 +4602,15 @@ function openReceiptReviewScreen() {
   const shopItems = getShopItems();
   _receiptReviewRows = scan.items.map(it => {
     const matched = findReceiptItemMatch(it.name, shopItems);
-    const cleanedName = cleanReceiptName(it.name, it.size);
     const parsedPrice = parseReceiptPrice(+it.price || 0, it.size || '');
     return {
-      name: it.name,
+      name: it.name,           // Gemini-cleaned name (use for display + new items)
+      originalName: it.originalName || it.name,  // raw receipt name
       size: parsedPrice.size,
       price: parsedPrice.price,
       match: matched
         ? { type: 'existing', name: matched.name }
-        : { type: 'new', name: cleanedName },
+        : { type: 'new', name: it.name },  // use Gemini-cleaned name directly
       skipped: false,
       isMultipack: parsedPrice.isMultipack,
     };
@@ -4661,7 +4664,14 @@ function renderReceiptReviewScreen() {
     return `<div class="receipt-review-row${row.skipped ? ' skipped' : ''}">
       <div class="receipt-review-info">
         <div class="receipt-review-name">${row.name}${row.size ? ` · ${row.size}` : ''}</div>
-        <div class="receipt-review-price">$${row.price.toFixed(2)}</div>
+        <input
+          class="receipt-review-price-input"
+          type="number"
+          step="0.01"
+          min="0"
+          value="${row.price.toFixed(2)}"
+          onchange="updateReceiptRowPrice(${idx}, this.value)"
+        >
       </div>
       <div class="receipt-review-match" onclick="openReceiptMatchPicker(${idx})">${matchLabel}</div>
       <button class="receipt-review-skip" onclick="toggleReceiptRowSkip(${idx})" title="${row.skipped ? 'Restore' : 'Skip'}">${row.skipped ? '↺' : '✕'}</button>
@@ -4784,6 +4794,12 @@ function toggleReceiptRowSkip(idx) {
   renderReceiptReviewScreen();
 }
 
+function updateReceiptRowPrice(idx, value) {
+  const row = _receiptReviewRows[idx];
+  if (!row) return;
+  row.price = parseFloat(value) || 0;
+}
+
 // Adds a price entry without disturbing the existing selectedForTrip pick
 // when the item already has price history (only brand-new items auto-select).
 function _addReceiptPriceEntry(itemName, data) {
@@ -4812,6 +4828,13 @@ function saveReceiptReview() {
   fkInfo('Receipt review save started', { rowCount: _receiptReviewRows.length });
 
   _receiptReviewRows.forEach(row => {
+    fkInfo('Processing receipt row', {
+      name: row.name,
+      matchType: row.match?.type,
+      matchName: row.match?.name,
+      price: row.price,
+      skipped: row.skipped
+    });
     if (row.skipped || !row.match) {
       fkWarn('Receipt row skipped', { name: row.name });
       return;
