@@ -4637,11 +4637,29 @@ function hideScanStatus() {
   }, 300);
 }
 
-async function cleanReceiptItemNames(items) {
+async function cleanReceiptItemNames(items, storeName) {
   const apiKey = DB_CACHE.preferences?.anthropicApiKey;
   if (!apiKey || !items.length) return items;
 
   const names = items.map(i => i.name);
+
+  const isDG = storeName === 'DG';
+  const dgBlock = isDG ? `
+
+DG (Dollar General) specific rules:
+- Receipt lines often start with a single leading tax-indicator letter
+  (e.g. "N", "T", "F") immediately before the product text. Strip this
+  leading letter — it is a tax flag, not part of the item name.
+  Example: "N CV 100 WHOLE WHE 70210012841" → "Whole Wheat Bread"
+- Strip long numeric UPC/barcode codes (typically 10-13 digits) that
+  appear anywhere in the name — these are barcode numbers, not part of
+  the product name.
+- NEVER join two possible name interpretations with "/". If the raw
+  text is ambiguous between two product names, choose the single most
+  likely plain-English grocery item name — do not output combined or
+  slashed names.
+  Example: "Honey / Oven Roasted Turkey" → "Honey Roasted Turkey" or
+  "Oven Roasted Turkey" (pick one, not both).` : '';
 
   const prompt = `You are a grocery receipt decoder.
 Convert these abbreviated receipt item names into clear, plain English
@@ -4664,7 +4682,7 @@ Rules:
   Example: "x3 Sweet Peas" → "Sweet Peas"
 - Use title case
 - Keep the name concise but recognizable
-- If already clear, keep as-is
+- If already clear, keep as-is${dgBlock}
 
 Input names (one per line, numbered):
 ${names.map((n, i) => `${i + 1}. ${n}`).join('\n')}
@@ -4713,6 +4731,10 @@ No explanation, no markdown.`;
         cleaned: i.name
       }))
     });
+
+    if (isDG) {
+      fkInfo('DG-specific cleaning applied', { rawNames: names, cleanedNames: cleaned });
+    }
 
     return result;
 
@@ -4811,7 +4833,7 @@ If you cannot read the receipt clearly, return an empty array [].`;
     fkInfo('Receipt items parsed', { count: items.length, items: items.slice(0, 3) });
 
     // Clean abbreviated receipt names before matching
-    items = await cleanReceiptItemNames(items);
+    items = await cleanReceiptItemNames(items, _receiptSelectedStore);
 
     window._lastReceiptScan = {
       store: _receiptSelectedStore,
