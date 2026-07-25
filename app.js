@@ -3380,8 +3380,9 @@ function renderManageStoresList() {
 function openStoreActionSheet(store) {
   _manageStoreSelected = store;
   document.getElementById('storeActionTitle').textContent = store;
-  document.getElementById('storeRemoveLabel').checked = false;
-  document.getElementById('storeRemovePrice').checked = false;
+  const count = (DB_CACHE.item_prices || []).filter(p => p.store === store).length;
+  document.getElementById('storeActionMessage').textContent =
+    `This will remove ${store} and delete all ${count} price entries logged under it. This cannot be undone.`;
   const sheet = document.getElementById('storeActionSheet');
   sheet.classList.remove('hidden');
   requestAnimationFrame(() => sheet.classList.add('open'));
@@ -3397,38 +3398,19 @@ function closeStoreActionSheet() {
 function confirmStoreAction() {
   const store = _manageStoreSelected;
   if (!store) return;
-  const removeLabel = document.getElementById('storeRemoveLabel').checked;
-  const removePrice = document.getElementById('storeRemovePrice').checked;
-  if (!removeLabel && !removePrice) {
-    showToast('Select at least one option', { duration: 1500 });
-    return;
-  }
   const prices = DB_CACHE.item_prices || [];
-  if (removePrice) {
-    // Delete all price entries for this store
-    DB_CACHE.item_prices = prices.filter(p => p.store !== store);
-    prices.filter(p => p.store === store).forEach(p => {
-      try { _db.transaction('itemPrices','readwrite').objectStore('itemPrices').delete(p.id); } catch(e) {}
-    });
-  } else if (removeLabel) {
-    // Just clear the store field
-    prices.forEach(p => {
-      if (p.store === store) {
-        p.store = '';
-        _idbPutItemPrice(p);
-      }
-    });
-  }
+  const toDelete = prices.filter(p => p.store === store);
+  // Delete all price entries for this store
+  DB_CACHE.item_prices = prices.filter(p => p.store !== store);
+  toDelete.forEach(p => {
+    try { _db.transaction('itemPrices','readwrite').objectStore('itemPrices').delete(p.id); } catch(e) {}
+  });
   _persistItemPricesLS();
+  fkInfo('Store removed from pantry', { store, entriesDeleted: toDelete.length });
   closeStoreActionSheet();
   closeManageStoresSheet();
   renderShopList();
-  showToast(
-    removePrice
-      ? `${store} prices removed ✓`
-      : `${store} labels removed ✓`,
-    { gold: true, duration: 2000 }
-  );
+  showToast(`${store} removed ✓`, { gold: true, duration: 2000 });
 }
 
 function updateShopStats() {
@@ -5713,19 +5695,11 @@ function renderShopList() {
     });
   }
   if (shopFilterHideUnpriced) {
-    fkInfo('Priced Only filter running', {
-      totalItems: catFiltered.length,
-      item_prices_count: (DB_CACHE.item_prices || []).length,
-      sampleCheck: catFiltered.slice(0, 3).map(item => ({
-        name: item.name,
-        entriesFound: getItemPriceEntries(item.name).length
-      }))
-    });
     catFiltered = catFiltered.filter(item => {
       const entries = getItemPriceEntries(item.name);
       return entries && entries.length > 0;
     });
-    fkInfo('Priced Only filter result', { remaining: catFiltered.length });
+    fkInfo('Priced Only filter applied', { remaining: catFiltered.length });
   }
   const items = shopSearchTerm
     ? catFiltered.filter(i => i.name.toLowerCase().includes(shopSearchTerm))

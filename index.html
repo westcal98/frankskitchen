@@ -1149,27 +1149,11 @@
       <button class="item-action-close"
         onclick="closeStoreActionSheet()">✕</button>
     </div>
-    <div class="item-action-section-label">What would you like to remove?</div>
-    <div style="padding: 12px 16px; display:flex; flex-direction:column; gap:10px">
-      <label style="display:flex;align-items:center;gap:12px;color:var(--text);font-size:15px">
-        <input type="checkbox" id="storeRemoveLabel" style="width:18px;height:18px">
-        Remove store label only
-        <span style="font-size:12px;color:var(--muted);display:block">
-          Keeps price, clears store name
-        </span>
-      </label>
-      <label style="display:flex;align-items:center;gap:12px;color:var(--text);font-size:15px">
-        <input type="checkbox" id="storeRemovePrice" style="width:18px;height:18px">
-        Remove prices too
-        <span style="font-size:12px;color:var(--muted);display:block">
-          Deletes all price entries for this store
-        </span>
-      </label>
-    </div>
+    <div style="padding: 12px 16px; color:var(--text); font-size:15px" id="storeActionMessage"></div>
     <div style="padding:12px 16px">
       <button class="receipt-review-save" style="width:100%"
         onclick="confirmStoreAction()">
-        Confirm
+        Remove from Pantry
       </button>
     </div>
   </div>
