@@ -4421,7 +4421,32 @@ function saveCustomStore() {
 function selectReceiptStore(name) {
   _receiptSelectedStore = name;
   closeReceiptStoreSheet();
-  setTimeout(() => document.getElementById('receiptImageInput')?.click(), 50);
+  // Show source selection instead of immediately opening camera
+  setTimeout(() => openReceiptSourceSheet(), 260);
+}
+
+function openReceiptSourceSheet() {
+  const sheet = document.getElementById('receiptSourceSheet');
+  sheet.classList.remove('hidden');
+  requestAnimationFrame(() => sheet.classList.add('open'));
+  document.body.style.overflow = 'hidden';
+}
+
+function closeReceiptSourceSheet() {
+  const sheet = document.getElementById('receiptSourceSheet');
+  sheet.classList.remove('open');
+  setTimeout(() => sheet.classList.add('hidden'), 250);
+  document.body.style.overflow = '';
+}
+
+function openReceiptCamera() {
+  closeReceiptSourceSheet();
+  setTimeout(() => document.getElementById('receiptImageInput')?.click(), 260);
+}
+
+function openReceiptGallery() {
+  closeReceiptSourceSheet();
+  setTimeout(() => document.getElementById('receiptGalleryInput')?.click(), 260);
 }
 
 function handleReceiptImageSelected(event) {
@@ -4613,8 +4638,15 @@ If you cannot read the receipt clearly, return an empty array [].`;
     fkInfo('Gemini API response received', { status: resp.status, ok: resp.ok });
 
     if (!resp.ok) {
-      const errData = await resp.json().catch(() => ({}));
-      throw new Error(errData.error?.message || `API error ${resp.status}`);
+      hideScanStatus();
+      if (resp.status === 503) {
+        showToast('Gemini is busy right now — try again in a moment',
+          { duration: 4000 });
+      } else {
+        showToast(`Scan failed (${resp.status}) — try again`,
+          { duration: 3000 });
+      }
+      return;
     }
 
     const data = await resp.json();

@@ -193,6 +193,7 @@
   <button class="add-shop-fab hidden" id="shopNextRunFab" onclick="nextRunAddItem()"><span class="shop-fab-icon">+</span></button>
   <button id="shopScrollTopFab" class="shop-scroll-top-fab hidden" onclick="shopScrollToTop()" aria-label="Scroll to top">↑</button>
   <input type="file" accept="image/*" capture="environment" id="receiptImageInput" class="hidden" onchange="handleReceiptImageSelected(event)">
+  <input type="file" accept="image/*" id="receiptGalleryInput" class="hidden" onchange="handleReceiptImageSelected(event)">
 </div>
 <!-- ── NUTRITION VIEW ── -->
 <div id="view-nutrition" class="hidden">
@@ -1101,6 +1102,28 @@
       No favorites yet. Long press any item and tap
       "Add to Favorites" to save it here.
     </div>
+  </div>
+</div>
+
+<div id="receiptSourceSheet" class="item-action-overlay hidden"
+  onclick="if(event.target===this)closeReceiptSourceSheet()">
+  <div class="item-action-sheet">
+    <div class="item-action-header">
+      <div class="item-action-title">Scan Receipt</div>
+      <button class="item-action-close"
+        onclick="closeReceiptSourceSheet()">✕</button>
+    </div>
+    <div class="item-action-section-label">Choose Source</div>
+    <button class="item-action-row" onclick="openReceiptCamera()">
+      <span class="item-action-row-icon">📷</span>
+      <span class="item-action-row-label">Take Photo</span>
+      <span class="item-action-row-value">Use camera</span>
+    </button>
+    <button class="item-action-row" onclick="openReceiptGallery()">
+      <span class="item-action-row-icon">🖼️</span>
+      <span class="item-action-row-label">Choose from Gallery</span>
+      <span class="item-action-row-value">Use existing photo</span>
+    </button>
   </div>
 </div>
 
