@@ -1411,6 +1411,23 @@ function cleanPriceBrandFields() {
   fkInfo('Price brand/detail/size fields cleaned', { count: prices.length });
 }
 
+function migrateDGStoreName() {
+  const MIGRATION_KEY = 'fk_dg_rename_v1';
+  if (localStorage.getItem(MIGRATION_KEY)) return;
+  const prices = DB_CACHE.item_prices || [];
+  let changed = false;
+  prices.forEach(p => {
+    if (p.store === 'Dollar General') {
+      p.store = 'DG';
+      _idbPutItemPrice(p);
+      changed = true;
+    }
+  });
+  if (changed) _persistItemPricesLS();
+  localStorage.setItem(MIGRATION_KEY, '1');
+  fkInfo('DG store rename migration complete', { changed });
+}
+
 async function initDB() {
   let _seedComplete = false;
   let _seededRecs = null;
@@ -1454,6 +1471,7 @@ async function initDB() {
 
     cleanPriceSizeFields();
     cleanPriceBrandFields();
+    migrateDGStoreName();
 
     // ── Load kv entries ─────────────────────────────────────────────────────
     const custom = await _idbGet('kv', 'custom_recipes');
@@ -2523,7 +2541,7 @@ const DEFAULT_SHOP_CATEGORIES = [
 const STORE_COLORS = {
   'Aldi':           '#49A8DC',
   'Walmart':        '#0071CE',
-  'Dollar General': '#FFD700',
+  'DG':             '#FFD700',
   'Target':         '#CC0000',
   'Kroger':         '#004B8D',
   "Sam's Club":     '#00558C',
@@ -3321,6 +3339,96 @@ function executePantryClear(type) {
   document.getElementById('pantryClearConfirm')?.remove();
   const config = PANTRY_CLEAR_CONFIG[type];
   if (config) config.action();
+}
+
+let _manageStoreSelected = null;
+
+function openManageStoresSheet() {
+  closeSettings();
+  renderManageStoresList();
+  const sheet = document.getElementById('manageStoresSheet');
+  sheet.classList.remove('hidden');
+  requestAnimationFrame(() => sheet.classList.add('open'));
+  document.body.style.overflow = 'hidden';
+}
+
+function closeManageStoresSheet() {
+  const sheet = document.getElementById('manageStoresSheet');
+  sheet.classList.remove('open');
+  setTimeout(() => sheet.classList.add('hidden'), 250);
+  document.body.style.overflow = '';
+}
+
+function renderManageStoresList() {
+  const prices = DB_CACHE.item_prices || [];
+  const stores = [...new Set(prices.map(p => p.store).filter(Boolean))].sort();
+  const list = document.getElementById('manageStoresList');
+  if (!stores.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">No stores with price entries</div>';
+    return;
+  }
+  list.innerHTML = stores.map(store => {
+    const count = prices.filter(p => p.store === store).length;
+    return `<button class="item-action-row" onclick="openStoreActionSheet('${store.replace(/'/g, "\\'")}')">
+      <span class="item-action-row-icon">🏪</span>
+      <span class="item-action-row-label">${store}</span>
+      <span class="item-action-row-value">${count} price entries</span>
+    </button>`;
+  }).join('');
+}
+
+function openStoreActionSheet(store) {
+  _manageStoreSelected = store;
+  document.getElementById('storeActionTitle').textContent = store;
+  document.getElementById('storeRemoveLabel').checked = false;
+  document.getElementById('storeRemovePrice').checked = false;
+  const sheet = document.getElementById('storeActionSheet');
+  sheet.classList.remove('hidden');
+  requestAnimationFrame(() => sheet.classList.add('open'));
+}
+
+function closeStoreActionSheet() {
+  const sheet = document.getElementById('storeActionSheet');
+  sheet.classList.remove('open');
+  setTimeout(() => sheet.classList.add('hidden'), 250);
+  _manageStoreSelected = null;
+}
+
+function confirmStoreAction() {
+  const store = _manageStoreSelected;
+  if (!store) return;
+  const removeLabel = document.getElementById('storeRemoveLabel').checked;
+  const removePrice = document.getElementById('storeRemovePrice').checked;
+  if (!removeLabel && !removePrice) {
+    showToast('Select at least one option', { duration: 1500 });
+    return;
+  }
+  const prices = DB_CACHE.item_prices || [];
+  if (removePrice) {
+    // Delete all price entries for this store
+    DB_CACHE.item_prices = prices.filter(p => p.store !== store);
+    prices.filter(p => p.store === store).forEach(p => {
+      try { _db.transaction('itemPrices','readwrite').objectStore('itemPrices').delete(p.id); } catch(e) {}
+    });
+  } else if (removeLabel) {
+    // Just clear the store field
+    prices.forEach(p => {
+      if (p.store === store) {
+        p.store = '';
+        _idbPutItemPrice(p);
+      }
+    });
+  }
+  _persistItemPricesLS();
+  closeStoreActionSheet();
+  closeManageStoresSheet();
+  renderShopList();
+  showToast(
+    removePrice
+      ? `${store} prices removed ✓`
+      : `${store} labels removed ✓`,
+    { gold: true, duration: 2000 }
+  );
 }
 
 function updateShopStats() {
@@ -4367,7 +4475,7 @@ let _receiptSelectedStore = null;
 let _receiptShowAddStore = false;
 window._lastReceiptScan = null;
 
-const RECEIPT_DEFAULT_STORES = ['Aldi', 'Dollar General', 'Target', 'Walmart'];
+const RECEIPT_DEFAULT_STORES = ['Aldi', 'DG', 'Target', 'Walmart'];
 
 function getReceiptStoreList() {
   const custom = (DB_CACHE.custom_stores || []).slice().sort((a, b) => a.localeCompare(b));
