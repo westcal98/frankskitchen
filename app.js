@@ -4394,10 +4394,28 @@ async function scanReceiptImage(file) {
 
   fkInfo('Receipt scan started', { store: _receiptSelectedStore, fileType: file.type, fileSize: file.size });
 
-  const RECEIPT_PROMPT = `You are a receipt parser. Extract every line item from this grocery receipt image. For each item return: the full product name as printed on the receipt, the size or count if visible (e.g. "12ct", "32oz", "2lb"), and the price. Ignore subtotals, taxes, totals, store name, date, payment info, and loyalty savings lines. Return ONLY a valid JSON array, no markdown, no explanation. Format:
+  const RECEIPT_PROMPT = `You are a receipt parser. Extract every line item from this grocery receipt image.
+
+IMPORTANT PRICING RULE — Aldi and some other stores show multi-pack items like this:
+  Item Name    6.98
+  2 x    3.49
+
+This means: 2 units bought at $3.49 each (total $6.98).
+When you see a "N x price" line immediately below an item, use the UNIT PRICE (3.49), not the total (6.98).
+Also capture the quantity (2) in the size field as "2ct" or "3ct" etc.
+
+For each item return:
+- name: full product name as printed
+- size: quantity/size info. If a "N x price" line exists below, format as "Nct" (e.g. "2ct", "3ct")
+- price: the UNIT price (from the "N x price" line if present, otherwise the line price)
+
+Ignore: subtotals, taxes, totals, store name, date, payment info, loyalty savings, and the raw "N x price" lines themselves (they are already captured in the item above).
+
+Return ONLY a valid JSON array, no markdown, no explanation:
 [
-  { "name": "VITAL FARMS EGG LG BRN", "size": "12CT", "price": 3.49 },
-  { "name": "GREAT VALUE MILK", "size": "1GAL", "price": 2.98 }
+  { "name": "Indulgent GreekYog", "size": "2ct", "price": 3.49 },
+  { "name": "Whole Kernel Corn", "size": "3ct", "price": 0.78 },
+  { "name": "Chicken Thighs", "size": null, "price": 9.55 }
 ]
 If you cannot read the receipt clearly, return an empty array [].`;
 
