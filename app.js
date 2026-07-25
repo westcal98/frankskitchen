@@ -2354,7 +2354,19 @@ function renderRecipeDropdownBody(body) {
 function renderShopDropdownBody(body) {
   const cats = getShopCategories();
   const allActive = shopFilterCats.length === 0;
-  let html = `<div class="filter-group"><div class="filter-group-label">Categories</div>
+  let html = '';
+  const availableStores = getAvailableStores();
+  if (availableStores.length > 0) {
+    html += `<div class="filter-group"><div class="filter-group-label">Store</div>`;
+    availableStores.forEach(store => {
+      const on = shopFilterStores.includes(store);
+      html += `<button class="filter-option${on ? ' selected' : ''}" onclick="toggleShopFilterStore('${store.replace(/'/g, "\\'")}')">
+        <span class="filter-option-check">${on ? '✓' : ''}</span>${store}
+      </button>`;
+    });
+    html += `</div>`;
+  }
+  html += `<div class="filter-group"><div class="filter-group-label">Categories</div>
     <button class="filter-option${allActive ? ' selected' : ''}" onclick="toggleShopFilterCat('__all')">
       <span class="filter-option-check">${allActive ? '✓' : ''}</span>All
     </button>`;
@@ -2372,17 +2384,6 @@ function renderShopDropdownBody(body) {
       <span class="filter-option-check">${shopFilterInStock ? '✓' : ''}</span>● In Stock
     </button>
   </div>`;
-  const availableStores = getAvailableStores();
-  if (availableStores.length > 0) {
-    html += `<div class="filter-group"><div class="filter-group-label">Store</div>`;
-    availableStores.forEach(store => {
-      const on = shopFilterStores.includes(store);
-      html += `<button class="filter-option${on ? ' selected' : ''}" onclick="toggleShopFilterStore('${store.replace(/'/g, "\\'")}')">
-        <span class="filter-option-check">${on ? '✓' : ''}</span>${store}
-      </button>`;
-    });
-    html += `</div>`;
-  }
   html += `<div class="filter-group"><div class="filter-group-label">Pricing</div>
     <button class="filter-option${shopFilterHideUnpriced ? ' selected' : ''}" onclick="toggleShopFilterHideUnpriced()">
       <span class="filter-option-check">${shopFilterHideUnpriced ? '✓' : ''}</span>💰 Priced Items Only
@@ -4869,8 +4870,41 @@ function updateReceiptRowPrice(idx, value) {
 // Adds a price entry without disturbing the existing selectedForTrip pick
 // when the item already has price history (only brand-new items auto-select).
 function _addReceiptPriceEntry(itemName, data) {
-  // Deselect all existing entries for this item
+  const norm = normalizeItemName(itemName);
   const existingEntries = getItemPriceEntries(itemName);
+
+  // Check if an entry already exists for this store
+  const existingForStore = existingEntries.find(p =>
+    p.store && data.store &&
+    p.store.toLowerCase() === data.store.toLowerCase()
+  );
+
+  if (existingForStore) {
+    // Update existing entry for this store
+    // Deselect all other entries first
+    existingEntries.forEach(p => {
+      if (p.selectedForTrip && p.id !== existingForStore.id) {
+        p.selectedForTrip = false;
+        _idbPutItemPrice(p);
+      }
+    });
+    // Update the existing entry
+    existingForStore.price = +data.price || existingForStore.price;
+    existingForStore.brand = data.brand || existingForStore.brand;
+    existingForStore.detail = data.detail || existingForStore.detail;
+    existingForStore.size = data.size || existingForStore.size;
+    existingForStore.dateLogged = data.dateLogged || existingForStore.dateLogged;
+    existingForStore.selectedForTrip = true;
+    _idbPutItemPrice(existingForStore);
+    _persistItemPricesLS();
+    fkInfo('Price entry updated', {
+      itemName, store: data.store, price: data.price
+    });
+    return existingForStore;
+  }
+
+  // No existing entry for this store — create new one
+  // Deselect all existing entries
   existingEntries.forEach(p => {
     if (p.selectedForTrip) {
       p.selectedForTrip = false;
@@ -4880,10 +4914,10 @@ function _addReceiptPriceEntry(itemName, data) {
 
   // Add new entry as selected
   const entry = addItemPriceEntry(itemName, data);
-  // addItemPriceEntry already sets selectedForTrip: true
-  // so no further action needed
-
   _persistItemPricesLS();
+  fkInfo('Price entry created', {
+    itemName, store: data.store, price: data.price
+  });
   return entry;
 }
 
