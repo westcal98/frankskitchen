@@ -3169,6 +3169,122 @@ function removeAllRecipes() {
   }
 }
 
+const PANTRY_CLEAR_CONFIG = {
+  items: {
+    title: 'Clear Pantry?',
+    message: 'This will remove all pantry items permanently. Price history will be kept. This cannot be undone.',
+    action: () => {
+      saveShopItems([]);
+      renderShopList();
+      showToast('Pantry cleared ✓', { gold: true, duration: 2000 });
+    }
+  },
+  prices: {
+    title: 'Clear Price History?',
+    message: 'This will wipe all stored prices for every item. This cannot be undone.',
+    action: () => {
+      DB_CACHE.item_prices = [];
+      _idbClearStore('itemPrices');
+      localStorage.removeItem('fk_item_prices');
+      showToast('Price history cleared ✓', { gold: true, duration: 2000 });
+    }
+  },
+  favorites: {
+    title: 'Clear Favorites?',
+    message: 'This will remove all saved Next Run favorites. This cannot be undone.',
+    action: () => {
+      saveShopFavorites([]);
+      showToast('Favorites cleared ✓', { gold: true, duration: 2000 });
+    }
+  },
+  stores: {
+    title: 'Clear Custom Stores?',
+    message: 'This will remove all manually added stores from the scan store list.',
+    action: () => {
+      _idbPut('kv', 'customStores', []);
+      showToast('Custom stores cleared ✓', { gold: true, duration: 2000 });
+    }
+  }
+};
+
+function confirmPantryClear(type) {
+  const config = PANTRY_CLEAR_CONFIG[type];
+  if (!config) return;
+
+  // Remove any existing confirm dialog
+  document.getElementById('pantryClearConfirm')?.remove();
+
+  const dialog = document.createElement('div');
+  dialog.id = 'pantryClearConfirm';
+  dialog.style.cssText = `
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  `;
+  dialog.innerHTML = `
+    <div style="
+      background: var(--card2);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 360px;
+    ">
+      <div style="
+        font-family: 'Playfair Display', serif;
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 10px;
+      ">${config.title}</div>
+      <div style="
+        font-size: 14px;
+        color: var(--muted);
+        line-height: 1.5;
+        margin-bottom: 20px;
+      ">${config.message}</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button
+          onclick="document.getElementById('pantryClearConfirm').remove()"
+          style="
+            padding: 10px 20px;
+            border-radius: 999px;
+            border: 1px solid var(--border2);
+            background: none;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+          ">Cancel</button>
+        <button
+          onclick="executePantryClear('${type}')"
+          style="
+            padding: 10px 20px;
+            border-radius: 999px;
+            border: none;
+            background: var(--red2, #b83232);
+            color: white;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+          ">Confirm</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(dialog);
+}
+
+function executePantryClear(type) {
+  document.getElementById('pantryClearConfirm')?.remove();
+  const config = PANTRY_CLEAR_CONFIG[type];
+  if (config) config.action();
+}
+
 function updateShopStats() {
   const items = getShopItems();
   const el = document.getElementById('shopStats');
@@ -4370,6 +4486,11 @@ Rules:
   SMKD = Smoked, ITL = Italian, MDM = Medium, XLG = Extra Large)
 - Remove store brand prefixes (GV, GVL, SE, ALDI, AH, WM)
 - Remove size/count suffixes (they are captured separately)
+- Remove quantity indicators from names: '2 x', 'x 3', '3pk',
+  '2ct', '12ct', '3x', 'x2' and similar. These belong in the
+  size field only, not the item name.
+  Example: "Avocados 2 x" → "Avocados"
+  Example: "x3 Sweet Peas" → "Sweet Peas"
 - Use title case
 - Keep the name concise but recognizable
 - If already clear, keep as-is

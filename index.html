@@ -796,6 +796,41 @@
         </div>
       </div>
       <div class="settings-divider"></div>
+      <div class="settings-section-label">Pantry Settings</div>
+
+      <button class="settings-row danger" onclick="confirmPantryClear('items')">
+        <span class="settings-row-icon">🗑</span>
+        <div class="settings-row-text">
+          <div class="settings-row-title">Clear Pantry</div>
+          <div class="settings-row-sub">Remove all pantry items. Price history is kept.</div>
+        </div>
+      </button>
+
+      <button class="settings-row danger" onclick="confirmPantryClear('prices')">
+        <span class="settings-row-icon">💰</span>
+        <div class="settings-row-text">
+          <div class="settings-row-title">Clear Price History</div>
+          <div class="settings-row-sub">Wipe all stored prices for all items.</div>
+        </div>
+      </button>
+
+      <button class="settings-row danger" onclick="confirmPantryClear('favorites')">
+        <span class="settings-row-icon">⭐</span>
+        <div class="settings-row-text">
+          <div class="settings-row-title">Clear Favorites</div>
+          <div class="settings-row-sub">Remove all saved Next Run favorites.</div>
+        </div>
+      </button>
+
+      <button class="settings-row danger" onclick="confirmPantryClear('stores')">
+        <span class="settings-row-icon">🏪</span>
+        <div class="settings-row-text">
+          <div class="settings-row-title">Clear Custom Stores</div>
+          <div class="settings-row-sub">Remove any manually added stores from the scan list.</div>
+        </div>
+      </button>
+
+      <div class="settings-divider"></div>
       <div class="settings-section-label">Danger Zone</div>
       <button class="settings-row danger" onclick="removeAllItems()">
         <span class="settings-row-icon">🗑</span>
