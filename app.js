@@ -2328,7 +2328,7 @@ function renderTagsHtml(tags, tab) {
   const visible = tags.slice(0, MAX);
   const extra = tags.length - MAX;
   return visible.map(t =>
-    `<span class="filter-tag">${t.label}<button class="filter-tag-remove" onclick="event.stopPropagation();removeFilterTag('${tab}','${t.key}')">✕</button></span>`
+    `<span class="filter-tag"><span class="filter-tag-label">${t.label}</span><button class="filter-tag-remove" onclick="event.stopPropagation();removeFilterTag('${tab}','${t.key}')">✕</button></span>`
   ).join('') + (extra > 0 ? `<span class="filter-tag-more">+${extra} more</span>` : '');
 }
 

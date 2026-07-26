@@ -1502,9 +1502,12 @@ body::before {
   white-space: nowrap;
   flex-shrink: 1;
   min-width: 0;
-  max-width: 120px;
+}
+.filter-tag-label {
+  display: inline-block;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100px;
 }
 .filter-tag-remove {
   background: none;
@@ -1832,6 +1835,9 @@ body::before {
 
 #shopList {
   padding-top: 8px;
+  /* clears fully-open speed-dial FAB stack: 20 bottom offset + 46 main btn
+     + 10 gap + 82 speed-dial (2 btns @36px + 10px gap) = 158px, + buffer */
+  padding-bottom: 175px;
 }
 
 /* ── NEXT RUN ESTIMATOR ── */
