@@ -1884,10 +1884,23 @@ function renderRecipe(recipe) {
         const presetBtn = presetSecs
           ? `<button class="timer-btn preset-btn" onclick="event.stopPropagation();startTimer('${recipe.id}',${i},${presetSecs},false)">▶ ${formatTimerLabel(presetSecs)}</button>`
           : '';
+        const editPresetBtn = presetSecs
+          ? `<button class="timer-btn custom-btn" onclick="event.stopPropagation();showPresetEditInput('${recipe.id}',${i})" title="Edit preset duration">✎</button>`
+          : '';
+        const presetMins = presetSecs ? Math.round((presetSecs / 60) * 2) / 2 : '';
         timerZone = `
           <div class="step-timer-row" id="timer-row-${dk}">
-            ${presetBtn}
+            ${presetBtn}${editPresetBtn}
             <button class="timer-btn custom-btn" onclick="event.stopPropagation();showCustomTimerInput('${recipe.id}',${i})">⏱ Custom</button>
+          </div>
+          <div class="step-timer-custom-row hidden" id="timer-preset-edit-${dk}">
+            <input class="timer-custom-input" type="number" min="0.5" max="999" step="0.5" placeholder="min"
+              id="timer-preset-edit-val-${dk}" value="${presetMins}"
+              onclick="event.stopPropagation()"
+              oninput="event.stopPropagation()"
+              onkeydown="event.stopPropagation();if(event.key==='Enter')confirmPresetEdit('${recipe.id}',${i})">
+            <button class="timer-btn preset-btn" onclick="event.stopPropagation();confirmPresetEdit('${recipe.id}',${i})">▶</button>
+            <button class="timer-btn stop-btn" onclick="event.stopPropagation();hidePresetEditInput('${recipe.id}',${i})">✕</button>
           </div>
           <div class="step-timer-custom-row hidden" id="timer-custom-${dk}">
             <input class="timer-custom-input" type="number" min="1" max="999" step="0.5" placeholder="min"
@@ -9233,14 +9246,31 @@ function startTimer(recipeId, stepIndex, seconds, isCustom) {
   if (ACTIVE_TIMERS[key]) {
     clearInterval(ACTIVE_TIMERS[key].interval);
     if (ACTIVE_TIMERS[key].alertInterval) clearInterval(ACTIVE_TIMERS[key].alertInterval);
+    if (ACTIVE_TIMERS[key].notifTimeout) clearTimeout(ACTIVE_TIMERS[key].notifTimeout);
   }
+
+  if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
   ACTIVE_TIMERS[key] = {
-    total: seconds, remaining: seconds,
+    recipeId, stepIndex,
+    total: seconds,
+    endTime: Date.now() + seconds * 1000,
+    remaining: seconds,
     running: true, finished: false,
     isCustom: !!isCustom, savedPreset: false,
-    interval: null, alertInterval: null,
+    interval: null, alertInterval: null, notifTimeout: null,
   };
   ACTIVE_TIMERS[key].interval = setInterval(() => timerTick(recipeId, stepIndex), 1000);
+  ACTIVE_TIMERS[key].notifTimeout = setTimeout(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      navigator.serviceWorker?.ready.then(reg =>
+        reg.showNotification("Timer done", { body: "Your Frank's Kitchen timer is up.", icon: '/icon-192.png', tag: key })
+      );
+    }
+  }, seconds * 1000);
+  fkInfo('Timer started', { key, seconds, isCustom: !!isCustom });
   renderAll();
 }
 
@@ -9248,12 +9278,30 @@ function timerTick(recipeId, stepIndex) {
   const key = timerKey(recipeId, stepIndex);
   const t = ACTIVE_TIMERS[key];
   if (!t || !t.running) return;
-  t.remaining = Math.max(0, t.remaining - 1);
+  t.remaining = Math.max(0, Math.round((t.endTime - Date.now()) / 1000));
   // Direct DOM update — no re-render needed
   const el = document.getElementById('timer-disp-' + timerDomKey(recipeId, stepIndex));
   if (el) el.textContent = formatTimerDisplay(t.remaining);
   if (t.remaining <= 0) timerDone(recipeId, stepIndex);
 }
+
+// Interval timers throttle/pause when the tab is backgrounded or the screen
+// locks; recompute remaining from the absolute endTime once visible again
+// so the countdown can't drift or get stuck.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  const keys = Object.keys(ACTIVE_TIMERS);
+  if (!keys.length) return;
+  fkInfo('Timer visibility recovery running', { activeCount: keys.length });
+  keys.forEach(key => {
+    const t = ACTIVE_TIMERS[key];
+    if (!t.running) return;
+    t.remaining = Math.max(0, Math.round((t.endTime - Date.now()) / 1000));
+    const el = document.getElementById('timer-disp-' + timerDomKey(t.recipeId, t.stepIndex));
+    if (el) el.textContent = formatTimerDisplay(t.remaining);
+    if (t.remaining <= 0) timerDone(t.recipeId, t.stepIndex);
+  });
+});
 
 function timerDone(recipeId, stepIndex) {
   const key = timerKey(recipeId, stepIndex);
@@ -9339,6 +9387,7 @@ function stopTimer(recipeId, stepIndex) {
   const t = ACTIVE_TIMERS[key];
   if (!t) return;
   clearInterval(t.interval);
+  if (t.notifTimeout) clearTimeout(t.notifTimeout);
   delete ACTIVE_TIMERS[key];
   renderAll();
   // Cancelled before completion — no save prompt
@@ -9349,6 +9398,7 @@ function clearTimer(recipeId, stepIndex) {
   if (ACTIVE_TIMERS[key]) {
     clearInterval(ACTIVE_TIMERS[key].interval);
     if (ACTIVE_TIMERS[key].alertInterval) clearInterval(ACTIVE_TIMERS[key].alertInterval);
+    if (ACTIVE_TIMERS[key].notifTimeout) clearTimeout(ACTIVE_TIMERS[key].notifTimeout);
     delete ACTIVE_TIMERS[key];
   }
   renderAll();
@@ -9374,6 +9424,38 @@ function startCustomTimer(recipeId, stepIndex) {
   const mins = parseFloat(inp.value);
   if (!mins || mins <= 0) { inp.focus(); return; }
   startTimer(recipeId, stepIndex, Math.round(mins * 60), true);
+}
+
+function showPresetEditInput(recipeId, stepIndex) {
+  const dk = timerDomKey(recipeId, stepIndex);
+  const editEl = document.getElementById('timer-preset-edit-' + dk);
+  if (!editEl) return;
+  const rowEl = document.getElementById('timer-row-' + dk);
+  if (rowEl) rowEl.classList.add('hidden');
+  editEl.classList.remove('hidden');
+  const inp = document.getElementById('timer-preset-edit-val-' + dk);
+  if (inp) { inp.focus(); inp.select(); }
+}
+
+function hidePresetEditInput(recipeId, stepIndex) {
+  const dk = timerDomKey(recipeId, stepIndex);
+  const editEl = document.getElementById('timer-preset-edit-' + dk);
+  if (editEl) editEl.classList.add('hidden');
+  const rowEl = document.getElementById('timer-row-' + dk);
+  if (rowEl) rowEl.classList.remove('hidden');
+}
+
+function confirmPresetEdit(recipeId, stepIndex) {
+  const inp = document.getElementById('timer-preset-edit-val-' + timerDomKey(recipeId, stepIndex));
+  if (!inp) return;
+  const mins = parseFloat(inp.value);
+  if (!mins || mins <= 0) { inp.focus(); return; }
+  const seconds = Math.round(mins * 60);
+  const presets = getTimerPresets();
+  presets[timerKey(recipeId, stepIndex)] = seconds;
+  saveTimerPresets(presets);
+  fkInfo('Preset duration edited inline', { recipeId, stepIndex, seconds });
+  startTimer(recipeId, stepIndex, seconds, false);
 }
 
 function promptSavePreset(recipeId, stepIndex, totalSeconds) {
