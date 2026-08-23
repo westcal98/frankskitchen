@@ -9,3 +9,4 @@ wrangler.toml
 .github/
 package*.json
 gen-icons.js
+worker.js

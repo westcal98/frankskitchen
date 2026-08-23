@@ -7708,62 +7708,20 @@ async function submitNutritionQuickLog() {
 // ─── GEMINI CATEGORY LOOKUP ─────────────────────────────
 
 async function geminiCategorizeItems(itemNames) {
-  const apiKey = DB_CACHE.preferences?.anthropicApiKey;
-  if (!apiKey || !itemNames.length) return {};
-
-  const cats = getShopCategories();
-  const categoryList = cats.map(c => c.key).join(', ');
-  const categoryRules = cats.map(c => `- ${c.key}: ${c.label}`).join('\n');
-  const validKeys = new Set(cats.map(c => c.key));
-
-  const prompt = `You are a grocery categorization assistant.
-Assign each of the following grocery items to exactly one category from this list:
-${categoryList}
-
-Category descriptions:
-${categoryRules}
-
-Use your best judgment based on the category names and labels.
-Assign the most specific and appropriate category.
-If nothing fits well, use "other".
-
-Items to categorize:
-${itemNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}
-
-Return ONLY a valid JSON object mapping each item name exactly as given to its category key.
-No explanation, no markdown, no code blocks.
-Example: {"Baby carrots": "produce", "Jaffa Cake": "snacks"}`;
+  if (!itemNames.length) return {};
 
   try {
-    const resp = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      }
-    );
+    const resp = await fetch('/api/ai/categorize', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ itemNames, categories: getShopCategories() })
+    });
     const data = await resp.json();
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
-    fkInfo('Gemini raw response', { raw: raw?.slice(0, 500) });
-    let parsed;
-    try { parsed = JSON.parse(raw); } catch(e) {
-      const m = raw.match(/\{[\s\S]*\}/);
-      if (m) { try { parsed = JSON.parse(m[0]); } catch(e2) { parsed = {}; } }
-    }
-    fkInfo('Gemini parsed response', { parsed: JSON.stringify(parsed)?.slice(0, 500) });
-    const result = {};
-    const parsedLower = {};
-    Object.entries(parsed || {}).forEach(([name, cat]) => {
-      parsedLower[name.toLowerCase().trim()] = { originalName: name, cat };
-    });
-    Object.entries(parsedLower).forEach(([lowerName, { originalName, cat }]) => {
-      if (validKeys.has(cat)) result[lowerName] = cat;
-    });
-    fkInfo('Gemini categorization complete', { count: Object.keys(result).length });
+    const result = data.result || {};
+    fkInfo('Workers AI categorization complete', { count: Object.keys(result).length });
     return result;
   } catch(err) {
-    fkError('Gemini categorization failed', { message: err.message });
+    fkError('Workers AI categorization failed', { message: err.message });
     return {};
   }
 }
