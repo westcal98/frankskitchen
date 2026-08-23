@@ -6504,16 +6504,6 @@ function closeRecipeEmojiPicker() {
   document.getElementById('recipeEmojiPickerOverlay')?.classList.add('hidden');
 }
 
-// ── Settings: Gemini API Key ──────────────────────────────────────────────────
-
-function saveAnthropicApiKey() {
-  const val = (document.getElementById('anthropicKeyInput').value || '').trim();
-  if (!DB_CACHE.preferences) DB_CACHE.preferences = {};
-  DB_CACHE.preferences.anthropicApiKey = val;
-  _idbPut('kv', 'preferences', DB_CACHE.preferences);
-  showToast(val ? 'API key saved.' : 'API key cleared.');
-}
-
 // ── Settings: USDA API Key + Nutrition Units ──────────────────────────────────
 
 const _DEFAULT_USDA_KEY = 'WyBuGD50OGJsJQfNW6Gh2E2YEbkzKN0lfnfVdoKj';
@@ -9308,8 +9298,6 @@ function openSettings() {
   renderPreferences();
   renderDingSettings();
   renderSettingsCategories();
-  const keyInp = document.getElementById('anthropicKeyInput');
-  if (keyInp) keyInp.value = (DB_CACHE.preferences && DB_CACHE.preferences.anthropicApiKey) || '';
   const usdaInp = document.getElementById('usdaKeyInput');
   const DEFAULT_USDA_KEY = 'WyBuGD50OGJsJQfNW6Gh2E2YEbkzKN0lfnfVdoKj';
   if (usdaInp) usdaInp.value = (DB_CACHE.preferences && DB_CACHE.preferences.usdaApiKey) || DEFAULT_USDA_KEY;
