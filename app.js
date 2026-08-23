@@ -1114,6 +1114,30 @@ function restoreShopFilterState() {
     fkWarn('Failed to restore shop filter state', { message: e.message });
   }
 }
+
+const RECIPE_FILTER_STATE_KEY = 'fk_recipe_filters_v1';
+
+function saveRecipeFilterState() {
+  const state = {
+    recipeFilterCats,
+    recipeFilterFavs,
+    recipeFilterCanMake,
+  };
+  localStorage.setItem(RECIPE_FILTER_STATE_KEY, JSON.stringify(state));
+}
+
+function restoreRecipeFilterState() {
+  try {
+    const raw = localStorage.getItem(RECIPE_FILTER_STATE_KEY);
+    if (!raw) return;
+    const state = JSON.parse(raw);
+    if (Array.isArray(state.recipeFilterCats)) recipeFilterCats = state.recipeFilterCats;
+    if (typeof state.recipeFilterFavs === 'boolean') recipeFilterFavs = state.recipeFilterFavs;
+    if (typeof state.recipeFilterCanMake === 'boolean') recipeFilterCanMake = state.recipeFilterCanMake;
+  } catch(e) {
+    fkWarn('Failed to restore recipe filter state', { message: e.message });
+  }
+}
 let expandedCard = null;
 let activeTab = {};
 
@@ -2297,6 +2321,7 @@ function renderRecipeFilterBar() {
     `<button class="filter-by-btn${hasFilters ? ' has-filters' : ''}" onclick="openFilterDropdown('recipe')">Filter by ▾</button>` +
     `<div class="filter-active-tags">${renderTagsHtml(tags, 'recipe')}</div>` +
     `<button class="shop-tb-search${searchTerm ? ' active' : ''}" id="recipeSearchBtn" onclick="toggleRecipeSearch()" title="Search recipes">🔍</button>`;
+  saveRecipeFilterState();
 }
 
 function renderShopFilterBar() {
@@ -4651,40 +4676,9 @@ async function cleanReceiptItemNames(items, storeName) {
 }
 
 async function scanReceiptImage(file) {
-  const apiKey = DB_CACHE.preferences?.anthropicApiKey;
-  if (!apiKey) {
-    showToast('Add your Gemini API key in Settings');
-    return;
-  }
-
   showScanStatus('📷 Scanning receipt...');
 
   fkInfo('Receipt scan started', { store: _receiptSelectedStore, fileType: file.type, fileSize: file.size });
-
-  const RECEIPT_PROMPT = `You are a receipt parser. Extract every line item from this grocery receipt image.
-
-IMPORTANT PRICING RULE — Aldi and some other stores show multi-pack items like this:
-  Item Name    6.98
-  2 x    3.49
-
-This means: 2 units bought at $3.49 each (total $6.98).
-When you see a "N x price" line immediately below an item, use the UNIT PRICE (3.49), not the total (6.98).
-Also capture the quantity (2) in the size field as "2ct" or "3ct" etc.
-
-For each item return:
-- name: full product name as printed
-- size: quantity/size info. If a "N x price" line exists below, format as "Nct" (e.g. "2ct", "3ct")
-- price: the UNIT price (from the "N x price" line if present, otherwise the line price)
-
-Ignore: subtotals, taxes, totals, store name, date, payment info, loyalty savings, and the raw "N x price" lines themselves (they are already captured in the item above).
-
-Return ONLY a valid JSON array, no markdown, no explanation:
-[
-  { "name": "Indulgent GreekYog", "size": "2ct", "price": 3.49 },
-  { "name": "Whole Kernel Corn", "size": "3ct", "price": 0.78 },
-  { "name": "Chicken Thighs", "size": null, "price": 9.55 }
-]
-If you cannot read the receipt clearly, return an empty array [].`;
 
   try {
     const base64Data = await new Promise((resolve, reject) => {
@@ -4694,27 +4688,20 @@ If you cannot read the receipt clearly, return an empty array [].`;
       reader.readAsDataURL(file);
     });
 
-    fkInfo('Gemini API request sent');
+    fkInfo('Workers AI scan request sent');
 
-    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+    const resp = await fetch('/api/ai/scan-receipt', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { inline_data: { mime_type: file.type || 'image/jpeg', data: base64Data } },
-            { text: RECEIPT_PROMPT },
-          ],
-        }],
-      }),
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ imageBase64: base64Data, mimeType: file.type || 'image/jpeg' }),
     }).catch(() => { throw new Error('FETCH_FAILED'); });
 
-    fkInfo('Gemini API response received', { status: resp.status, ok: resp.ok });
+    fkInfo('Workers AI scan response received', { status: resp.status, ok: resp.ok });
 
     if (!resp.ok) {
       hideScanStatus();
       if (resp.status === 503) {
-        showToast('Gemini is busy right now — try again in a moment',
+        showToast('Workers AI is busy right now — try again in a moment',
           { duration: 4000 });
       } else {
         showToast(`Scan failed (${resp.status}) — try again`,
@@ -4724,17 +4711,8 @@ If you cannot read the receipt clearly, return an empty array [].`;
     }
 
     const data = await resp.json();
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
-    fkInfo('Raw Gemini response text', { raw: raw?.slice(0, 200) });
-    let items;
-    try {
-      items = JSON.parse(raw);
-      if (!Array.isArray(items)) throw new Error('Not an array');
-    } catch (e) {
-      const m = raw.match(/\[[\s\S]*\]/);
-      if (m) { try { items = JSON.parse(m[0]); } catch (e2) {} }
-      if (!Array.isArray(items)) throw new Error('PARSE_FAILED');
-    }
+    let items = Array.isArray(data.items) ? data.items : null;
+    if (!items) throw new Error('PARSE_FAILED');
 
     fkInfo('Receipt items parsed', { count: items.length, items: items.slice(0, 3) });
 
@@ -4764,7 +4742,7 @@ If you cannot read the receipt clearly, return an empty array [].`;
     } else {
       showToast('Could not read receipt — try a clearer photo');
     }
-    fkError('Receipt scan failed', { message: err.message });
+    fkError('Workers AI receipt scan failed', { message: err.message });
   }
 }
 
@@ -9945,6 +9923,7 @@ Promise.all([initDB(), initPhotos()]).then(() => {
   migrateStockField();
   migrateSeedRecipes();
   restoreShopFilterState();
+  restoreRecipeFilterState();
   renderAll();
   applyDefaultTab();
   setupWaterReminders();

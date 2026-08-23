@@ -55,6 +55,7 @@ async function handleAiRoute(request, env, url) {
       case '/api/ai/parse-recipe': return handleParseRecipe(request, env);
       case '/api/ai/nutrition-quick-log': return handleNutritionQuickLog(request, env);
       case '/api/ai/nutrition-lookup': return handleNutritionLookup(request, env);
+      case '/api/ai/scan-receipt': return handleScanReceipt(request, env);
     }
   }
   return new Response(JSON.stringify({ error: 'Not found' }), {
@@ -388,5 +389,95 @@ async function handleNutritionLookup(request, env) {
   } catch (err) {
     console.error('[FK worker] nutrition-lookup failed', err.message);
     return aiErrorResponse(err.message);
+  }
+}
+
+// ─── /api/ai/scan-receipt ───────────────────────────────────────────────
+// Vision model: @cf/meta/llama-4-scout-17b-16e-instruct (natively
+// multimodal, part of the same chat-completions family as the text
+// routes above, 131K context window). response_format json_object is
+// not used here — untested in combination with image input, and the
+// original RECEIPT_PROMPT already asks for (and is tuned around) a plain
+// JSON array in free text, same as Gemini's text API worked. Parsed the
+// same defensive way the original client-side code did.
+
+async function handleScanReceipt(request, env) {
+  let body;
+  try {
+    body = await request.json();
+  } catch (err) {
+    return aiErrorResponse('Invalid JSON body', 400);
+  }
+
+  const imageBase64 = body.imageBase64;
+  const mimeType = body.mimeType || 'image/jpeg';
+  if (!imageBase64) return aiErrorResponse('Missing imageBase64', 400);
+
+  const RECEIPT_PROMPT = `You are a receipt parser. Extract every line item from this grocery receipt image.
+
+IMPORTANT PRICING RULE — Aldi and some other stores show multi-pack items like this:
+  Item Name    6.98
+  2 x    3.49
+
+This means: 2 units bought at $3.49 each (total $6.98).
+When you see a "N x price" line immediately below an item, use the UNIT PRICE (3.49), not the total (6.98).
+Also capture the quantity (2) in the size field as "2ct" or "3ct" etc.
+
+For each item return:
+- name: full product name as printed
+- size: quantity/size info. If a "N x price" line exists below, format as "Nct" (e.g. "2ct", "3ct")
+- price: the UNIT price (from the "N x price" line if present, otherwise the line price)
+
+Ignore: subtotals, taxes, totals, store name, date, payment info, loyalty savings, and the raw "N x price" lines themselves (they are already captured in the item above).
+
+Return ONLY a valid JSON array, no markdown, no explanation:
+[
+  { "name": "Indulgent GreekYog", "size": "2ct", "price": 3.49 },
+  { "name": "Whole Kernel Corn", "size": "3ct", "price": 0.78 },
+  { "name": "Chicken Thighs", "size": null, "price": 9.55 }
+]
+If you cannot read the receipt clearly, return an empty array [].`;
+
+  try {
+    const result = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+            { type: 'text', text: RECEIPT_PROMPT }
+          ]
+        }
+      ],
+      max_tokens: 4096
+    });
+
+    const raw = result.response;
+    console.log('[FK worker] scan-receipt raw response', JSON.stringify(raw)?.slice(0, 500));
+
+    let items = null;
+    if (Array.isArray(raw)) {
+      items = raw;
+    } else if (raw && typeof raw === 'object') {
+      items = Array.isArray(raw.items) ? raw.items : null;
+    } else {
+      try {
+        items = JSON.parse(raw);
+        if (!Array.isArray(items)) items = null;
+      } catch (e) {
+        const m = String(raw).match(/\[[\s\S]*\]/);
+        if (m) {
+          try { items = JSON.parse(m[0]); } catch (e2) { items = null; }
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ items: Array.isArray(items) ? items : [] }), {
+      headers: { 'content-type': 'application/json' }
+    });
+  } catch (err) {
+    console.error('[FK worker] scan-receipt failed', err.message);
+    const transient = /rate.?limit|capacity|overloaded|429|503/i.test(err.message || '');
+    return aiErrorResponse(err.message, transient ? 503 : 502);
   }
 }
