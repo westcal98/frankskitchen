@@ -4648,13 +4648,7 @@ DG (Dollar General) specific rules:
   Example: "N CV 100 WHOLE WHE 70210012841" → "Whole Wheat Bread"
 - Strip long numeric UPC/barcode codes (typically 10-13 digits) that
   appear anywhere in the name — these are barcode numbers, not part of
-  the product name.
-- NEVER join two possible name interpretations with "/". If the raw
-  text is ambiguous between two product names, choose the single most
-  likely plain-English grocery item name — do not output combined or
-  slashed names.
-  Example: "Honey / Oven Roasted Turkey" → "Honey Roasted Turkey" or
-  "Oven Roasted Turkey" (pick one, not both).` : '';
+  the product name.` : '';
 
   const prompt = `You are a grocery receipt decoder.
 Convert these abbreviated receipt item names into clear, plain English
@@ -4677,7 +4671,13 @@ Rules:
   Example: "x3 Sweet Peas" → "Sweet Peas"
 - Use title case
 - Keep the name concise but recognizable
-- If already clear, keep as-is${dgBlock}
+- If already clear, keep as-is
+- NEVER join two possible name interpretations with "/". If the raw
+  text is ambiguous between two product names, choose the single most
+  likely plain-English grocery item name — do not output combined or
+  slashed names.
+  Example: "Honey / Oven Roasted Turkey" → "Honey Roasted Turkey" or
+  "Oven Roasted Turkey" (pick one, not both).${dgBlock}
 
 Input names (one per line, numbered):
 ${names.map((n, i) => `${i + 1}. ${n}`).join('\n')}
@@ -9942,6 +9942,102 @@ function applyDefaultTab() {
   switchMainTab(tab);
 }
 
+function migrateSeedRecipes() {
+  const MIGRATION_KEY = 'fk_seed_recipes_v1';
+  if (localStorage.getItem(MIGRATION_KEY)) return;
+
+  const seedRecipes = [
+    {
+      id: 'custom-' + Date.now(),
+      name: 'Pickle Brine Air Fryer Pork Chops',
+      emoji: '🍖',
+      category: 'dinner',
+      appliance: 'af',
+      time: '15 min',
+      difficulty: 'Easy',
+      description: 'Thick-cut (1-inch) pork chops marinated in pickle juice, air fried to a juicy finish.',
+      ingredients: [
+        { name: 'pork chops, about 1 inch thick', qty: 2, unit: '' },
+        { name: 'pickle juice (for marinating, discard after)', qty: 1, unit: 'cup' },
+        { name: 'black pepper', qty: 0.5, unit: 'tsp' },
+        { name: 'garlic powder', qty: 0.5, unit: 'tsp' },
+        { name: 'onion powder', qty: 0.25, unit: 'tsp' },
+        { name: 'olive oil or avocado oil', qty: 1, unit: 'tsp' }
+      ],
+      steps: [
+        'Marinate pork chops in pickle juice for 1 to 4 hours, then remove and pat very dry.',
+        'Rub chops with oil, then season with black pepper, garlic powder, and onion powder.',
+        'Preheat Ninja AF to 400°F.',
+        'Air fry at 400°F for 7 minutes.',
+        'Flip and air fry at 400°F for 4 more minutes.',
+        'Confirm 145°F internal temp at the thickest point, then rest 3 to 5 minutes before cutting.'
+      ],
+      notes: 'Confirmed delicious on first try at these exact times for 1-inch chops. For thicker chops, add a few extra minutes and start checking temp a bit earlier than expected.',
+      custom: true,
+    },
+    {
+      id: 'custom-' + (Date.now() + 1),
+      name: 'Ninja AF Shrimp (Never Frozen)',
+      emoji: '🍤',
+      category: 'dinner',
+      appliance: 'af',
+      time: '6 min',
+      difficulty: 'Easy',
+      description: 'Quick air-fried shrimp with a tight curl and no rubbery overcook.',
+      ingredients: [
+        { name: 'shrimp, never frozen, peeled and deveined', qty: 1, unit: 'lb' },
+        { name: 'oil', qty: 1, unit: 'tsp' },
+        { name: 'seasoning of choice', qty: null, unit: '' }
+      ],
+      steps: [
+        'Toss shrimp lightly in oil and seasoning.',
+        'Air fry at 400°F for 3 minutes.',
+        'Flip and air fry at 400°F for 2 to 3 more minutes.',
+        'Watch for a tight "C" curl and opaque pink color with no gray or translucent center — a full "O" curl means overcooked.'
+      ],
+      notes: 'Timing confirmed as the ideal starting point — adjust down slightly if using smaller shrimp.',
+      custom: true,
+    },
+    {
+      id: 'custom-' + (Date.now() + 2),
+      name: 'Chorizo and Eggs (Pressure Cooker Sear Function)',
+      emoji: '🌮',
+      category: 'breakfast',
+      appliance: 'pc',
+      time: '15 min',
+      difficulty: 'Easy',
+      description: 'Chorizo and scrambled eggs made entirely in the pressure cooker using the sear/sauté function — no stove needed.',
+      ingredients: [
+        { name: 'raw Mexican chorizo, casing removed if links', qty: 8, unit: 'oz' },
+        { name: 'large eggs', qty: 6, unit: '' },
+        { name: 'milk (optional, for fluffier eggs)', qty: 2, unit: 'tbsp' },
+        { name: 'salt (go light — chorizo is already salty)', qty: 0.25, unit: 'tsp' },
+        { name: 'black pepper', qty: 0.25, unit: 'tsp' },
+        { name: "oil (only if chorizo doesn't render enough fat)", qty: 1, unit: 'tsp' }
+      ],
+      steps: [
+        'Set the pressure cooker to Sear/Sauté mode on medium-high and preheat for 1 to 2 minutes.',
+        'Add chorizo to the pot, breaking it up as it cooks, for 6 to 8 minutes until fully browned with no pink remaining.',
+        'While chorizo cooks, whisk eggs with milk, salt, and pepper in a separate bowl.',
+        "Check the pot for excess grease — spoon out extra fat if there's a large pool, or add the oil if it looks dry.",
+        'Pour the whisked eggs directly into the pot with the chorizo.',
+        'Stir continuously for 2 to 4 minutes until eggs are just set and no longer wet.',
+        'Turn off Sauté mode immediately once eggs are set, and serve right away.'
+      ],
+      notes: 'Great topped with shredded cheese or wrapped in a warmed tortilla.',
+      custom: true,
+    },
+  ];
+
+  const customs = getCustomRecipes();
+  const existingNames = new Set(customs.map(r => r.name));
+  const toAdd = seedRecipes.filter(r => !existingNames.has(r.name));
+  if (toAdd.length) {
+    saveCustomRecipes([...customs, ...toAdd]);
+  }
+  localStorage.setItem(MIGRATION_KEY, '1');
+}
+
 function migrateStockField() {
   const MIGRATION_KEY = 'fk_stock_migration_v1';
   if (localStorage.getItem(MIGRATION_KEY)) return;
@@ -10038,6 +10134,7 @@ async function migrateCategoryOther() {
 
 Promise.all([initDB(), initPhotos()]).then(() => {
   migrateStockField();
+  migrateSeedRecipes();
   restoreShopFilterState();
   renderAll();
   applyDefaultTab();
@@ -10045,9 +10142,6 @@ Promise.all([initDB(), initPhotos()]).then(() => {
   setupShopSwipeHandlers();
   setupShopScrollTopFab();
   fkInfo('App initialized', { itemCount: getShopItems().length, recipeCount: getAllRecipes().length });
-  // Temporary: clear v3 flag so migration re-runs with new logging
-  // Remove this line after confirming migration works
-  localStorage.removeItem('fk_cat_migration_v3');
   setTimeout(() => {
     migrateCategoryOther().catch(e =>
       fkError('Category migration failed', { message: e.message })
