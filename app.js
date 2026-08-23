@@ -4374,56 +4374,25 @@ function runHowDoIMake() {
   const query = document.getElementById('hdimInput').value.trim();
   if (!query) return;
 
-  const apiKey = DB_CACHE.preferences?.anthropicApiKey;
-  if (!apiKey) {
-    showHdimError('Add your Gemini API key in Settings');
-    return;
-  }
-
   showHdimStatus('Finding recipe...');
   document.getElementById('hdimAskBtn').disabled = true;
   document.getElementById('hdimPreview').classList.add('hidden');
 
   fkInfo('HDIM search started', { query });
 
-  const prompt = `You are a recipe assistant. The user wants to know how to make: "${query}"
-
-Return a complete recipe as a JSON object with exactly these fields:
-{
-  "name": "Recipe name",
-  "emoji": "single most relevant emoji",
-  "category": "Breakfast" or "Lunch" or "Dinner" or "Dessert" or "Snack",
-  "appliance": "Any" or "Air Fryer" or "Pressure Cooker",
-  "ingredients": [
-    { "name": "ingredient name", "qty": 2, "unit": "cups" },
-    { "name": "salt", "qty": 1, "unit": "tsp" }
-  ],
-  "steps": ["Step 1 text", "Step 2 text"],
-  "notes": "Any tips or empty string"
-}
-
-For qty use a number or null if not applicable. For unit use empty string if not applicable.
-Return ONLY valid JSON. No explanation, no markdown, no code blocks.`;
-
-  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+  fetch('/api/ai/how-do-i-make', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ query })
   })
   .then(r => { fkInfo('HDIM response received', { status: r.status }); return r.json(); })
   .then(data => {
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
-    let parsed;
-    try { parsed = JSON.parse(raw); } catch(e) {
-      const m = raw.match(/\{[\s\S]*\}/);
-      if (m) { try { parsed = JSON.parse(m[0]); } catch(e2) { parsed = null; } }
-    }
-    if (!parsed) throw new Error('parse_failed');
-    _hdimRecipe = _normalizeImportedRecipe(parsed);
+    if (!data.recipe) throw new Error('parse_failed');
+    _hdimRecipe = _normalizeImportedRecipe(data.recipe);
     showHdimPreview(_hdimRecipe);
   })
   .catch(err => {
-    fkError('HDIM failed', { message: err.message });
+    fkError('Workers AI HDIM failed', { message: err.message });
     if (err.message === 'parse_failed') {
       showHdimError("Couldn't parse the recipe — try rephrasing your search");
     } else {
@@ -4633,80 +4602,22 @@ function hideScanStatus() {
 }
 
 async function cleanReceiptItemNames(items, storeName) {
-  const apiKey = DB_CACHE.preferences?.anthropicApiKey;
-  if (!apiKey || !items.length) return items;
-
-  const names = items.map(i => i.name);
-
-  const isDG = storeName === 'DG';
-  const dgBlock = isDG ? `
-
-DG (Dollar General) specific rules:
-- Receipt lines often start with a single leading tax-indicator letter
-  (e.g. "N", "T", "F") immediately before the product text. Strip this
-  leading letter — it is a tax flag, not part of the item name.
-  Example: "N CV 100 WHOLE WHE 70210012841" → "Whole Wheat Bread"
-- Strip long numeric UPC/barcode codes (typically 10-13 digits) that
-  appear anywhere in the name — these are barcode numbers, not part of
-  the product name.` : '';
-
-  const prompt = `You are a grocery receipt decoder.
-Convert these abbreviated receipt item names into clear, plain English
-grocery item names that a shopper would recognize.
-
-Rules:
-- Expand abbreviations (NF = Nonfat, GRK = Greek, YOG = Yogurt,
-  VAN = Vanilla, CHKN = Chicken, CHZ = Cheese, TORT = Tortellini,
-  WHL = Whole, ORG = Organic, LG = Large, SM = Small, PKG = Package,
-  BTL = Bottle, CT = Count, OZ = Ounce, LB = Pound, GAL = Gallon,
-  QT = Quart, PT = Pint, BX = Box, BG = Bag, PK = Pack, DZ = Dozen,
-  SHRD = Shredded, SLC = Sliced, BNLS = Boneless, SKNLS = Skinless,
-  SMKD = Smoked, ITL = Italian, MDM = Medium, XLG = Extra Large)
-- Remove store brand prefixes (GV, GVL, SE, ALDI, AH, WM)
-- Remove size/count suffixes (they are captured separately)
-- Remove quantity indicators from names: '2 x', 'x 3', '3pk',
-  '2ct', '12ct', '3x', 'x2' and similar. These belong in the
-  size field only, not the item name.
-  Example: "Avocados 2 x" → "Avocados"
-  Example: "x3 Sweet Peas" → "Sweet Peas"
-- Use title case
-- Keep the name concise but recognizable
-- If already clear, keep as-is
-- NEVER join two possible name interpretations with "/". If the raw
-  text is ambiguous between two product names, choose the single most
-  likely plain-English grocery item name — do not output combined or
-  slashed names.
-  Example: "Honey / Oven Roasted Turkey" → "Honey Roasted Turkey" or
-  "Oven Roasted Turkey" (pick one, not both).${dgBlock}
-
-Input names (one per line, numbered):
-${names.map((n, i) => `${i + 1}. ${n}`).join('\n')}
-
-Return ONLY a JSON array of cleaned names in the same order, same count.
-Example: ["Nonfat Greek Yogurt Vanilla", "Chicken or Cheese Tortellini"]
-No explanation, no markdown.`;
+  if (!items.length) return items;
 
   try {
     showScanStatus('✨ Cleaning item names...');
-    fkInfo('Gemini name cleaning started', { count: names.length });
+    fkInfo('Workers AI name cleaning started', { count: items.length });
 
-    const resp = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      }
-    );
+    const resp = await fetch('/api/ai/clean-receipt-names', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ items, storeName })
+    });
     const data = await resp.json();
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
-    fkInfo('Gemini name cleaning response', { raw: raw?.slice(0, 300) });
+    const cleaned = Array.isArray(data.names) ? data.names : null;
+    fkInfo('Workers AI name cleaning response', { names: cleaned?.slice(0, 10) });
 
-    let cleaned;
-    try { cleaned = JSON.parse(raw); } catch(e) {
-      const m = raw.match(/\[[\s\S]*\]/);
-      if (m) { try { cleaned = JSON.parse(m[0]); } catch(e2) { cleaned = null; } }
-    }
+    const isDG = storeName === 'DG';
 
     if (!Array.isArray(cleaned) || cleaned.length !== items.length) {
       fkWarn('Name cleaning returned unexpected result, using originals');
@@ -4728,7 +4639,7 @@ No explanation, no markdown.`;
     });
 
     if (isDG) {
-      fkInfo('DG-specific cleaning applied', { rawNames: names, cleanedNames: cleaned });
+      fkInfo('DG-specific cleaning applied', { rawNames: items.map(i => i.name), cleanedNames: cleaned });
     }
 
     return result;
@@ -6324,11 +6235,6 @@ async function parseRecipeText() {
     _showImportError('Please paste or speak a recipe before parsing.');
     return;
   }
-  const apiKey = DB_CACHE.preferences && DB_CACHE.preferences.anthropicApiKey;
-  if (!apiKey) {
-    _showImportError('No Gemini API key set. Add your key in Settings under AI Parser. Get a free key at aistudio.google.com');
-    return;
-  }
   stopVoiceInput();
   // Show loading
   const parseBtn = document.getElementById('importParseBtn');
@@ -6339,52 +6245,19 @@ async function parseRecipeText() {
   const origBodyHTML = importBody.innerHTML;
   importBody.innerHTML = `<div class="import-loading"><div class="import-spinner"></div><div class="import-loading-text">Parsing your recipe…</div></div>`;
 
-  const SYSTEM_PROMPT = `You are a recipe parser. Parse the provided recipe text into a structured JSON object with exactly these fields:
-{
-  "name": string,
-  "category": one of ["Breakfast","Lunch","Dinner","Dessert"],
-  "appliance": one of ["Air Fryer","Pressure Cooker","Both","No Cook"],
-  "time": string (e.g. "25 MIN", "1 HR"),
-  "difficulty": one of ["Easy","Medium","Hard"],
-  "description": string (1-2 sentences),
-  "ingredients": array of objects { "name": string, "qty": number, "unit": string }
-    Rules for ingredients:
-    - name: ingredient name only, no quantities or instructions
-    - qty: numeric quantity (use 1 if not specified)
-    - unit: measurement unit or empty string for whole items
-    - Split combined ingredients (& or and) into separate entries
-    - For or alternatives keep primary option only
-    - Remove all instructions (to taste, to serve, optional etc)
-    - Remove parenthetical notes
-    - Each ingredient must be a clean grocery list item,
-  "steps": array of strings (clean numbered steps),
-  "notes": string (any tips or notes, empty string if none),
-  "emoji": single most relevant emoji for the dish
-}
-Return ONLY valid JSON. No explanation, no markdown, no code blocks. Just the raw JSON object.`;
-
   try {
-    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+    const resp = await fetch('/api/ai/parse-recipe', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: SYSTEM_PROMPT + '\n\n' + text }] }],
-      }),
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text }),
     });
     if (!resp.ok) {
       const errData = await resp.json().catch(() => ({}));
       const msg = errData.error && errData.error.message ? errData.error.message : `API error ${resp.status}`;
-      throw new Error('Gemini API error. Check your key in Settings. ' + msg);
+      throw new Error('AI parsing error. ' + msg);
     }
     const data = await resp.json();
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch(e) {
-      const m = raw.match(/\{[\s\S]*\}/);
-      if (m) { try { parsed = JSON.parse(m[0]); } catch(e2) { parsed = null; } }
-    }
+    const parsed = data.recipe;
     if (!parsed || typeof parsed !== 'object') throw new Error('Could not parse recipe. Please check the text and try again.');
     _parsedRecipe = _normalizeImportedRecipe(parsed);
     closeImportRecipeScreen();
@@ -7637,11 +7510,6 @@ async function submitNutritionQuickLog() {
   const text = inp ? inp.value.trim() : '';
   if (!text) return;
   stopNutritionVoice();
-  const apiKey = DB_CACHE.preferences && DB_CACHE.preferences.anthropicApiKey;
-  if (!apiKey) {
-    showToast('No Gemini API key set. Add your key in Settings → AI Parser.');
-    return;
-  }
   const submitBtn = document.getElementById('nutSubmitBtn');
   const indicator = document.getElementById('nutParsingIndicator');
   if (submitBtn) submitBtn.disabled = true;
@@ -7649,30 +7517,21 @@ async function submitNutritionQuickLog() {
 
   const now = new Date();
   const currentTime = now.toTimeString().slice(0, 5);
-  const NUTRITION_SYSTEM_PROMPT = `You are a nutrition logger. Parse the provided text into a JSON array of food/drink entries. Each entry: { name: string (clean food/drink name), qty: number (serving quantity), unit: string (serving unit e.g. 'cup', 'oz', 'piece'), calories: number (estimated calories for this serving), protein: number (grams), carbs: number (grams), fat: number (grams), fiber: number (grams of dietary fiber, 0 if unknown), meal: one of [Breakfast, Lunch, Dinner, Snack, Drink], time: string (HH:MM in 24hr format, use current time if not specified, extract from text if mentioned e.g. '2:30pm' → '14:30'), isEstimate: boolean (true if calories are estimated rather than known) } For water entries (glasses of water, oz of water, etc): name "Water", calories 0, protein 0, carbs 0, fat 0, fiber 0, unit "oz", meal "Drink" — convert glasses to oz (1 glass = 8oz). Return ONLY a valid JSON array. No explanation, no markdown, no code blocks.`;
 
   try {
-    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+    const resp = await fetch('/api/ai/nutrition-quick-log', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: NUTRITION_SYSTEM_PROMPT + `\n\nCurrent time: ${currentTime}\n${text}` }] }],
-      }),
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text, currentTime }),
     });
     if (!resp.ok) {
       const errData = await resp.json().catch(() => ({}));
       const msg = errData.error?.message || `API error ${resp.status}`;
-      throw new Error('Gemini API error. Check your key in Settings. ' + msg);
+      throw new Error('AI parsing error. ' + msg);
     }
     const data = await resp.json();
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
-    let entries;
-    try {
-      entries = JSON.parse(raw);
-      if (!Array.isArray(entries)) throw new Error('Not an array');
-    } catch(e) {
-      throw new Error('Could not parse AI response. Try again.');
-    }
+    let entries = Array.isArray(data.entries) ? data.entries : null;
+    if (!entries) throw new Error('Could not parse AI response. Try again.');
     entries = entries.map(e => {
       const name = String(e.name || 'Food');
       const calories = Math.round(Number(e.calories) || 0);
@@ -7729,25 +7588,17 @@ async function geminiCategorizeItems(itemNames) {
 // ─── SHARED GEMINI SINGLE-ITEM LOOKUP ─────────────────────────────
 
 async function geminiNutritionLookupSingle(query) {
-  const apiKey = DB_CACHE.preferences?.anthropicApiKey;
-  if (!apiKey) throw new Error('NO_KEY');
-  const PROMPT = `You are a nutrition database. Return the nutrition info for the provided food item as a single JSON object: {"name": string (clean food name), "qty": number (quantity as provided), "unit": string (serving unit), "calories": number, "protein": number (grams), "fiber": number (grams), "carbs": number (grams), "fat": number (grams), "isEstimate": boolean (true if estimated)}. Return ONLY valid JSON. No explanation or markdown.`;
-  const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+  const resp = await fetch('/api/ai/nutrition-lookup', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'X-goog-api-key': apiKey },
-    body: JSON.stringify({ contents: [{ parts: [{ text: PROMPT + '\n\n' + query }] }] }),
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ query }),
   });
   if (!resp.ok) {
     const errData = await resp.json().catch(() => ({}));
     throw new Error(errData.error?.message || `API error ${resp.status}`);
   }
   const data = await resp.json();
-  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
-  let parsed;
-  try { parsed = JSON.parse(raw); } catch(e) {
-    const m = raw.match(/\{[\s\S]*\}/);
-    if (m) try { parsed = JSON.parse(m[0]); } catch(e2) {}
-  }
+  const parsed = data.result;
   if (!parsed) throw new Error('Could not parse AI response.');
   return {
     name: String(parsed.name || query),
