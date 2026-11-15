@@ -9813,6 +9813,227 @@ function migrateSeedRecipes() {
   localStorage.setItem(MIGRATION_KEY, '1');
 }
 
+function migrateSeedRecipesV2() {
+  const MIGRATION_KEY = "fk_seed_recipes_v2";
+  if (localStorage.getItem(MIGRATION_KEY)) return;
+
+  const base = Date.now();
+  const seedRecipes = [
+    {
+      id: "custom-" + (base + 10),
+      name: "Air Fryer Quesadillas",
+      emoji: "🧀",
+      category: "lunch",
+      appliance: "af",
+      time: "10 min",
+      difficulty: "Easy",
+      description: "Crispy, cheesy quesadillas in the air fryer. Add chicken, beans, or leave plain.",
+      ingredients: [
+        { name: "flour tortillas (burrito size)", qty: 2, unit: "" },
+        { name: "shredded cheese (cheddar, Mexican blend, or Monterey Jack)", qty: 1, unit: "cup" },
+        { name: "cooked chicken, shredded or diced (optional)", qty: 1, unit: "cup" },
+        { name: "oil or cooking spray", qty: 1, unit: "tsp" }
+      ],
+      steps: [
+        "Lay tortillas flat. Spread cheese and chicken over one half of each tortilla, then fold the other half over.",
+        "Lightly brush or spray the outside of each folded tortilla with oil.",
+        "Place in the basket and air fry at 375°F for 4 minutes.",
+        "Flip and air fry 2 to 3 more minutes, until golden and the cheese is melted.",
+        "Let sit 1 minute so the cheese sets, then cut into wedges."
+      ],
+      notes: "If the top tortilla lifts from the fan, a toothpick holds it down (remove before eating). Cook one at a time if they don't fit flat. Serve with salsa or sour cream. Beans, corn, or leftover pulled chicken all work as fillings.",
+      custom: true,
+    },
+    {
+      id: "custom-" + (base + 11),
+      name: "Air Fryer Bacon",
+      emoji: "🥓",
+      category: "breakfast",
+      appliance: "af",
+      time: "10 min",
+      difficulty: "Easy",
+      description: "Crispy bacon in the air fryer, with no pan and less mess.",
+      ingredients: [
+        { name: "slices bacon (regular cut)", qty: 6, unit: "" }
+      ],
+      steps: [
+        "Lay bacon in a single layer in the basket. A little overlap at the edges is fine.",
+        "Air fry at 375°F for 5 minutes.",
+        "Flip the slices and air fry 3 to 5 more minutes, until as crisp as you like. Check at 3 minutes since bacon goes from perfect to burnt quickly.",
+        "Move to a paper towel-lined plate. Let rest 1 minute to crisp up."
+      ],
+      notes: "Thick-cut bacon needs about 2 to 3 more minutes. If the basket starts smoking, carefully pull the drawer partway through and pour off the grease. The rendered grease keeps in a jar in the fridge, handy for cooking eggs or potatoes.",
+      custom: true,
+    },
+    {
+      id: "custom-" + (base + 12),
+      name: "Air Fryer Meatballs",
+      emoji: "🍝",
+      category: "dinner",
+      appliance: "af",
+      time: "10 min",
+      difficulty: "Easy",
+      description: "Frozen meatballs heated in the air fryer for pasta, subs, or snacking.",
+      ingredients: [
+        { name: "frozen fully cooked meatballs", qty: 16, unit: "oz" },
+        { name: "marinara or pasta sauce, warmed", qty: 1, unit: "cup" }
+      ],
+      steps: [
+        "Place meatballs in a single layer in the basket, not touching.",
+        "Air fry at 375°F for 8 minutes, shaking the basket halfway through.",
+        "Check that they're hot through the center. Add 2 to 3 more minutes if not, until they reach 165°F.",
+        "Toss or serve with sauce over pasta, in a sub with melted cheese, or on their own."
+      ],
+      notes: "This timing is for fully cooked frozen meatballs. Raw meatballs need about 12 to 14 minutes and must hit 165°F inside. Warm the sauce in the pressure cooker on low sauté while the meatballs cook.",
+      custom: true,
+    },
+    {
+      id: "custom-" + (base + 13),
+      name: "Pressure Cooker Beef Chili",
+      emoji: "🌶️",
+      category: "dinner",
+      appliance: "pc",
+      time: "45 min",
+      difficulty: "Easy",
+      description: "Easy one-pot chili with ground beef and beans. Mostly dump-and-go after browning the beef.",
+      ingredients: [
+        { name: "ground beef", qty: 1, unit: "lb" },
+        { name: "can kidney beans (15 oz), drained and rinsed", qty: 1, unit: "" },
+        { name: "can black beans (15 oz), drained and rinsed", qty: 1, unit: "" },
+        { name: "can diced tomatoes (14.5 oz), undrained", qty: 1, unit: "" },
+        { name: "can tomato sauce (8 oz)", qty: 1, unit: "" },
+        { name: "beef broth", qty: 1, unit: "cup" },
+        { name: "chili powder", qty: 2, unit: "tbsp" },
+        { name: "cumin", qty: 1, unit: "tsp" },
+        { name: "garlic powder", qty: 1, unit: "tsp" },
+        { name: "onion powder", qty: 1, unit: "tsp" },
+        { name: "black pepper", qty: 0.5, unit: "tsp" }
+      ],
+      steps: [
+        "Set the pressure cooker to Sear/Sauté. Add the ground beef, breaking it up, and cook 6 to 8 minutes until no pink remains.",
+        "Spoon out excess grease. Stir in chili powder, cumin, garlic powder, onion powder, and pepper and cook 1 minute.",
+        "Pour in the beef broth and scrape up any browned bits from the bottom so nothing sticks and triggers a burn warning.",
+        "Add the kidney beans, black beans, and diced tomatoes on top, then pour the tomato sauce over everything. Do not stir.",
+        "Lock the lid, seal, and cook on high pressure for 12 minutes.",
+        "Let pressure release naturally for 10 minutes, then quick release the rest.",
+        "Stir well. If it's thinner than you like, simmer on Sauté for 5 minutes with the lid off. Top with cheese, sour cream, or crushed crackers."
+      ],
+      notes: "Canned beans and broth add a good amount of sodium, so taste before adding any salt. Layering the tomatoes on top without stirring is what prevents the burn warning. Leftovers keep 4 days in the fridge and taste better the next day. Also good over a baked potato or hot dog.",
+      custom: true,
+    },
+    {
+      id: "custom-" + (base + 14),
+      name: "Pressure Cooker Hard Boiled Eggs (5-5-5)",
+      emoji: "🥚",
+      category: "breakfast",
+      appliance: "pc",
+      time: "25 min",
+      difficulty: "Easy",
+      description: "Easy-peel hard boiled eggs. 5 minutes pressure, 5 minutes natural release, 5 minutes in ice water.",
+      ingredients: [
+        { name: "large eggs", qty: 6, unit: "" },
+        { name: "water, for the pot", qty: 1, unit: "cup" },
+        { name: "ice and cold water, for the bath", qty: 4, unit: "cup" }
+      ],
+      steps: [
+        "Pour 1 cup water into the pot and set the trivet in. Place the eggs on the trivet.",
+        "Lock the lid, seal, and cook on high pressure for 5 minutes.",
+        "Let pressure release naturally for 5 minutes, then quick release the rest.",
+        "Move the eggs into the ice bath and let them chill for 5 minutes.",
+        "Tap, roll, and peel under cool running water."
+      ],
+      notes: "5-5-5 gives fully set but tender yolks. For jammy yolks, cut pressure time to 3 minutes. Unpeeled eggs keep about a week in the fridge. Use them for egg salad, snacks, or chopped over rice bowls.",
+      custom: true,
+    },
+    {
+      id: "custom-" + (base + 15),
+      name: "Pressure Cooker Rice Bowl Base",
+      emoji: "🍚",
+      category: "dinner",
+      appliance: "pc",
+      time: "20 min",
+      difficulty: "Easy",
+      description: "Fluffy pressure cooker rice, built as a base for any bowl. Add whatever protein, veggies, and sauce you want.",
+      ingredients: [
+        { name: "long grain white rice, rinsed", qty: 2, unit: "cup" },
+        { name: "water", qty: 2, unit: "cup" },
+        { name: "salt", qty: 0.5, unit: "tsp" },
+        { name: "butter or oil (optional)", qty: 1, unit: "tbsp" }
+      ],
+      steps: [
+        "Rinse the rice in a strainer under cold water until it runs mostly clear.",
+        "Add the rice to the pot with the water, salt, and butter. Stir once.",
+        "Lock the lid, seal, and cook on high pressure for 3 minutes.",
+        "Let pressure release naturally for 10 minutes, then quick release the rest.",
+        "Fluff with a fork. Build your bowl."
+      ],
+      notes: "The ratio is 1:1 rice to water for pressure cooking, which is less water than stovetop. Build-a-bowl combos: pulled chicken or air fryer chicken thighs + sugar snap peas + soy sauce; sliced air fryer pork chop + corn + BBQ sauce; shrimp + avocado + lemon; fried or hard boiled egg + bacon + hot sauce. Rice keeps 4 days in the fridge.",
+      custom: true,
+    },
+    {
+      id: "custom-" + (base + 16),
+      name: "Tuna or Chicken Salad",
+      emoji: "🥪",
+      category: "lunch",
+      appliance: "none",
+      time: "10 min",
+      difficulty: "Easy",
+      description: "No-cook salad you can make with either tuna or cooked chicken. Eat it on bread, in a wrap, or with crackers.",
+      ingredients: [
+        { name: "cans tuna (5 oz each), drained, OR 2 cups cooked chicken, shredded or diced", qty: 2, unit: "" },
+        { name: "mayonnaise", qty: 3, unit: "tbsp" },
+        { name: "yellow or Dijon mustard", qty: 1, unit: "tsp" },
+        { name: "celery, finely diced (optional)", qty: 0.25, unit: "cup" },
+        { name: "pickle relish or diced pickles", qty: 1, unit: "tbsp" },
+        { name: "black pepper", qty: 0.25, unit: "tsp" }
+      ],
+      steps: [
+        "In a bowl, combine the tuna or chicken, mayonnaise, mustard, celery, pickle relish, and pepper.",
+        "Stir well and taste. Add more mayo if it's dry or more pickle for tang.",
+        "Serve right away, or chill 20 to 30 minutes for the best flavor."
+      ],
+      notes: "For chicken, use about 2 cups cooked chicken (a rotisserie chicken works well). Skip added salt since tuna, pickles, and mayo already bring plenty. Variations: add a chopped hard boiled egg, a squeeze of lemon, or swap half the mayo for Greek yogurt. Keeps 3 days in the fridge.",
+      custom: true,
+    },
+    {
+      id: "custom-" + (base + 17),
+      name: "Easy Burrito Bowls",
+      emoji: "🌯",
+      category: "lunch",
+      appliance: "pc",
+      time: "10 min",
+      difficulty: "Easy",
+      description: "Rice, beans, corn, salsa, and cheese. Mostly assembly, with an optional protein.",
+      ingredients: [
+        { name: "cooked rice (see Rice Bowl Base)", qty: 2, unit: "cup" },
+        { name: "can black beans (15 oz), drained and rinsed", qty: 1, unit: "" },
+        { name: "corn kernels (canned or frozen)", qty: 1, unit: "cup" },
+        { name: "salsa", qty: 0.5, unit: "cup" },
+        { name: "shredded cheese", qty: 0.5, unit: "cup" },
+        { name: "cooked chicken or seasoned ground beef (optional)", qty: 1, unit: "cup" },
+        { name: "sour cream, avocado, or lime (optional toppings)", qty: 2, unit: "tbsp" }
+      ],
+      steps: [
+        "Combine the black beans and corn in the pressure cooker on low Sauté for 3 to 4 minutes, stirring, until hot. Or leave them cold if you prefer.",
+        "Divide the rice between two bowls.",
+        "Top with the beans and corn, chicken or beef, salsa, and cheese.",
+        "Add sour cream, avocado, or lime and serve."
+      ],
+      notes: "For a quick protein, shred leftover pulled chicken or crumble browned ground beef seasoned with chili powder and cumin. Hot sauce, diced pickled jalapeños, or crushed tortilla chips on top all work. Everything can be prepped ahead and packed for the day.",
+      custom: true,
+    },
+  ];
+
+  const customs = getCustomRecipes();
+  const existingNames = new Set(customs.map(r => r.name));
+  const toAdd = seedRecipes.filter(r => !existingNames.has(r.name));
+  if (toAdd.length) {
+    saveCustomRecipes([...customs, ...toAdd]);
+  }
+  fkInfo("Seed recipes v2 added", { count: toAdd.length });
+  localStorage.setItem(MIGRATION_KEY, "1");
+}
+
 function migrateStockField() {
   const MIGRATION_KEY = 'fk_stock_migration_v1';
   if (localStorage.getItem(MIGRATION_KEY)) return;
@@ -9910,6 +10131,7 @@ async function migrateCategoryOther() {
 Promise.all([initDB(), initPhotos()]).then(() => {
   migrateStockField();
   migrateSeedRecipes();
+  migrateSeedRecipesV2();
   restoreShopFilterState();
   restoreRecipeFilterState();
   renderAll();
