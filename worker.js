@@ -441,22 +441,53 @@ If you cannot read the receipt clearly, return an empty array [].`;
   const startedAt = Date.now();
   console.log('[FK worker] scan-receipt start', JSON.stringify({ base64Chars: imageBase64.length, mimeType }));
 
-  try {
-    const result = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
-            { type: 'text', text: RECEIPT_PROMPT }
-          ]
-        }
-      ],
-      max_tokens: 4096
-    });
+  const messages = [
+    {
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+        { type: 'text', text: RECEIPT_PROMPT }
+      ]
+    }
+  ];
+  // Vision models tried in order. Each gets a hard timeout so a hung
+  // model fails fast instead of burning ~2 minutes before a 502.
+  const MODELS = [
+    { id: '@cf/meta/llama-4-scout-17b-16e-instruct', timeoutMs: 40000 },
+    { id: '@cf/mistralai/mistral-small-3.1-24b-instruct', timeoutMs: 45000 }
+  ];
+  const extractText = (r) => {
+    if (r == null) return r;
+    if (r.response !== undefined && r.response !== null) return r.response;
+    return r.choices?.[0]?.message?.content ?? null;
+  };
 
-    const raw = result.response;
-    console.log('[FK worker] scan-receipt done', JSON.stringify({ ms: Date.now() - startedAt }));
+  try {
+    let raw = null;
+    let usedModel = null;
+    const failures = [];
+    for (const m of MODELS) {
+      const t0 = Date.now();
+      let timer;
+      try {
+        const result = await Promise.race([
+          env.AI.run(m.id, { messages, max_tokens: 4096 }),
+          new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('TIMEOUT after ' + m.timeoutMs + 'ms')), m.timeoutMs); })
+        ]);
+        clearTimeout(timer);
+        raw = extractText(result);
+        usedModel = m.id;
+        console.log('[FK worker] scan-receipt model ok', JSON.stringify({ model: m.id, ms: Date.now() - t0 }));
+        break;
+      } catch (e) {
+        clearTimeout(timer);
+        failures.push(m.id + ': ' + (e.message || e));
+        console.error('[FK worker] scan-receipt model failed', JSON.stringify({ model: m.id, ms: Date.now() - t0, message: e.message }));
+      }
+    }
+    if (usedModel === null) throw new Error('All vision models failed — ' + failures.join(' | '));
+
+    console.log('[FK worker] scan-receipt done', JSON.stringify({ ms: Date.now() - startedAt, model: usedModel }));
     console.log('[FK worker] scan-receipt raw response', JSON.stringify(raw)?.slice(0, 500));
 
     let items = null;
@@ -476,7 +507,7 @@ If you cannot read the receipt clearly, return an empty array [].`;
       }
     }
 
-    return new Response(JSON.stringify({ items: Array.isArray(items) ? items : [] }), {
+    return new Response(JSON.stringify({ items: Array.isArray(items) ? items : [], model: usedModel }), {
       headers: { 'content-type': 'application/json' }
     });
   } catch (err) {

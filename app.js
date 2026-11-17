@@ -4725,24 +4725,43 @@ async function scanReceiptImage(file) {
 
     const payload = JSON.stringify({ imageBase64: base64Data, mimeType: uploadFile.type || 'image/jpeg' });
 
-    // Up to 3 attempts. 502/503/504 are transient (overload / gateway timeout).
+    // Up to 2 attempts. The Worker now enforces its own per-model timeouts
+    // (~85s worst case, with a fallback vision model), so a client-side
+    // abort at 100s is only a safety net.
     let resp;
-    const MAX_ATTEMPTS = 3;
+    const MAX_ATTEMPTS = 2;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       fkInfo('Workers AI scan request sent', { attempt });
-      resp = await fetch('/api/ai/scan-receipt', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: payload,
-      }).catch(() => { throw new Error('FETCH_FAILED'); });
+      const ctrl = new AbortController();
+      const abortTimer = setTimeout(() => ctrl.abort(), 100000);
+      try {
+        resp = await fetch('/api/ai/scan-receipt', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: payload,
+          signal: ctrl.signal,
+        });
+      } catch (e) {
+        clearTimeout(abortTimer);
+        throw new Error(e && e.name === 'AbortError' ? 'CLIENT_TIMEOUT' : 'FETCH_FAILED');
+      }
+      clearTimeout(abortTimer);
 
       fkInfo('Workers AI scan response received', { status: resp.status, ok: resp.ok, attempt });
+
+      if (!resp.ok) {
+        // Log the real server-side reason (previously invisible).
+        try {
+          const errText = await resp.clone().text();
+          fkError('Workers AI scan failure body', { status: resp.status, body: errText.slice(0, 600) });
+        } catch (e) { /* ignore */ }
+      }
 
       const transient = [502, 503, 504].includes(resp.status);
       if (resp.ok || !transient || attempt === MAX_ATTEMPTS) break;
 
-      showScanStatus(`📷 Scanner busy — retrying (${attempt}/${MAX_ATTEMPTS - 1})...`);
-      await new Promise(r => setTimeout(r, 2500 * attempt));
+      showScanStatus('📷 Scanner busy — retrying...');
+      await new Promise(r => setTimeout(r, 2500));
     }
 
     if (!resp.ok) {
@@ -4764,7 +4783,7 @@ async function scanReceiptImage(file) {
     let items = Array.isArray(data.items) ? data.items : null;
     if (!items) throw new Error('PARSE_FAILED');
 
-    fkInfo('Receipt items parsed', { count: items.length, items: items.slice(0, 3) });
+    fkInfo('Receipt items parsed', { count: items.length, model: data.model, items: items.slice(0, 3) });
 
     // Clean abbreviated receipt names before matching
     items = await cleanReceiptItemNames(items, _receiptSelectedStore);
@@ -4785,7 +4804,9 @@ async function scanReceiptImage(file) {
     }
   } catch (err) {
     hideScanStatus();
-    if (err.message === 'FETCH_FAILED') {
+    if (err.message === 'CLIENT_TIMEOUT') {
+      showToast('Scan took too long — try again in a minute');
+    } else if (err.message === 'FETCH_FAILED') {
       showToast('Scan failed — check your connection');
     } else if (err.message === 'PARSE_FAILED') {
       showToast('Could not read receipt — try a clearer photo');
