@@ -4675,32 +4675,82 @@ async function cleanReceiptItemNames(items, storeName) {
   }
 }
 
+// Downscale + recompress a receipt photo before upload. Raw phone photos are
+// 1-4 MB; sending them as-is makes the vision model slow and causes gateway
+// timeouts (504). Returns a smaller JPEG Blob, or null to fall back to the original.
+async function _prepareReceiptImage(file, maxEdge = 2048, quality = 0.82) {
+  try {
+    if (!file || !String(file.type).startsWith('image/') || typeof createImageBitmap !== 'function') return null;
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, maxEdge / Math.max(bmp.width, bmp.height));
+    const w = Math.max(1, Math.round(bmp.width * scale));
+    const h = Math.max(1, Math.round(bmp.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(bmp, 0, 0, w, h);
+    if (bmp.close) bmp.close();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+    if (!blob || blob.size >= file.size) return null;
+    return blob;
+  } catch (e) {
+    fkWarn('Receipt image resize failed, using original', { message: e.message });
+    return null;
+  }
+}
+
 async function scanReceiptImage(file) {
   showScanStatus('📷 Scanning receipt...');
 
   fkInfo('Receipt scan started', { store: _receiptSelectedStore, fileType: file.type, fileSize: file.size });
 
   try {
+    const prepared = await _prepareReceiptImage(file);
+    const uploadFile = prepared || file;
+    fkInfo('Receipt image prepared', {
+      originalBytes: file.size,
+      uploadBytes: uploadFile.size,
+      resized: !!prepared,
+    });
+
     const base64Data = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result.split(',')[1] || '');
       reader.onerror = () => reject(new Error('Could not read image'));
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(uploadFile);
     });
 
-    fkInfo('Workers AI scan request sent');
+    const payload = JSON.stringify({ imageBase64: base64Data, mimeType: uploadFile.type || 'image/jpeg' });
 
-    const resp = await fetch('/api/ai/scan-receipt', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ imageBase64: base64Data, mimeType: file.type || 'image/jpeg' }),
-    }).catch(() => { throw new Error('FETCH_FAILED'); });
+    // Up to 3 attempts. 502/503/504 are transient (overload / gateway timeout).
+    let resp;
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      fkInfo('Workers AI scan request sent', { attempt });
+      resp = await fetch('/api/ai/scan-receipt', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: payload,
+      }).catch(() => { throw new Error('FETCH_FAILED'); });
 
-    fkInfo('Workers AI scan response received', { status: resp.status, ok: resp.ok });
+      fkInfo('Workers AI scan response received', { status: resp.status, ok: resp.ok, attempt });
+
+      const transient = [502, 503, 504].includes(resp.status);
+      if (resp.ok || !transient || attempt === MAX_ATTEMPTS) break;
+
+      showScanStatus(`📷 Scanner busy — retrying (${attempt}/${MAX_ATTEMPTS - 1})...`);
+      await new Promise(r => setTimeout(r, 2500 * attempt));
+    }
 
     if (!resp.ok) {
       hideScanStatus();
-      if (resp.status === 503) {
+      if (resp.status === 504) {
+        showToast('Scan timed out after retries — try again in a minute',
+          { duration: 4000 });
+      } else if (resp.status === 502 || resp.status === 503) {
         showToast('Workers AI is busy right now — try again in a moment',
           { duration: 4000 });
       } else {

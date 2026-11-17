@@ -438,6 +438,9 @@ Return ONLY a valid JSON array, no markdown, no explanation:
 ]
 If you cannot read the receipt clearly, return an empty array [].`;
 
+  const startedAt = Date.now();
+  console.log('[FK worker] scan-receipt start', JSON.stringify({ base64Chars: imageBase64.length, mimeType }));
+
   try {
     const result = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
       messages: [
@@ -453,6 +456,7 @@ If you cannot read the receipt clearly, return an empty array [].`;
     });
 
     const raw = result.response;
+    console.log('[FK worker] scan-receipt done', JSON.stringify({ ms: Date.now() - startedAt }));
     console.log('[FK worker] scan-receipt raw response', JSON.stringify(raw)?.slice(0, 500));
 
     let items = null;
@@ -476,7 +480,7 @@ If you cannot read the receipt clearly, return an empty array [].`;
       headers: { 'content-type': 'application/json' }
     });
   } catch (err) {
-    console.error('[FK worker] scan-receipt failed', err.message);
+    console.error('[FK worker] scan-receipt failed', JSON.stringify({ ms: Date.now() - startedAt, message: err.message }));
     const transient = /rate.?limit|capacity|overloaded|429|503/i.test(err.message || '');
     return aiErrorResponse(err.message, transient ? 503 : 502);
   }
