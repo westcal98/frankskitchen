@@ -10,4 +10,4 @@ binding = "ASSETS"
 binding = "AI"
 
 [observability]
-enabled = true
+enabled = false
